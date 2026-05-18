@@ -1,0 +1,11 @@
+{
+  "name": "mauideskpos",
+  "version": "1.0.0",
+  "description": "MauiDesk — Sistema POS para Cevichería MAUI",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "db:seed": "cd server && npm run db:seed",
+    "db:push": "cd server && npm run db:push"
+  }
+}

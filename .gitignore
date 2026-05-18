@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# database (datos de producción no deben versionarse)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# misc
+*.bak
+*.old
+*.tmp
+coverage/
+
+# Claude Code local settings (no compartibles entre máquinas)
+.claude/settings.local.json
