@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -c user.email=coartac.cesar.garay@gmail.com -c user.name=nWeeeeeesh commit -m 'chore: snapshot inicial antes de auditoria *)"
-    ]
-  }
-}
