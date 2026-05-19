@@ -365,7 +365,7 @@ export default function Reports() {
                       className="flex-1 bg-white border border-[#E2E8F0] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0077B6] placeholder-[#94A3B8]"/>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B] text-xs font-bold">S/</span>
-                      <input type="number" step="0.50" min="0" value={form.amount}
+                      <input type="number" inputMode="decimal" step="0.50" min="0" value={form.amount}
                         onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
                         placeholder="0.00"
                         className="w-24 bg-white border border-[#E2E8F0] rounded-xl pl-8 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#0077B6]"/>

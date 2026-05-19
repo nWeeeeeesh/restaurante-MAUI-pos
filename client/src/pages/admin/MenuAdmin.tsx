@@ -190,6 +190,7 @@ export default function MenuAdmin() {
                   <label className="text-xs font-medium text-gray-500 block mb-1">Precio (S/)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.50"
                     value={editPrice}
                     onChange={e => setEditPrice(e.target.value)}
@@ -245,6 +246,7 @@ export default function MenuAdmin() {
                 />
                 <input
                   type="number"
+                  inputMode="decimal"
                   placeholder="Precio S/"
                   step="0.50"
                   value={form.price}

@@ -12,6 +12,7 @@ import BillsHistory from './pages/BillsHistory'
 import Reports from './pages/Reports'
 import Users from './pages/admin/Users'
 import ToastHost from './components/ToastHost'
+import ReconnectBanner from './components/ReconnectBanner'
 
 export default function App() {
   const { init } = useAuthStore()
@@ -26,6 +27,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ReconnectBanner />
       <ToastHost />
       <Routes>
         <Route path="/login" element={<Login />} />

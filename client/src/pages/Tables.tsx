@@ -110,8 +110,10 @@ export default function Tables() {
         const has = t.some(x => x.posX !== null && x.posY !== null) || items.length > 0
         if (has) { setPlanMode(true); localStorage.setItem('mauidesk:plan-mode', 'true') }
       }
-    }).catch(console.error)
-  }, [])
+    }).catch(() => {
+      toast({ variant: 'error', title: 'No se pudieron cargar las mesas', message: 'Recarga la página o verifica la conexión.' })
+    })
+  }, [toast])
 
   // Inicializar draft cuando entra a edición — auto-coloca las que no tienen posición
   useEffect(() => {

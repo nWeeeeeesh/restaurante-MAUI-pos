@@ -111,8 +111,15 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
     try {
       const { data } = await api.get<ActiveOrder[]>('/orders/active')
       set({ orders: data })
-    } catch (e) {
-      console.error('Failed to fetch active orders', e)
+    } catch {
+      // Sin pedidos activos visibles: el mozo/cajero ve la lista vacía. Aviso explícito
+      // para que sepa que no es un estado real sino una falla de carga.
+      useToastStore.getState().push({
+        variant: 'error',
+        title: 'No se pudieron cargar los pedidos activos',
+        message: 'Verifica la conexión y recarga la página.',
+        durationMs: 6000,
+      })
     }
 
     socket.connect()

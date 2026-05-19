@@ -779,7 +779,7 @@ function PaymentPanel({
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B] font-bold text-sm">S/</span>
                 <input
-                  type="number" step="0.50" min={total} value={cashInput}
+                  type="number" inputMode="decimal" step="0.50" min={total} value={cashInput}
                   onChange={e => setCashInput(e.target.value)}
                   placeholder={total.toFixed(2)}
                   className="w-full bg-white border-2 border-[#E2E8F0] focus:border-emerald-400 rounded-xl pl-9 pr-3 py-2 text-lg font-black text-[#0F172A] focus:outline-none transition-colors"
@@ -839,11 +839,15 @@ export default function Cash() {
   const { orders, removeOrder, replaceOrderItems } = useOrdersStore()
   const { syncWithBackend } = useReceiptStore()
 
+  const pushToast = useToastStore(s => s.push)
+
   useEffect(() => {
     api.get('/bills/next-number').then(({ data }) => {
       syncWithBackend(data.lastNumber)
-    }).catch(console.error)
-  }, [syncWithBackend])
+    }).catch(() => {
+      pushToast({ variant: 'warning', title: 'No se pudo obtener el número de boleta', message: 'Verifica la conexión con el servidor.' })
+    })
+  }, [syncWithBackend, pushToast])
 
   const paramOrderId   = searchParams.get('orderId')
   const [selectedId, setSelectedId] = useState<number | null>(paramOrderId ? Number(paramOrderId) : null)
@@ -950,10 +954,28 @@ export default function Cash() {
           setPartialBillGroupId(null)
         }
       } catch (e: any) {
-        console.error('Failed to record bill', e)
-        alert(e.response?.data?.error || 'Error al generar comprobante. Intente nuevamente.')
+        const status = e?.response?.status
+        const serverMsg = e?.response?.data?.error
+        if (status === 409) {
+          // Número de boleta colisionó; re-sincronizar y avisar al cajero
+          pushToast({
+            variant: 'warning',
+            title: 'Número de boleta ya en uso',
+            message: 'Se generó uno nuevo automáticamente. Reintenta el cobro.',
+            durationMs: 5000,
+          })
+        } else {
+          pushToast({
+            variant: 'error',
+            title: 'No se pudo registrar el cobro',
+            message: serverMsg || 'Intenta nuevamente. Si persiste, revisa la conexión.',
+            durationMs: 5000,
+          })
+        }
         setReceipt(null)
-        api.get('/bills/next-number').then(({ data }) => syncWithBackend(data.lastNumber)).catch(console.error)
+        api.get('/bills/next-number')
+          .then(({ data }) => syncWithBackend(data.lastNumber))
+          .catch(() => { /* el toast superior ya informó; evitamos ruido extra */ })
       }
     } else {
       setReceipt(null)

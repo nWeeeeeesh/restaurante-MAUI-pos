@@ -4,6 +4,7 @@ import { useOrderStore } from '../store/order'
 import { useOrdersStore, type ActiveOrder } from '../store/orders'
 import type { Category, Dish, OrderItem, SelectedModifier, TableStatus } from '../types'
 import api from '../api/client'
+import { useToastStore } from '../store/toast'
 import {
   ArrowLeft, Search, Flame, Plus, Minus, X,
   Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2,
@@ -216,6 +217,7 @@ export default function POS() {
     setOrderType, setTableId, setCustomer, addItem, removeItem, changeQty, clearOrder } = useOrderStore()
 
   const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, orders } = useOrdersStore()
+  const pushToast = useToastStore(s => s.push)
 
   const [menu, setMenu]                   = useState<Category[]>([])
   const [tables, setTables]               = useState<PosTable[]>([])
@@ -236,9 +238,13 @@ export default function POS() {
     api.get<Category[]>('/menu').then(({ data }) => {
       setMenu(data)
       if (data.length > 0) setActiveCat(data[0].id)
-    }).catch(console.error)
-    api.get<PosTable[]>('/tables').then(({ data }) => setTables(data)).catch(console.error)
-  }, [])
+    }).catch(() => {
+      pushToast({ variant: 'error', title: 'No se pudo cargar el menú', message: 'Recarga la página o verifica la conexión.' })
+    })
+    api.get<PosTable[]>('/tables').then(({ data }) => setTables(data)).catch(() => {
+      pushToast({ variant: 'error', title: 'No se pudieron cargar las mesas', message: 'Recarga la página.' })
+    })
+  }, [pushToast])
 
   // Apply URL params on mount
   useEffect(() => {
@@ -291,7 +297,12 @@ export default function POS() {
       clearOrder()
       navigate('/tables')
     } catch (err: any) {
-      alert(err?.response?.data?.error ?? 'Error al enviar el pedido. Intenta de nuevo.')
+      pushToast({
+        variant: 'error',
+        title: 'No se pudo enviar el pedido',
+        message: err?.response?.data?.error ?? 'Intenta nuevamente.',
+        durationMs: 5000,
+      })
     }
   }
 
@@ -305,8 +316,13 @@ export default function POS() {
       })))
       clearOrder()
       navigate('/tables')
-    } catch {
-      alert('Error al agregar items. Intenta de nuevo.')
+    } catch (err: any) {
+      pushToast({
+        variant: 'error',
+        title: 'No se pudieron agregar los items',
+        message: err?.response?.data?.error ?? 'Intenta nuevamente.',
+        durationMs: 5000,
+      })
     }
   }
 
@@ -317,8 +333,13 @@ export default function POS() {
         await cancelOrder(existingOrder.id)
         clearOrder()
         navigate('/tables')
-      } catch {
-        alert('Error al cancelar el pedido.')
+      } catch (err: any) {
+        pushToast({
+          variant: 'error',
+          title: 'No se pudo cancelar el pedido',
+          message: err?.response?.data?.error ?? 'Intenta nuevamente.',
+          durationMs: 5000,
+        })
       }
     }
   }
@@ -442,11 +463,12 @@ export default function POS() {
               {orderType === 'delivery' && (
                 <div className="space-y-2">
                   {[
-                    { val: customerName,    fn: (v: string) => setCustomer(v, customerPhone, customerAddress),  ph: 'Nombre del cliente *' },
-                    { val: customerPhone,   fn: (v: string) => setCustomer(customerName, v, customerAddress),   ph: 'Teléfono *' },
-                    { val: customerAddress, fn: (v: string) => setCustomer(customerName, customerPhone, v),     ph: 'Dirección de entrega *' },
-                  ].map(({ val, fn, ph }) => (
+                    { val: customerName,    fn: (v: string) => setCustomer(v, customerPhone, customerAddress),  ph: 'Nombre del cliente *', inputMode: undefined,  type: 'text' as const },
+                    { val: customerPhone,   fn: (v: string) => setCustomer(customerName, v, customerAddress),   ph: 'Teléfono *',           inputMode: 'tel' as const, type: 'tel' as const  },
+                    { val: customerAddress, fn: (v: string) => setCustomer(customerName, customerPhone, v),     ph: 'Dirección de entrega *', inputMode: undefined, type: 'text' as const },
+                  ].map(({ val, fn, ph, inputMode, type }) => (
                     <input key={ph} value={val} onChange={e => fn(e.target.value)} placeholder={ph}
+                      type={type} inputMode={inputMode} autoComplete={type === 'tel' ? 'tel' : 'off'}
                       className="w-full bg-[#EEF3F8] rounded-xl px-3 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#F4792B]/30 border border-transparent focus:border-[#F4792B]"/>
                   ))}
                 </div>
