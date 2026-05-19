@@ -1,161 +1,340 @@
-# Despliegue de MauiDesk
+# Deploy en Raspberry Pi 5 — MauiDesk
 
-Guía pragmática para que el restaurante use el sistema desde celular sin tener que escribir URLs, con servidor siempre activo y acceso remoto del dueño desde casa.
+Guía paso a paso para desplegar MauiDesk en la Cevichería MAUI. Hardware objetivo: Raspberry Pi 5 + SSD USB + impresora POS-D Basic 200 por Ethernet.
 
-## Resumen ejecutivo (recomendación)
+## Hardware necesario
 
-Para el caso de Cevichería MAUI (uso primario en celular, una sola PC siempre encendida con la impresora térmica USB) la combinación ideal es:
+| Item | Detalle | Precio aprox. (Perú) |
+|---|---|---|
+| Raspberry Pi 5 4GB | El servidor | S/.400-500 |
+| SSD USB 64-128 GB | **No usar microSD** — se corrompe con la DB en 1-2 años | S/.150-200 |
+| Caja **para Pi 5** con disipador + ventilador | La caja del Pi 4 no calza | S/.50-100 |
+| Fuente oficial 5V/**5A** | El Pi 5 necesita 5A (la del Pi 4 no alcanza) | S/.80-100 |
+| Cable Ethernet (Pi → router) | Más estable que WiFi para el server | S/.10-30 |
+| Cable Ethernet (impresora → router) | Para la POS-D Basic 200 | S/.10-30 |
+| UPS mini (opcional) | Aguanta apagones de 10-30 min | S/.150-250 |
 
-1. **PC del local con Windows** corriendo el servidor 24/7 (auto-arranque al boot).
-2. **Acceso LAN via IP fija + bookmark/PWA** en cada celular del personal.
-3. **Acceso remoto del dueño** vía **Tailscale** (VPN privada gratis, instalación en 2 minutos por dispositivo) o **Cloudflare Tunnel** si prefiere una URL pública estable.
-4. **Backup automático diario** del archivo SQLite a Drive/Dropbox.
+## Arquitectura del despliegue
 
-## 1. Servidor siempre activo (Windows)
-
-### Build y arranque en producción
-
-```powershell
-# En la PC del local, una sola vez:
-cd D:\WebDevelopment\MAUI\client
-npm run build              # genera client/dist/
-
-cd D:\WebDevelopment\MAUI\server
-npm run build              # compila TS a server/dist/
+```
+┌── LAN del restaurante (WiFi del router) ─────────────────────────┐
+│                                                                  │
+│  📱 Mozo ─────┐                                                  │
+│  📱 Cajero ───┤                                                  │
+│  📱 Dueño ────┤                                                  │
+│              │                                                   │
+│         ┌────▼────────┐     LAN cable     ┌─────────────────┐    │
+│         │ Pi 5        │ ───────────────── │ POS-D Basic 200 │    │
+│         │ 192.168.1.50│      9100/tcp     │ 192.168.1.100   │    │
+│         │ + SSD USB   │                   └─────────────────┘    │
+│         │ + Node.js   │                                          │
+│         └─────┬───────┘                                          │
+│               │                                                  │
+│         Tailscale (VPN privada — solo el dueño)                  │
+└───────────────┼──────────────────────────────────────────────────┘
+                │
+                ▼
+       🌐 Internet (solo para Tailscale; el local opera sin internet)
+                │
+                ▼
+       📱 Dueño desde fuera del local
 ```
 
-El servidor ya está configurado para servir el `client/dist` cuando existe (ver `server/src/index.ts`). Al levantar el server, ambos están en el mismo origen (`http://<ip>:3001`).
+---
 
-### Auto-arranque con `pm2`
+## Fase 1 — Preparar el SSD y bootear el Pi
 
-```powershell
-npm i -g pm2 pm2-windows-startup
-pm2-startup install
-cd D:\WebDevelopment\MAUI\server
-pm2 start dist/index.js --name mauidesk
-pm2 save
+1. En tu PC, descargar **Raspberry Pi Imager** desde https://www.raspberrypi.com/software/
+2. Conectar el SSD USB a la PC.
+3. En Imager seleccionar:
+   - Device: **Raspberry Pi 5**
+   - OS: **Raspberry Pi OS Lite (64-bit)** — sin escritorio, más liviano
+   - Storage: el SSD USB
+4. Antes de "Write", abrir **Edit Settings**:
+   - Hostname: `mauidesk`
+   - Username: `mauidesk` / Password: una fuerte que recuerdes
+   - Configurar WiFi (como backup, aunque usaremos Ethernet)
+   - Locale: `America/Lima`
+   - **Habilitar SSH** con password
+5. Flashear y esperar.
+6. Conectar el SSD al **puerto USB 3.0 (azul)** del Pi 5.
+7. Conectar el Pi por cable Ethernet al router.
+8. Enchufar la fuente. El Pi arranca desde el SSD automáticamente.
+
+## Fase 2 — IP estática y SSH
+
+1. Entrar al admin del router (típicamente `http://192.168.1.1`).
+2. Buscar el Pi por hostname `mauidesk` o por MAC.
+3. **Reservar la IP** del Pi en una fija — por ejemplo `192.168.1.50`.
+4. **Reservar también la IP** de la impresora POS-D Basic 200 — por ejemplo `192.168.1.100`.
+5. Desde tu PC, conectar por SSH:
+   ```bash
+   ssh mauidesk@192.168.1.50
+   ```
+
+## Fase 3 — Instalar dependencias del sistema
+
+Por SSH en el Pi:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+
+sudo apt install -y git curl build-essential
+
+# Node.js 20 LTS via NodeSource
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verificar
+node --version    # v20.x.x
+npm --version
 ```
 
-Con eso, si se corta la luz y vuelve, `pm2` re-lanza el server.
+## Fase 4 — Subir el código
 
-### Alternativa simple: `nssm`
+**Opción A — Vía rsync desde tu PC** (recomendada mientras no haya repo en GitHub):
 
+Desde PowerShell en tu PC Windows:
 ```powershell
-choco install nssm
-nssm install MauiDesk "C:\Program Files\nodejs\node.exe" "D:\WebDevelopment\MAUI\server\dist\index.js"
-nssm start MauiDesk
+scp -r D:\WebDevelopment\MAUI mauidesk@192.168.1.50:/home/mauidesk/
 ```
 
-Lo registra como servicio de Windows y se reinicia automáticamente.
-
-## 2. IP fija en la red local
-
-El router del local debe asignar siempre la misma IP a la PC servidora.
-
-- Entrá al router (suele ser `192.168.1.1` o `192.168.0.1`).
-- "DHCP reservation" / "Bind IP-MAC" → asignar `192.168.1.50` (o lo que sea) a la MAC de la PC.
-- Anotá esa IP. Será siempre la misma.
-
-## 3. Mobile UX — Instalar como app (PWA)
-
-Ya está implementado el manifest. Para usarlo:
-
-### Android (Chrome / Edge)
-1. Abrir `http://192.168.1.50:3001` en el celular.
-2. Tocá los 3 puntos del menú → **"Instalar aplicación"** (o "Agregar a la pantalla de inicio").
-3. Se crea un icono de **MauiDesk** en el home. Al tocarlo abre como app standalone (sin barra de URL, fullscreen).
-
-### iOS (Safari)
-1. Abrir la URL en Safari.
-2. Tocar el botón **Compartir** → **"Agregar a la pantalla de inicio"**.
-3. Mismo resultado: icono en home, abre fullscreen.
-
-Esto resuelve el problema de "no quiero escribir el enlace": **los empleados solo tocan el icono de MauiDesk y entra**.
-
-> **Nota**: hay que crear iconos PNG 192×192 y 512×512 reales y ponerlos en `client/public/icon-192.png` e `icon-512.png` (yo dejé el manifest apuntando a esos nombres + al SVG existente como fallback). Hasta que no existan los PNG, el icono usará el SVG y en algunos Android se verá pequeño.
-
-## 4. Acceso remoto del dueño
-
-El dueño quiere ver usuarios, mesas e ingresos desde su casa. Tres opciones, ordenadas por simplicidad:
-
-### Opción A — Tailscale (recomendado, gratis, privado) ⭐
-
-Tailscale es una VPN moderna que conecta dispositivos como si estuvieran en la misma red.
-
-1. Crear cuenta gratis en https://tailscale.com (cuenta personal: hasta 100 dispositivos).
-2. Instalar Tailscale en la PC del local y en el celular del dueño.
-3. Login con la misma cuenta en ambos.
-4. La PC del local recibe una IP `100.x.x.x` (Tailscale). El dueño abre `http://100.x.x.x:3001` desde donde sea — funciona como si estuviera en la red local.
-5. Si el dueño quiere ver desde el navegador del laptop en su casa: idem, instala Tailscale ahí y accede.
-
-**Ventajas**: gratis, sin abrir puertos del router, encriptado, sin URL pública expuesta.
-**Contra**: cada dispositivo del dueño necesita Tailscale instalado.
-
-### Opción B — Cloudflare Tunnel (URL pública estable, gratis)
-
-Si el dueño prefiere algo como `https://maui.ejemplo.com` accesible sin instalar nada:
-
-1. Crear cuenta gratis en https://dash.cloudflare.com (necesita un dominio; podés comprar uno barato en Namecheap, ~$10/año).
-2. Instalar `cloudflared` en la PC del local.
-3. `cloudflared tunnel login` → seguir el flow web.
-4. `cloudflared tunnel create mauidesk` → crea el tunnel.
-5. Configurar archivo `~/.cloudflared/config.yml` apuntando a `localhost:3001`.
-6. `cloudflared tunnel route dns mauidesk maui.tudominio.com`.
-7. `cloudflared tunnel run mauidesk` (o instalarlo como servicio).
-
-**Ventajas**: URL pública, HTTPS gratis, no necesita IP fija ni abrir puertos.
-**Contra**: requiere comprar dominio. Cuidado con qué exponés (recomiendo combinar con un middleware de IP whitelist o auth básica HTTP además del JWT).
-
-### Opción C — Port forwarding del router (no recomendado)
-
-Abrir el puerto 3001 del router al WAN. Funciona pero:
-- Expone el server a internet sin filtros.
-- Necesita IP pública estática o DDNS (No-IP, DuckDNS).
-- Mayor superficie de ataque.
-
-Solo si las otras dos no son posibles.
-
-## 5. Backup automático del SQLite
-
-El archivo `server/mauidisk.db` tiene todos los datos del negocio. **Sin backup, una falla del disco pierde todo el historial.**
-
-Script PowerShell (correr a las 23:00 cada día):
-
-```powershell
-# backup-mauidesk.ps1
-$src = "D:\WebDevelopment\MAUI\server\mauidisk.db"
-$dst = "$env:USERPROFILE\Google Drive\MauiDesk-backups"
-New-Item -ItemType Directory -Force -Path $dst | Out-Null
-$ts  = Get-Date -Format "yyyyMMdd-HHmm"
-Copy-Item $src "$dst\mauidisk-$ts.db"
-# Mantener solo los últimos 30 días
-Get-ChildItem "$dst\mauidisk-*.db" | Sort-Object LastWriteTime -Descending |
-  Select-Object -Skip 30 | Remove-Item -Force
+**Opción B — Vía git** (cuando subas el proyecto a GitHub):
+```bash
+cd /home/mauidesk
+git clone <tu-repo-url> MAUI
 ```
 
-Programalo en Task Scheduler de Windows, trigger diario 23:00. Si el dueño tiene Drive/Dropbox sincronizando esa carpeta, el backup queda en la nube automáticamente.
+Compilar:
+```bash
+cd /home/mauidesk/MAUI/server
+npm ci
+npm run build
 
-## 6. Checklist de despliegue
+cd ../client
+npm ci
+npm run build       # genera client/dist
+```
 
-- [ ] Build cliente: `npm run build` en `/client`
-- [ ] Build server: `npm run build` en `/server`
-- [ ] Cambiar `JWT_SECRET` en `.env` por algo único (no el de development)
-- [ ] Cambiar las contraseñas iniciales (`admin/admin123`, etc.) → entrar como admin → Usuarios → cambiar.
-- [ ] IP fija en el router para la PC del local
-- [ ] `pm2` o `nssm` para auto-arranque
-- [ ] Backup diario configurado en Task Scheduler
-- [ ] Tailscale instalado en PC + celular del dueño
-- [ ] PWA instalada en cada celular del personal (icono en home)
-- [ ] Probar print desde 1 celular del staff conectado a wifi del local
-- [ ] Probar acceso remoto del dueño (vía Tailscale) a `/admin/users` y `/reports`
+## Fase 5 — Configurar variables de entorno
 
-## 7. Limitaciones conocidas
+```bash
+cd /home/mauidesk/MAUI/server
+cp .env.example .env
 
-- **La impresora térmica solo funciona desde la PC del local** (USB), no desde el celular del dueño. Los celulares solo envían el "imprimir" al server, que dispara el print. Si el server está apagado, nadie imprime.
-- **El acceso remoto requiere que la PC del local esté encendida**. Sin Internet en el local, ni el local ni el dueño pueden usar el sistema (es local-first).
-- **Si querés cero dependencia del local** (que el sistema funcione aunque la PC esté apagada), hay que migrar a hosting cloud (Railway, Render). Eso implica:
-  - Mover SQLite a Postgres o Turso (sqlite cloud).
-  - La impresora deja de funcionar — habría que poner un mini-cliente en la PC del local que escuche eventos de impresión.
-  - Costo: ~$5-10/mes.
+# Generar un JWT_SECRET nuevo
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+# Copiar la salida y pegarla como JWT_SECRET en .env
 
-  Por ahora **no lo recomiendo** para este caso. La PC del local prendida 12-14 horas con `pm2` cubre todo.
+nano .env
+```
+
+Configurar:
+
+```env
+PORT=3001
+NODE_ENV=production
+
+JWT_SECRET=<el hex de 96 chars generado>
+
+ALLOWED_ORIGINS=http://192.168.1.50:3001
+
+DATABASE_URL=file:/home/mauidesk/MAUI/server/mauidisk.db
+
+PRINTER_TYPE=tcp
+PRINTER_HOST=192.168.1.100
+PRINTER_PORT=9100
+```
+
+Guardar con `Ctrl+O`, salir con `Ctrl+X`.
+
+## Fase 6 — Configurar la impresora POS-D Basic 200
+
+1. Conectar la impresora por cable Ethernet al router.
+2. Encenderla.
+3. **Imprimir la hoja de configuración**: mantener apretado el botón FEED al encender (varía según el modelo — consultar el manual de la impresora). La impresora imprime su IP actual.
+4. En el router, reservar esa MAC a `192.168.1.100` (el valor que pusiste en `.env`).
+5. Reiniciar la impresora para que tome la IP fija.
+6. Verificar conectividad desde el Pi:
+   ```bash
+   ping -c 3 192.168.1.100
+   nc -zv 192.168.1.100 9100      # debe decir "succeeded"
+   ```
+
+## Fase 7 — Inicializar la base de datos
+
+```bash
+cd /home/mauidesk/MAUI/server
+npm run db:push    # crea tablas
+npm run db:seed    # inserta usuarios y menú demo
+```
+
+**Importante:** después del primer arranque, **entrá por la web y cambiá las contraseñas seed (`admin123`, `cajero123`, `mozo123`)**.
+
+## Fase 8 — systemd: arranque automático
+
+```bash
+sudo nano /etc/systemd/system/mauidesk.service
+```
+
+Pegar:
+
+```ini
+[Unit]
+Description=MauiDesk POS Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mauidesk
+WorkingDirectory=/home/mauidesk/MAUI/server
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/home/mauidesk/MAUI/server/.env
+
+# Limitar reinicios para evitar loops infinitos si hay un crash recurrente
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Activar:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable mauidesk      # arrancar al boot
+sudo systemctl start mauidesk       # arrancar ahora
+sudo systemctl status mauidesk      # verificar
+```
+
+Ver logs en vivo:
+```bash
+journalctl -u mauidesk -f
+```
+
+Debería aparecer `MauiDesk server running on port 3001`.
+
+## Fase 9 — Probar end-to-end
+
+Desde un celular conectado al WiFi del local:
+
+1. Abrir el navegador → `http://192.168.1.50:3001`
+2. Login con `admin` / `admin123`
+3. **Cambiar contraseñas seed inmediatamente** desde `/admin/users`
+4. Crear un pedido de prueba en una mesa
+5. Verificar que la impresora imprime la comanda
+6. Cobrar y verificar que imprime la boleta
+
+## Fase 10 — Tailscale (acceso remoto del dueño)
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Se imprime un link en pantalla → abrirlo en cualquier dispositivo y loguear con la cuenta del dueño. El Pi ahora tiene una IP estable `100.x.x.x` accesible desde cualquier lado con la app Tailscale instalada y logueada con la misma cuenta.
+
+El dueño instala Tailscale en su celular (Play Store / App Store) y desde fuera del local accede vía `http://100.x.x.x:3001`.
+
+**Importante:** los mozos siguen accediendo por `192.168.1.50:3001` desde la WiFi local. Tailscale es solo para el dueño.
+
+## Fase 11 — Backups diarios
+
+Instalar sqlite3 y crear el script:
+
+```bash
+sudo apt install -y sqlite3
+mkdir -p /home/mauidesk/backups
+nano /home/mauidesk/backup.sh
+```
+
+Contenido:
+
+```bash
+#!/bin/bash
+set -e
+DATE=$(date +%Y%m%d-%H%M)
+DEST=/home/mauidesk/backups/mauidisk-$DATE.db
+
+# Copia atómica de SQLite (más seguro que cp mientras el server está corriendo)
+sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '$DEST'"
+gzip "$DEST"
+
+# Borrar backups con más de 30 días
+find /home/mauidesk/backups/ -name "mauidisk-*.db.gz" -mtime +30 -delete
+```
+
+Permisos y cron:
+```bash
+chmod +x /home/mauidesk/backup.sh
+crontab -e
+```
+
+Agregar:
+```
+0 3 * * * /home/mauidesk/backup.sh >> /home/mauidesk/backups/backup.log 2>&1
+```
+
+Corre todos los días a las 3 AM y mantiene 30 días de historia.
+
+**Opcional — Sincronizar backups a Google Drive con `rclone`** (muy recomendado: el SSD se puede quemar):
+```bash
+sudo apt install -y rclone
+rclone config         # seguir el wizard, configurar "gdrive" como remote
+```
+
+Luego al final del `backup.sh` agregar:
+```bash
+rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
+```
+
+## Fase 12 — Mantenimiento
+
+| Tarea | Comando |
+|---|---|
+| Ver logs en vivo | `journalctl -u mauidesk -f` |
+| Reiniciar el server | `sudo systemctl restart mauidesk` |
+| Actualizar código (git) | `cd ~/MAUI && git pull && cd server && npm ci && npm run build && cd ../client && npm ci && npm run build && sudo systemctl restart mauidesk` |
+| Backup manual | `/home/mauidesk/backup.sh` |
+| Probar puerto impresora | `nc -zv 192.168.1.100 9100` |
+| Espacio en disco | `df -h` |
+| Limpiar logs viejos | `sudo journalctl --vacuum-time=30d` |
+
+## Checklist final pre-producción
+
+- [ ] El Pi arranca solo después de cortar la luz y volverla
+- [ ] El server arranca automáticamente al bootear (`systemctl is-enabled mauidesk` → enabled)
+- [ ] El server se reinicia solo si crashea (probar con `sudo kill -9 $(pgrep -f 'node dist/index.js')`)
+- [ ] El cajero puede cobrar y la boleta sale por la impresora
+- [ ] Los mozos pueden tomar pedidos desde celular y la comanda sale en cocina
+- [ ] Las contraseñas seed (admin123, cajero123, mozo123) fueron cambiadas
+- [ ] El dueño accede desde fuera vía Tailscale
+- [ ] Hay un backup en `/home/mauidesk/backups/` con fecha de hoy
+- [ ] Si tenés UPS, probar apagón y verificar que el sistema vuelve solo
+
+## Troubleshooting
+
+**El server no arranca**: `journalctl -u mauidesk -n 100 --no-pager`. Causas frecuentes:
+- `JWT_SECRET` falta o < 32 chars → el código aborta intencionalmente
+- Ruta de `DATABASE_URL` inaccesible
+- Puerto 3001 ya en uso
+
+**La impresora no imprime**: probar `nc -zv 192.168.1.100 9100`. Si falla, problema de red/IP/impresora apagada. La app muestra el error en pantalla al fallar el pre-check.
+
+**El celular no conecta**: debe estar en la **misma WiFi** que el Pi. Verificar `ping 192.168.1.50` desde otro dispositivo conectado a la misma red.
+
+**Después de un corte de luz la DB se corrompió**: por eso usamos `.backup` (atómico) en el script de backup, no `cp`. Restaurar el último backup:
+```bash
+sudo systemctl stop mauidesk
+gunzip -c /home/mauidesk/backups/mauidisk-<fecha>.db.gz > /home/mauidesk/MAUI/server/mauidisk.db
+sudo systemctl start mauidesk
+```
+
+**Logs llenan el SSD**: journalctl rota solo, pero podés limitarlo: `sudo journalctl --vacuum-time=30d`.
+
+**Cambiar la IP del Pi o de la impresora**: actualizar el `.env`, `sudo systemctl restart mauidesk`, y recordar actualizar también los bookmarks de los celulares.
