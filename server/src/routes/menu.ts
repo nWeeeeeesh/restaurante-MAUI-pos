@@ -3,6 +3,14 @@ import { eq, asc } from 'drizzle-orm'
 import { db } from '../db'
 import { categories, dishes, modifierGroups, modifierOptions, orderItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import {
+  CreateCategorySchema,
+  UpdateCategorySchema,
+  CreateDishSchema,
+  UpdateDishSchema,
+  CreateModifierOptionSchema,
+} from '../schemas/menu'
 
 const router = Router()
 
@@ -39,34 +47,30 @@ router.get('/dishes', requireAuth, requireRole('owner', 'cashier'), async (_req,
 })
 
 // ── Categorías ─────────────────────────────────────────────────────────────
-router.post('/categories', requireAuth, requireRole('owner'), async (req, res) => {
-  const { name, displayOrder } = req.body
-  if (!name || !String(name).trim()) {
-    res.status(400).json({ error: 'Nombre de categoría requerido' })
-    return
-  }
-  const [cat] = await db.insert(categories).values({
-    name: String(name).trim(),
-    displayOrder: displayOrder ?? 99,
-  }).returning()
-  res.status(201).json(cat)
-})
+router.post(
+  '/categories',
+  requireAuth, requireRole('owner'), validateBody(CreateCategorySchema),
+  async (req, res) => {
+    const { name, displayOrder } = req.body
+    const [cat] = await db.insert(categories).values({
+      name,
+      displayOrder: displayOrder ?? 99,
+    }).returning()
+    res.status(201).json(cat)
+  },
+)
 
-router.patch('/categories/:id', requireAuth, requireRole('owner'), async (req, res) => {
-  const id = Number(req.params.id)
-  const { name, displayOrder, active } = req.body
-  const set: any = {}
-  if (name !== undefined) set.name = String(name).trim()
-  if (displayOrder !== undefined) set.displayOrder = Number(displayOrder)
-  if (active !== undefined) set.active = Boolean(active)
-  if (Object.keys(set).length === 0) {
-    res.status(400).json({ error: 'Sin cambios' })
-    return
-  }
-  const [updated] = await db.update(categories).set(set).where(eq(categories.id, id)).returning()
-  if (!updated) { res.status(404).json({ error: 'Categoría no encontrada' }); return }
-  res.json(updated)
-})
+router.patch(
+  '/categories/:id',
+  requireAuth, requireRole('owner'), validateBody(UpdateCategorySchema),
+  async (req, res) => {
+    const id = Number(req.params.id)
+    const set: Partial<typeof categories.$inferInsert> = req.body
+    const [updated] = await db.update(categories).set(set).where(eq(categories.id, id)).returning()
+    if (!updated) { res.status(404).json({ error: 'Categoría no encontrada' }); return }
+    res.json(updated)
+  },
+)
 
 router.delete('/categories/:id', requireAuth, requireRole('owner'), async (req, res) => {
   const id = Number(req.params.id)
@@ -83,24 +87,21 @@ router.delete('/categories/:id', requireAuth, requireRole('owner'), async (req, 
 })
 
 // ── Platos ─────────────────────────────────────────────────────────────────
-router.post('/dishes', requireAuth, requireRole('owner'), async (req, res) => {
+router.post(
+  '/dishes',
+  requireAuth, requireRole('owner'), validateBody(CreateDishSchema),
+  async (req, res) => {
   const { categoryId, name, description, price, hasSpiceLevel } = req.body
 
-  if (!categoryId) { res.status(400).json({ error: 'Categoría requerida' }); return }
-  if (!name || !String(name).trim()) { res.status(400).json({ error: 'Nombre requerido' }); return }
-  if (price === undefined || price === null || isNaN(Number(price))) {
-    res.status(400).json({ error: 'Precio inválido' }); return
-  }
-
   // Verificar que la categoría exista
-  const [cat] = await db.select().from(categories).where(eq(categories.id, Number(categoryId)))
+  const [cat] = await db.select().from(categories).where(eq(categories.id, categoryId))
   if (!cat) { res.status(400).json({ error: 'La categoría no existe' }); return }
 
   const [dish] = await db.insert(dishes).values({
-    categoryId: Number(categoryId),
-    name: String(name).trim(),
-    description: description ? String(description).trim() : null,
-    price: Number(price),
+    categoryId,
+    name,
+    description: description ?? null,
+    price,
     hasSpiceLevel: Boolean(hasSpiceLevel),
     available: true,
   }).returning()
@@ -122,28 +123,22 @@ router.post('/dishes', requireAuth, requireRole('owner'), async (req, res) => {
   }
 
   res.status(201).json(dish)
-})
+  },
+)
 
-router.patch('/dishes/:id', requireAuth, requireRole('owner'), async (req, res) => {
-  const id = Number(req.params.id)
-  const { name, description, price, available, categoryId, hasSpiceLevel } = req.body
-
-  const set: any = {}
-  if (name !== undefined) set.name = String(name).trim()
-  if (description !== undefined) set.description = description === null || description === '' ? null : String(description).trim()
-  if (price !== undefined && !isNaN(Number(price))) set.price = Number(price)
-  if (available !== undefined) set.available = Boolean(available)
-  if (categoryId !== undefined) set.categoryId = Number(categoryId)
-  if (hasSpiceLevel !== undefined) set.hasSpiceLevel = Boolean(hasSpiceLevel)
-
-  if (Object.keys(set).length === 0) {
-    res.status(400).json({ error: 'Sin cambios para aplicar' }); return
-  }
-
-  const [updated] = await db.update(dishes).set(set).where(eq(dishes.id, id)).returning()
-  if (!updated) { res.status(404).json({ error: 'Plato no encontrado' }); return }
-  res.json(updated)
-})
+router.patch(
+  '/dishes/:id',
+  requireAuth, requireRole('owner'), validateBody(UpdateDishSchema),
+  async (req, res) => {
+    const id = Number(req.params.id)
+    const set: Partial<typeof dishes.$inferInsert> = { ...req.body }
+    // Normalizar description vacío como null para limpieza
+    if (set.description === '') set.description = null
+    const [updated] = await db.update(dishes).set(set).where(eq(dishes.id, id)).returning()
+    if (!updated) { res.status(404).json({ error: 'Plato no encontrado' }); return }
+    res.json(updated)
+  },
+)
 
 router.delete('/dishes/:id', requireAuth, requireRole('owner'), async (req, res) => {
   const id = Number(req.params.id)
@@ -173,12 +168,16 @@ router.get('/dishes/:id/modifiers', requireAuth, async (req, res) => {
   res.json(result)
 })
 
-router.post('/modifier-groups/:groupId/options', requireAuth, requireRole('owner'), async (req, res) => {
-  const groupId = Number(req.params.groupId)
-  const { name, priceAdjustment, displayOrder } = req.body
-  const [opt] = await db.insert(modifierOptions).values({ groupId, name, priceAdjustment, displayOrder }).returning()
-  res.status(201).json(opt)
-})
+router.post(
+  '/modifier-groups/:groupId/options',
+  requireAuth, requireRole('owner'), validateBody(CreateModifierOptionSchema),
+  async (req, res) => {
+    const groupId = Number(req.params.groupId)
+    const { name, priceAdjustment, displayOrder } = req.body
+    const [opt] = await db.insert(modifierOptions).values({ groupId, name, priceAdjustment, displayOrder }).returning()
+    res.status(201).json(opt)
+  },
+)
 
 router.delete('/modifier-options/:id', requireAuth, requireRole('owner'), async (req, res) => {
   const id = Number(req.params.id)

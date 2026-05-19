@@ -3,6 +3,8 @@ import { eq, and, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../db'
 import { orders, orderItems, billGroups } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import { SplitGroupsSchema, type SplitGroupsInput } from '../schemas/split'
 import { io } from '../index'
 
 const router = Router({ mergeParams: true })
@@ -36,14 +38,9 @@ router.get('/', requireAuth, async (req, res) => {
 // Soporta coexistencia con grupos pagados: solo opera sobre los abiertos.
 // Los grupos pagados y sus items quedan intactos. Si en el body se incluye
 // un item ya cobrado o asignado a un grupo pagado, se rechaza.
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, validateBody(SplitGroupsSchema), async (req, res) => {
   const orderId = Number(req.params.id)
-  const { groups } = req.body as { groups: Array<{ label: string; itemIds: number[] }> }
-
-  if (!Array.isArray(groups)) {
-    res.status(400).json({ error: 'Formato inválido' })
-    return
-  }
+  const { groups } = req.body as SplitGroupsInput
 
   const existing = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
   const paidGroups = existing.filter(g => g.status === 'paid')

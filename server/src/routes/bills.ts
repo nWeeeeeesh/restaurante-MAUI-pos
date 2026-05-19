@@ -3,6 +3,8 @@ import { eq, and, isNull, inArray, gte, lte, desc } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, tables, billGroups, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import { CreateBillSchema } from '../schemas/bills'
 import { io } from '../index'
 
 const router = Router()
@@ -114,9 +116,8 @@ function parseDateParam(s: string, kind: 'start' | 'end'): string {
   return d.toISOString().slice(0, 19).replace('T', ' ')
 }
 
-router.post('/', requireAuth, async (req, res) => {
-  const { paymentMethod, cashReceived, receiptNumber, itemIds, billGroupId } = req.body
-  const orderId = Number(req.body.orderId)
+router.post('/', requireAuth, validateBody(CreateBillSchema), async (req, res) => {
+  const { orderId, paymentMethod, cashReceived, receiptNumber, itemIds, billGroupId } = req.body
 
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
   if (!order) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
@@ -132,7 +133,7 @@ router.post('/', requireAuth, async (req, res) => {
 
   if (billGroupId) {
     const [grp] = await db.select().from(billGroups)
-      .where(and(eq(billGroups.id, Number(billGroupId)), eq(billGroups.orderId, orderId)))
+      .where(and(eq(billGroups.id, billGroupId), eq(billGroups.orderId, orderId)))
     if (!grp) { res.status(404).json({ error: 'Sub-cuenta no encontrada' }); return }
     if (grp.status === 'paid') { res.status(409).json({ error: 'Esta sub-cuenta ya fue cobrada' }); return }
     groupBeingPaid = grp
@@ -143,7 +144,7 @@ router.post('/', requireAuth, async (req, res) => {
       targetItems = await db.select().from(orderItems).where(and(
         eq(orderItems.orderId, orderId),
         eq(orderItems.billGroupId, grp.id),
-        inArray(orderItems.id, itemIds.map(Number)),
+        inArray(orderItems.id, itemIds),
         isNull(orderItems.billId),
       ))
     } else {
@@ -156,7 +157,7 @@ router.post('/', requireAuth, async (req, res) => {
   } else if (Array.isArray(itemIds) && itemIds.length > 0) {
     targetItems = await db.select().from(orderItems).where(and(
       eq(orderItems.orderId, orderId),
-      inArray(orderItems.id, itemIds.map(Number)),
+      inArray(orderItems.id, itemIds),
       isNull(orderItems.billId),
     ))
   } else {
@@ -173,14 +174,26 @@ router.post('/', requireAuth, async (req, res) => {
 
   const total = targetItems.reduce((s, i) => s + (i.unitPrice * (i.quantity ?? 1)), 0)
 
+  // Validación semántica que requiere conocer el total real (no se puede en el schema).
+  if (paymentMethod === 'cash') {
+    if (typeof cashReceived !== 'number' || cashReceived < total) {
+      res.status(400).json({
+        error: `Monto recibido insuficiente: S/ ${(cashReceived ?? 0).toFixed(2)} < S/ ${total.toFixed(2)}`,
+      })
+      return
+    }
+  }
+
   try {
     const [bill] = await db.insert(bills).values({
       orderId,
       subtotal: total,
       total,
       paymentMethod,
-      cashReceived: paymentMethod === 'cash' ? (cashReceived ?? null) : null,
-      changeAmount: paymentMethod === 'cash' ? ((cashReceived ?? 0) - total) : null,
+      // En este punto, el schema + la validación anterior garantizan que cuando
+      // paymentMethod === 'cash', cashReceived es un número >= total.
+      cashReceived: paymentMethod === 'cash' ? cashReceived! : null,
+      changeAmount: paymentMethod === 'cash' ? (cashReceived! - total) : null,
       receiptNumber,
       createdBy: req.user!.id,
     }).returning()

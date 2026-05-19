@@ -1,8 +1,14 @@
 import { Router } from 'express'
-import { eq, and, notInArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { tables, orders, layoutItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import {
+  CreateTableSchema,
+  UpdateTableSchema,
+  SaveLayoutSchema,
+} from '../schemas/tables'
 
 const router = Router()
 
@@ -13,64 +19,58 @@ router.get('/', requireAuth, async (_req, res) => {
 })
 
 // PATCH /api/tables/:id — actualizar posición o atributos visuales (solo owner)
-router.patch('/:id', requireAuth, requireRole('owner'), async (req, res) => {
-  const id = Number(req.params.id)
-  const { posX, posY, area, capacity, number, active } = req.body
+router.patch(
+  '/:id',
+  requireAuth, requireRole('owner'), validateBody(UpdateTableSchema),
+  async (req, res) => {
+    const id = Number(req.params.id)
+    const updates: Partial<typeof tables.$inferInsert> = { ...req.body }
 
-  const updates: any = {}
-  if (posX !== undefined) updates.posX = posX === null ? null : Number(posX)
-  if (posY !== undefined) updates.posY = posY === null ? null : Number(posY)
-  if (area !== undefined) updates.area = String(area)
-  if (capacity !== undefined) updates.capacity = Number(capacity)
-  if (active !== undefined) updates.active = !!active
-  if (number !== undefined) {
-    const n = Number(number)
-    if (!n || isNaN(n) || n < 1) { res.status(400).json({ error: 'Número de mesa inválido' }); return }
-    const dup = await db.select().from(tables).where(eq(tables.number, n))
-    if (dup.some(t => t.id !== id)) {
-      res.status(409).json({ error: `Ya existe una mesa con el número ${n}` })
-      return
+    if (updates.number !== undefined) {
+      const dup = await db.select().from(tables).where(eq(tables.number, updates.number))
+      if (dup.some(t => t.id !== id)) {
+        res.status(409).json({ error: `Ya existe una mesa con el número ${updates.number}` })
+        return
+      }
     }
-    updates.number = n
-  }
 
-  if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: 'Sin cambios para aplicar' })
-    return
-  }
-
-  await db.update(tables).set(updates).where(eq(tables.id, id))
-  const [updated] = await db.select().from(tables).where(eq(tables.id, id))
-  res.json(updated)
-})
+    await db.update(tables).set(updates).where(eq(tables.id, id))
+    const [updated] = await db.select().from(tables).where(eq(tables.id, id))
+    res.json(updated)
+  },
+)
 
 // POST /api/tables — crear nueva mesa (solo owner)
-router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
-  const { number, area, capacity, posX, posY } = req.body
+router.post(
+  '/',
+  requireAuth, requireRole('owner'), validateBody(CreateTableSchema),
+  async (req, res) => {
+    const { number, area, capacity, posX, posY } = req.body
 
-  let nextNumber = Number(number)
-  if (!nextNumber || isNaN(nextNumber)) {
-    const all = await db.select().from(tables)
-    nextNumber = (all.reduce((m, t) => Math.max(m, t.number), 0) || 0) + 1
-  }
+    let nextNumber = number
+    if (!nextNumber) {
+      const all = await db.select().from(tables)
+      nextNumber = (all.reduce((m, t) => Math.max(m, t.number), 0) || 0) + 1
+    }
 
-  // Verificar duplicado
-  const existing = await db.select().from(tables).where(eq(tables.number, nextNumber))
-  if (existing.length > 0) {
-    res.status(409).json({ error: `Ya existe una mesa con el número ${nextNumber}` })
-    return
-  }
+    // Verificar duplicado
+    const existing = await db.select().from(tables).where(eq(tables.number, nextNumber))
+    if (existing.length > 0) {
+      res.status(409).json({ error: `Ya existe una mesa con el número ${nextNumber}` })
+      return
+    }
 
-  const [created] = await db.insert(tables).values({
-    number: nextNumber,
-    area: area ?? 'salon',
-    capacity: capacity ?? 4,
-    status: 'free',
-    posX: posX ?? null,
-    posY: posY ?? null,
-  }).returning()
-  res.status(201).json(created)
-})
+    const [created] = await db.insert(tables).values({
+      number: nextNumber,
+      area: area ?? 'salon',
+      capacity: capacity ?? 4,
+      status: 'free',
+      posX: posX ?? null,
+      posY: posY ?? null,
+    }).returning()
+    res.status(201).json(created)
+  },
+)
 
 // DELETE /api/tables/:id — eliminar mesa o inhabilitarla si tiene historial
 //
@@ -118,44 +118,38 @@ router.delete('/:id', requireAuth, requireRole('owner'), async (req, res) => {
 //
 // Si layoutItems se incluye, REEMPLAZA los items existentes (CRUD diferencial sería más
 // complejo y este flujo es solo desde el modo edición — guardar todo de golpe).
-router.post('/layout', requireAuth, requireRole('owner'), async (req, res) => {
-  const { positions, layoutItems: items } = req.body as {
-    positions: Array<{ id: number; posX: number | null; posY: number | null; area?: string }>
-    layoutItems?: Array<{ id?: number; type: 'label' | 'zone'; text: string; posX: number; posY: number; width?: number | null; height?: number | null; color?: string }>
-  }
-  if (!Array.isArray(positions)) {
-    res.status(400).json({ error: 'positions debe ser un arreglo' })
-    return
-  }
+router.post(
+  '/layout',
+  requireAuth, requireRole('owner'), validateBody(SaveLayoutSchema),
+  async (req, res) => {
+    const { positions, layoutItems: items } = req.body
 
-  for (const p of positions) {
-    const updates: any = {
-      posX: p.posX === null ? null : Number(p.posX),
-      posY: p.posY === null ? null : Number(p.posY),
+    for (const p of positions) {
+      const updates: Partial<typeof tables.$inferInsert> = { posX: p.posX, posY: p.posY }
+      if (p.area !== undefined) updates.area = p.area
+      await db.update(tables).set(updates).where(eq(tables.id, p.id))
     }
-    if (p.area !== undefined) updates.area = String(p.area)
-    await db.update(tables).set(updates).where(eq(tables.id, Number(p.id)))
-  }
 
-  if (Array.isArray(items)) {
-    await db.delete(layoutItems)
-    if (items.length > 0) {
-      await db.insert(layoutItems).values(items.map(it => ({
-        type: it.type,
-        text: String(it.text ?? ''),
-        posX: Number(it.posX),
-        posY: Number(it.posY),
-        width: it.width != null ? Number(it.width) : null,
-        height: it.height != null ? Number(it.height) : null,
-        color: it.color ?? '#94A3B8',
-      })))
+    if (Array.isArray(items)) {
+      await db.delete(layoutItems)
+      if (items.length > 0) {
+        await db.insert(layoutItems).values(items.map(it => ({
+          type: it.type,
+          text: it.text,
+          posX: it.posX,
+          posY: it.posY,
+          width: it.width ?? null,
+          height: it.height ?? null,
+          color: it.color ?? '#94A3B8',
+        })))
+      }
     }
-  }
 
-  const all = await db.select().from(tables).orderBy(tables.number)
-  const decorations = await db.select().from(layoutItems)
-  res.json({ tables: all, layoutItems: decorations })
-})
+    const all = await db.select().from(tables).orderBy(tables.number)
+    const decorations = await db.select().from(layoutItems)
+    res.json({ tables: all, layoutItems: decorations })
+  },
+)
 
 // GET /api/tables/layout-items — listar decoraciones del plano
 router.get('/layout-items', requireAuth, async (_req, res) => {

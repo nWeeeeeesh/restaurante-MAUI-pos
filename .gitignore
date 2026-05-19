@@ -40,5 +40,5 @@ Thumbs.db
 coverage/
 
 # Claude Code local settings (no compartibles entre máquinas)
-# .claude/settings.local.json
+.claude/settings.local.json
 .claude/

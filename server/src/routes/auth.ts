@@ -5,15 +5,13 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import { LoginSchema } from '../schemas/auth'
 
 const router = Router()
 
-router.post('/login', async (req, res) => {
+router.post('/login', validateBody(LoginSchema), async (req, res) => {
   const { username, password } = req.body
-  if (!username || !password) {
-    res.status(400).json({ error: 'Usuario y contraseña requeridos' })
-    return
-  }
 
   const [user] = await db.select().from(users).where(eq(users.username, username))
   if (!user || !user.active) {

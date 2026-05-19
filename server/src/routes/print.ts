@@ -2,7 +2,13 @@ import { Router } from 'express'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, users } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireRole } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import {
+  PrintReceiptSchema,
+  PrintPreReceiptSchema,
+  PrintKitchenSchema,
+} from '../schemas/print'
 import {
   printReceipt,
   printPreReceipt,
@@ -10,11 +16,7 @@ import {
   printTestPage,
   checkPrinterStatus,
   clearWindowsQueue,
-  type ReceiptData,
-  type PreReceiptData,
-  type KitchenTicketData,
 } from '../utils/printer'
-import { requireRole } from '../middleware/auth'
 
 const router = Router()
 
@@ -60,30 +62,27 @@ router.get('/test', requireAuth, async (_req, res) => {
   }
 })
 
-router.post('/receipt', requireAuth, async (req, res) => {
+router.post('/receipt', requireAuth, validateBody(PrintReceiptSchema), async (req, res) => {
   try {
-    const data: ReceiptData = req.body
-    await printReceipt(data)
+    await printReceipt(req.body)
     res.json({ ok: true })
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
 
-router.post('/pre-receipt', requireAuth, async (req, res) => {
+router.post('/pre-receipt', requireAuth, validateBody(PrintPreReceiptSchema), async (req, res) => {
   try {
-    const data: PreReceiptData = req.body
-    await printPreReceipt(data)
+    await printPreReceipt(req.body)
     res.json({ ok: true })
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
 
-router.post('/kitchen', requireAuth, async (req, res) => {
+router.post('/kitchen', requireAuth, validateBody(PrintKitchenSchema), async (req, res) => {
   try {
-    const data: KitchenTicketData = req.body
-    await printKitchenTicket(data)
+    await printKitchenTicket(req.body)
     res.json({ ok: true })
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err.message })

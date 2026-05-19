@@ -3,6 +3,13 @@ import { eq, and, notInArray, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { orders, orderItems, tables, billGroups } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import {
+  CreateOrderSchema,
+  AddItemsSchema,
+  UpdateOrderStatusSchema,
+  type OrderItemInput,
+} from '../schemas/orders'
 import { io } from '../index'
 import { printKitchenTicket } from '../utils/printer'
 
@@ -104,7 +111,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 })
 
 // POST /api/orders — create new order
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, validateBody(CreateOrderSchema), async (req, res) => {
   const { tableId, type, customerName, customerPhone, customerAddress, notes, items: reqItems } = req.body
 
   if (tableId) {
@@ -130,7 +137,7 @@ router.post('/', requireAuth, async (req, res) => {
   let insertedIds: number[] = []
   if (reqItems?.length) {
     const inserted = await db.insert(orderItems).values(
-      reqItems.map((item: any) => ({
+      (reqItems as OrderItemInput[]).map((item) => ({
         orderId: order.id,
         dishId: item.dishId,
         dishName: item.dishName,
@@ -163,12 +170,12 @@ router.post('/', requireAuth, async (req, res) => {
 })
 
 // POST /api/orders/:id/items — add items to existing order
-router.post('/:id/items', requireAuth, async (req, res) => {
+router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req, res) => {
   const orderId = Number(req.params.id)
-  const { items: reqItems } = req.body
+  const { items: reqItems } = req.body as { items: OrderItemInput[] }
 
   const inserted = await db.insert(orderItems).values(
-    reqItems.map((item: any) => ({
+    reqItems.map((item) => ({
       orderId,
       dishId: item.dishId,
       dishName: item.dishName,
@@ -272,11 +279,16 @@ router.post('/:id/reprint-kitchen', requireAuth, async (req, res) => {
 })
 
 // PATCH /api/orders/:id/status
-router.patch('/:id/status', requireAuth, async (req, res) => {
+router.patch('/:id/status', requireAuth, validateBody(UpdateOrderStatusSchema), async (req, res) => {
   const orderId = Number(req.params.id)
   const { status } = req.body
 
-  await db.update(orders).set({ status, updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
+  // 'paying' es solo un estado de UI/sincronización con la mesa; no es status
+  // válido de la orden en BD (la BD acepta pending|preparing|ready|paid|cancelled).
+  const orderStatusForDb: 'pending' | 'preparing' | 'ready' | 'paid' | 'cancelled' =
+    status === 'paying' ? 'preparing' : status
+
+  await db.update(orders).set({ status: orderStatusForDb, updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
 
   // Sync table status
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId))

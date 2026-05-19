@@ -3,6 +3,8 @@ import { eq, gte, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, expenses } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
+import { validateBody } from '../middleware/validate'
+import { CreateExpenseSchema } from '../schemas/reports'
 
 const router = Router()
 
@@ -100,17 +102,21 @@ router.get('/bills', requireAuth, requireRole('owner', 'cashier'), async (req, r
 })
 
 // POST /api/reports/expenses
-router.post('/expenses', requireAuth, requireRole('owner', 'cashier'), async (req, res) => {
-  const { description, amount, category, date, notes } = req.body
-  const [expense] = await db.insert(expenses).values({
-    description,
-    amount,
-    category: category || 'general',
-    date: date || new Date().toISOString().substring(0, 10),
-    notes: notes ?? null,
-    createdBy: req.user!.id,
-  }).returning()
-  res.status(201).json(expense)
-})
+router.post(
+  '/expenses',
+  requireAuth, requireRole('owner', 'cashier'), validateBody(CreateExpenseSchema),
+  async (req, res) => {
+    const { description, amount, category, date, notes } = req.body
+    const [expense] = await db.insert(expenses).values({
+      description,
+      amount,
+      category: category || 'general',
+      date: date || new Date().toISOString().substring(0, 10),
+      notes: notes ?? null,
+      createdBy: req.user!.id,
+    }).returning()
+    res.status(201).json(expense)
+  },
+)
 
 export default router
