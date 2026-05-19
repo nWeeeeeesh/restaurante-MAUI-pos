@@ -311,11 +311,15 @@ router.patch('/:id/items/:itemId/toggle', requireAuth, async (req, res) => {
   const orderId = Number(req.params.id)
   const itemId  = Number(req.params.itemId)
 
-  const [item] = await db.select().from(orderItems).where(eq(orderItems.id, itemId))
-  if (!item) { res.status(404).json({ error: 'Item no encontrado' }); return }
+  // C9: verificar que el item pertenezca a la orden (evita IDOR donde
+  // un usuario podría tocar items de cualquier orden con solo conocer el itemId).
+  const [item] = await db.select().from(orderItems)
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
+  if (!item) { res.status(404).json({ error: 'Item no encontrado en este pedido' }); return }
 
   const newStatus = item.status === 'ready' ? 'preparing' : 'ready'
-  await db.update(orderItems).set({ status: newStatus }).where(eq(orderItems.id, itemId))
+  await db.update(orderItems).set({ status: newStatus })
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
 
   // Check if all items are ready → update order status
   const allItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))

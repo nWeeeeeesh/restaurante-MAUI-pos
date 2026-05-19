@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { eq, and, isNull, inArray, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, isNull, inArray, gte, lte, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, tables, billGroups, users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -9,13 +9,19 @@ import { io } from '../index'
 
 const router = Router()
 
+// C7: atómico. Antes hacía SELECT * y Math.max en JS, escalando linealmente
+// con el historial y siendo no-atómico (dos llamadas concurrentes podían
+// retornar el mismo lastNumber). Ahora una sola query SQL.
 router.get('/next-number', requireAuth, async (_req, res) => {
-  const allBills = await db.select().from(bills)
-  let max = 0
-  if (allBills.length > 0) {
-    max = Math.max(...allBills.map(b => parseInt(b.receiptNumber.split('-')[1] || '0')))
-  }
-  res.json({ lastNumber: max })
+  // El formato es "B001-NNNNN". Extraemos la parte después del primer '-'.
+  // INSTR retorna 0 si no encuentra '-', en cuyo caso SUBSTR desde 1 toma
+  // todo el string y CAST a integer da 0 si no es numérico. Seguro.
+  const [row] = await db
+    .select({
+      max: sql<number | null>`MAX(CAST(SUBSTR(${bills.receiptNumber}, INSTR(${bills.receiptNumber}, '-')+1) AS INTEGER))`,
+    })
+    .from(bills)
+  res.json({ lastNumber: row?.max ?? 0 })
 })
 
 // GET /api/bills — historial. waiter/cashier ven solo HOY; owner puede pasar from/to
@@ -184,74 +190,107 @@ router.post('/', requireAuth, validateBody(CreateBillSchema), async (req, res) =
     }
   }
 
+  // C5 + C7: toda la mutación va dentro de una transacción atómica.
+  // Esto evita que dos POST simultáneos sobre la misma orden facturen el
+  // mismo item dos veces. Además, dentro del tx detectamos colisión del
+  // receiptNumber para devolver un error claro en lugar del UNIQUE crash.
+  let result: {
+    bill: typeof bills.$inferSelect
+    fullyPaid: boolean
+  }
   try {
-    const [bill] = await db.insert(bills).values({
-      orderId,
-      subtotal: total,
-      total,
-      paymentMethod,
-      // En este punto, el schema + la validación anterior garantizan que cuando
-      // paymentMethod === 'cash', cashReceived es un número >= total.
-      cashReceived: paymentMethod === 'cash' ? cashReceived! : null,
-      changeAmount: paymentMethod === 'cash' ? (cashReceived! - total) : null,
-      receiptNumber,
-      createdBy: req.user!.id,
-    }).returning()
+    result = await db.transaction(async (tx) => {
+      // Pre-check de colisión de número (atómico dentro del tx).
+      const [taken] = await tx.select({ id: bills.id }).from(bills)
+        .where(eq(bills.receiptNumber, receiptNumber)).limit(1)
+      if (taken) {
+        throw Object.assign(new Error('RECEIPT_TAKEN'), { httpStatus: 409 })
+      }
 
-    // Marcar items como pagados
-    await db.update(orderItems)
-      .set({ billId: bill.id })
-      .where(inArray(orderItems.id, targetItems.map(i => i.id)))
+      const [bill] = await tx.insert(bills).values({
+        orderId,
+        subtotal: total,
+        total,
+        paymentMethod,
+        // En este punto, el schema + la validación anterior garantizan que cuando
+        // paymentMethod === 'cash', cashReceived es un número >= total.
+        cashReceived: paymentMethod === 'cash' ? cashReceived! : null,
+        changeAmount: paymentMethod === 'cash' ? (cashReceived! - total) : null,
+        receiptNumber,
+        createdBy: req.user!.id,
+      }).returning()
 
-    // Si pagamos un grupo, marcarlo como pagado SÓLO si ya no le quedan items
-    // sin facturar. Esto cubre el caso en el que se agregaron items al grupo
-    // entre la confirmación y el cobro: el grupo sigue abierto para esos extras.
-    if (groupBeingPaid) {
-      const groupRemaining = await db.select().from(orderItems).where(and(
+      // Marcar items como pagados
+      await tx.update(orderItems)
+        .set({ billId: bill.id })
+        .where(inArray(orderItems.id, targetItems.map(i => i.id)))
+
+      // Si pagamos un grupo, marcarlo como pagado SÓLO si ya no le quedan items
+      // sin facturar. Esto cubre el caso en el que se agregaron items al grupo
+      // entre la confirmación y el cobro: el grupo sigue abierto para esos extras.
+      if (groupBeingPaid) {
+        const groupRemaining = await tx.select().from(orderItems).where(and(
+          eq(orderItems.orderId, orderId),
+          eq(orderItems.billGroupId, groupBeingPaid.id),
+          isNull(orderItems.billId),
+        ))
+        if (groupRemaining.length === 0) {
+          await tx.update(billGroups)
+            .set({ status: 'paid', billId: bill.id })
+            .where(eq(billGroups.id, groupBeingPaid.id))
+        }
+      }
+
+      // ¿Quedan items sin facturar?
+      const remaining = await tx.select().from(orderItems).where(and(
         eq(orderItems.orderId, orderId),
-        eq(orderItems.billGroupId, groupBeingPaid.id),
         isNull(orderItems.billId),
       ))
-      if (groupRemaining.length === 0) {
-        await db.update(billGroups)
-          .set({ status: 'paid', billId: bill.id })
-          .where(eq(billGroups.id, groupBeingPaid.id))
-      }
-    }
+      const fullyPaid = remaining.length === 0
 
-    // ¿Quedan items sin facturar?
-    const remaining = await db.select().from(orderItems).where(and(
-      eq(orderItems.orderId, orderId),
-      isNull(orderItems.billId),
-    ))
+      if (fullyPaid) {
+        await tx.update(orders)
+          .set({ status: 'paid', updatedAt: new Date().toISOString() })
+          .where(eq(orders.id, orderId))
 
-    if (remaining.length === 0) {
-      await db.update(orders)
-        .set({ status: 'paid', updatedAt: new Date().toISOString() })
-        .where(eq(orders.id, orderId))
-
-      if (order.tableId) {
-        await db.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
+        if (order.tableId) {
+          await tx.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
+        }
       }
 
-      io.emit('order:removed', orderId)
-    } else {
-      // Cobro parcial: emitir actualización completa
-      const updatedItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-      const updatedGroups = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-      io.emit('order:updated', {
-        ...order,
-        createdAt: order.createdAt ? new Date(order.createdAt + 'Z').toISOString() : new Date().toISOString(),
-        items: updatedItems.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers ?? '[]') })),
-        billGroups: updatedGroups,
-      })
-    }
-
-    res.status(201).json({ ...bill, fullyPaid: remaining.length === 0 })
+      return { bill, fullyPaid }
+    })
   } catch (error: any) {
-    console.error('Error creating bill:', error)
-    res.status(400).json({ error: `Error DB: ${error.message || 'Error desconocido'}` })
+    if (error?.message === 'RECEIPT_TAKEN' || error?.httpStatus === 409) {
+      res.status(409).json({
+        error: 'El número de boleta ya está en uso. Reintentá — el sistema generará uno nuevo.',
+        code: 'RECEIPT_TAKEN',
+      })
+      return
+    }
+    // A2: ya no exponer error.message al cliente; loguear server-side.
+    console.error('[bills POST] Error en transacción:', error)
+    res.status(500).json({ error: 'Error interno al crear boleta' })
+    return
   }
+
+  // ── Post-commit: emisión de eventos socket ─────────────────────────────
+  // Los emits suceden DESPUÉS de que la transacción está commiteada para que
+  // los clientes no reciban estado intermedio inválido.
+  if (result.fullyPaid) {
+    io.emit('order:removed', orderId)
+  } else {
+    const updatedItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
+    const updatedGroups = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
+    io.emit('order:updated', {
+      ...order,
+      createdAt: order.createdAt ? new Date(order.createdAt + 'Z').toISOString() : new Date().toISOString(),
+      items: updatedItems.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers ?? '[]') })),
+      billGroups: updatedGroups,
+    })
+  }
+
+  res.status(201).json({ ...result.bill, fullyPaid: result.fullyPaid })
 })
 
 export default router

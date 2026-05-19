@@ -71,33 +71,48 @@ router.post('/', requireAuth, validateBody(SplitGroupsSchema), async (req, res) 
     }
   }
 
-  // Limpiar billGroupId solo de items NO bloqueados (los pagados siguen vinculados a su grupo pagado)
-  if (lockedItemIds.size > 0) {
-    await db.update(orderItems).set({ billGroupId: null })
-      .where(and(eq(orderItems.orderId, orderId), notInArray(orderItems.id, [...lockedItemIds])))
-  } else {
-    await db.update(orderItems).set({ billGroupId: null })
-      .where(eq(orderItems.orderId, orderId))
+  // C6: toda la reescritura de grupos va dentro de una transacción.
+  // Antes, entre el DELETE de grupos abiertos y el INSERT de los nuevos había
+  // una ventana donde la orden podía quedar con items sin grupo (huérfanos)
+  // si el request fallaba a mitad o si otra request leía el estado.
+  let created: typeof billGroups.$inferSelect[]
+  try {
+    created = await db.transaction(async (tx) => {
+      // Limpiar billGroupId solo de items NO bloqueados (los pagados siguen vinculados a su grupo pagado)
+      if (lockedItemIds.size > 0) {
+        await tx.update(orderItems).set({ billGroupId: null })
+          .where(and(eq(orderItems.orderId, orderId), notInArray(orderItems.id, [...lockedItemIds])))
+      } else {
+        await tx.update(orderItems).set({ billGroupId: null })
+          .where(eq(orderItems.orderId, orderId))
+      }
+
+      // Borrar solo grupos abiertos (los pagados se preservan)
+      await tx.delete(billGroups).where(and(eq(billGroups.orderId, orderId), eq(billGroups.status, 'open')))
+
+      // Crear nuevos abiertos
+      const newGroups: typeof billGroups.$inferSelect[] = []
+      for (const g of groups) {
+        if (g.itemIds.length === 0) continue
+        const [grp] = await tx.insert(billGroups).values({
+          orderId,
+          label: g.label,
+          status: 'open',
+        }).returning()
+        await tx.update(orderItems)
+          .set({ billGroupId: grp.id })
+          .where(inArray(orderItems.id, g.itemIds))
+        newGroups.push(grp)
+      }
+      return newGroups
+    })
+  } catch (error: any) {
+    console.error('[split POST] Error en transacción:', error)
+    res.status(500).json({ error: 'Error interno al dividir la cuenta' })
+    return
   }
 
-  // Borrar solo grupos abiertos (los pagados se preservan)
-  await db.delete(billGroups).where(and(eq(billGroups.orderId, orderId), eq(billGroups.status, 'open')))
-
-  // Crear nuevos abiertos
-  const created: any[] = []
-  for (const g of groups) {
-    if (g.itemIds.length === 0) continue
-    const [grp] = await db.insert(billGroups).values({
-      orderId,
-      label: g.label,
-      status: 'open',
-    }).returning()
-    await db.update(orderItems)
-      .set({ billGroupId: grp.id })
-      .where(inArray(orderItems.id, g.itemIds))
-    created.push(grp)
-  }
-
+  // Post-commit: emitir orden completa
   const full = await emitOrder(orderId)
   res.status(201).json({ groups: created, order: full })
 })
