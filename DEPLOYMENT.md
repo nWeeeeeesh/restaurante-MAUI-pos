@@ -2,17 +2,35 @@
 
 Guía paso a paso para desplegar MauiDesk en la Cevichería MAUI. Hardware objetivo: Raspberry Pi 5 + SSD USB + impresora POS-D Basic 200 por Ethernet.
 
-## Hardware necesario
+## Hardware
 
-| Item | Detalle | Precio aprox. (Perú) |
+| Item | Estado | Detalle |
 |---|---|---|
-| Raspberry Pi 5 4GB | El servidor | S/.400-500 |
-| SSD USB 64-128 GB | **No usar microSD** — se corrompe con la DB en 1-2 años | S/.150-200 |
-| Caja **para Pi 5** con disipador + ventilador | La caja del Pi 4 no calza | S/.50-100 |
-| Fuente oficial 5V/**5A** | El Pi 5 necesita 5A (la del Pi 4 no alcanza) | S/.80-100 |
-| Cable Ethernet (Pi → router) | Más estable que WiFi para el server | S/.10-30 |
-| Cable Ethernet (impresora → router) | Para la POS-D Basic 200 | S/.10-30 |
-| UPS mini (opcional) | Aguanta apagones de 10-30 min | S/.150-250 |
+| Raspberry Pi 5 4GB | ✓ disponible | El servidor |
+| Caja con ventilador | ✓ disponible | Refrigeración del SoC |
+| microSD | ✓ disponible | **Trade-off conocido — ver nota abajo** |
+| Fuente 5V/5A USB-C | a confirmar | El Pi 5 falla con fuentes < 5A o no oficiales |
+| Cable Ethernet × 2 | a confirmar | Uno para el Pi al router, otro para la impresora |
+| UPS mini (opcional) | opcional | Aguanta apagones de 10-30 min |
+
+### Nota sobre microSD vs SSD USB
+
+La microSD tiene ciclos limitados de escritura. SQLite hace muchos writes
+(cada pedido = varios). En operación normal (50 pedidos/día) una microSD
+barata dura 6-18 meses; una buena (SanDisk High Endurance, Samsung Pro
+Endurance) llega a 2-3 años.
+
+**Mitigación**: el backup diario automatizado en Fase 11 cubre este riesgo —
+si la SD muere, restaurás el último backup en una SD nueva y volvés a operar
+en ~30 min.
+
+**Migración futura a SSD USB** (opcional, cuando quieras blindar el sistema):
+1. Apagar el Pi.
+2. Conectar SSD USB a tu PC.
+3. Clonar la SD al SSD con Raspberry Pi Imager (opción "Use custom image" →
+   apuntar a la imagen de la SD) o con `dd`/`rpi-clone`.
+4. Cambiar `BOOT_ORDER` del Pi para que priorice USB sobre SD (opcional).
+5. Reemplazar la SD por el SSD en el Pi. Listo.
 
 ## Arquitectura del despliegue
 
@@ -42,14 +60,14 @@ Guía paso a paso para desplegar MauiDesk en la Cevichería MAUI. Hardware objet
 
 ---
 
-## Fase 1 — Preparar el SSD y bootear el Pi
+## Fase 1 — Flashear la microSD y bootear el Pi
 
 1. En tu PC, descargar **Raspberry Pi Imager** desde https://www.raspberrypi.com/software/
-2. Conectar el SSD USB a la PC.
+2. Insertar la microSD en la PC (adaptador USB o ranura SD).
 3. En Imager seleccionar:
    - Device: **Raspberry Pi 5**
    - OS: **Raspberry Pi OS Lite (64-bit)** — sin escritorio, más liviano
-   - Storage: el SSD USB
+   - Storage: la microSD
 4. Antes de "Write", abrir **Edit Settings**:
    - Hostname: `mauidesk`
    - Username: `mauidesk` / Password: una fuerte que recuerdes
@@ -57,9 +75,9 @@ Guía paso a paso para desplegar MauiDesk en la Cevichería MAUI. Hardware objet
    - Locale: `America/Lima`
    - **Habilitar SSH** con password
 5. Flashear y esperar.
-6. Conectar el SSD al **puerto USB 3.0 (azul)** del Pi 5.
+6. Insertar la microSD en el slot del Pi 5.
 7. Conectar el Pi por cable Ethernet al router.
-8. Enchufar la fuente. El Pi arranca desde el SSD automáticamente.
+8. Enchufar la fuente. El Pi arranca desde la SD automáticamente.
 
 ## Fase 2 — IP estática y SSH
 
