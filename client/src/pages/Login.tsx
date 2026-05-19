@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
 import { Waves, Lock, User } from 'lucide-react'
 
@@ -8,8 +8,22 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
+  const { login, user, token, initialized } = useAuthStore()
   const navigate = useNavigate()
+
+  // Si ya hay sesión válida, no mostrar el formulario de login
+  if (initialized && token && user) return <Navigate to="/tables" replace />
+  // Mientras init() valida el token guardado, evitar parpadeo del formulario
+  if (!initialized) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[#EEF3F8]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-4 border-[#E2E8F0] border-t-[#0077B6] animate-spin" />
+          <p className="text-sm text-[#64748B] font-semibold">Cargando…</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
