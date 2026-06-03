@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useOrdersStore, type ActiveOrder, type ActiveOrderItem } from '../store/orders'
-import { useReceiptStore } from '../store/receipt'
 import { useAuthStore } from '../store/auth'
 import { useToastStore } from '../store/toast'
 import api from '../api/client'
@@ -25,8 +24,10 @@ const unpaidItems = (order: ActiveOrder): ActiveOrderItem[] =>
 const itemSubtotal = (i: ActiveOrderItem) => i.unitPrice * i.quantity
 
 // ─── Receipt Modal ─────────────────────────────────────────────────────────────
-function ReceiptModal({ order, items, receiptNumber, payMethod, cashReceived, onClose }: {
-  order: ActiveOrder
+function ReceiptModal({ orderType, tableId, customerName, items, receiptNumber, payMethod, cashReceived, onClose }: {
+  orderType: ActiveOrder['type']
+  tableId: number | null
+  customerName: string | null
   items: ActiveOrderItem[]
   receiptNumber: string
   payMethod: PayMethod
@@ -71,9 +72,9 @@ function ReceiptModal({ order, items, receiptNumber, payMethod, cashReceived, on
       await api.post('/print/receipt', {
         receiptNumber,
         date,
-        orderType: order.type === 'delivery' ? 'delivery' : 'dine-in',
-        tableId: order.tableId,
-        customerName: order.customerName,
+        orderType: orderType === 'delivery' ? 'delivery' : 'dine-in',
+        tableId,
+        customerName,
         cashierName: user?.name ?? 'Cajero',
         items: items.map(i => ({
           dishName: i.dishName,
@@ -115,8 +116,8 @@ function ReceiptModal({ order, items, receiptNumber, payMethod, cashReceived, on
             <div className="row"><span>Boleta:</span><span className="bold">{receiptNumber}</span></div>
             <div className="row"><span>Fecha:</span><span>{date}</span></div>
             <div className="row">
-              <span>{order.type === 'delivery' ? 'Delivery:' : 'Mesa:'}</span>
-              <span>{order.type === 'delivery' ? order.customerName : `Mesa ${order.tableId}`}</span>
+              <span>{orderType === 'delivery' ? 'Delivery:' : 'Mesa:'}</span>
+              <span>{orderType === 'delivery' ? customerName : `Mesa ${tableId}`}</span>
             </div>
             <div className="line" />
             {items.map(item => (
@@ -588,12 +589,12 @@ type OpenSubaccount = {
 }
 
 function PaymentPanel({
-  order, items, onPaid, onPrePrint, onSplit, onBack,
+  order, items, onConfirm, onPrePrint, onSplit, onBack,
   openSubaccounts, partialBillGroupId, onSwitchSubaccount, onExitPartial,
 }: {
   order: ActiveOrder
   items: ActiveOrderItem[]
-  onPaid: (method: PayMethod, cashReceived: number, receiptNumber: string, items: ActiveOrderItem[]) => void
+  onConfirm: (method: PayMethod, cashReceived: number, items: ActiveOrderItem[]) => Promise<void> | void
   onPrePrint: () => void
   onSplit: () => void
   onBack?: () => void
@@ -605,7 +606,7 @@ function PaymentPanel({
   const [method, setMethod]           = useState<PayMethod>('cash')
   const [cashInput, setCashInput]     = useState('')
   const [walletConfirmed, setWalletConfirmed] = useState(false)
-  const { nextReceiptNumber }         = useReceiptStore()
+  const [submitting, setSubmitting]   = useState(false)
 
   const total      = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
   const received   = parseFloat(cashInput) || 0
@@ -615,9 +616,16 @@ function PaymentPanel({
     : walletConfirmed
 
   // Sin cocina, los pedidos no transicionan a 'ready' — el cajero cobra directo.
-  const handleConfirmClick = () => {
-    const num = nextReceiptNumber()
-    onPaid(method, method === 'cash' ? received : total, num, items)
+  // El POST crea la boleta y abre el modal con el número que devuelve el servidor.
+  // submitting evita un doble cobro por doble click.
+  const handleConfirmClick = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await onConfirm(method, method === 'cash' ? received : total, items)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const QUICK = [total, Math.ceil(total / 10) * 10, Math.ceil(total / 50) * 50, Math.ceil(total / 100) * 100]
@@ -821,10 +829,11 @@ function PaymentPanel({
         )}
 
         {/* Confirm button */}
-        <button onClick={handleConfirmClick} disabled={!canConfirm || blockedBySplit}
+        <button onClick={handleConfirmClick} disabled={!canConfirm || blockedBySplit || submitting}
           className="w-full flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-white text-base disabled:opacity-40 shadow-md shadow-[#0077B6]/20 transition-all"
           style={{ background: 'linear-gradient(135deg,#0077B6,#004E86)' }}>
-          <CheckCircle2 size={18}/> Confirmar Pago · S/ {total.toFixed(2)}
+          {submitting ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle2 size={18}/>}
+          {submitting ? 'Procesando...' : `Confirmar Pago · S/ ${total.toFixed(2)}`}
         </button>
       </div>
     </div>
@@ -837,17 +846,8 @@ export default function Cash() {
   const navigate            = useNavigate()
   const { user }            = useAuthStore()
   const { orders, removeOrder, replaceOrderItems } = useOrdersStore()
-  const { syncWithBackend } = useReceiptStore()
 
   const pushToast = useToastStore(s => s.push)
-
-  useEffect(() => {
-    api.get('/bills/next-number').then(({ data }) => {
-      syncWithBackend(data.lastNumber)
-    }).catch(() => {
-      pushToast({ variant: 'warning', title: 'No se pudo obtener el número de boleta', message: 'Verifica la conexión con el servidor.' })
-    })
-  }, [syncWithBackend, pushToast])
 
   const paramOrderId   = searchParams.get('orderId')
   const [selectedId, setSelectedId] = useState<number | null>(paramOrderId ? Number(paramOrderId) : null)
@@ -856,6 +856,12 @@ export default function Cash() {
     method: PayMethod
     cashReceived: number
     items: ActiveOrderItem[]
+    fullyPaid: boolean
+    billId: number
+    orderId: number
+    orderType: ActiveOrder['type']
+    tableId: number | null
+    customerName: string | null
   } | null>(null)
 
   const [splitOpen, setSplitOpen]       = useState(false)
@@ -925,61 +931,57 @@ export default function Cash() {
     setPartialBillGroupId(null)
   }
 
-  const handlePaid = (method: PayMethod, cashReceived: number, receiptNumber: string, items: ActiveOrderItem[]) => {
-    setReceipt({ number: receiptNumber, method, cashReceived, items })
+  // P1: el cobro se confirma AQUÍ — el POST crea la boleta y el servidor devuelve
+  // su número definitivo. Recién entonces abrimos el modal de boleta (con el número
+  // ya commiteado) para imprimir. Antes el número lo generaba el cliente y el POST
+  // ocurría al "Finalizar".
+  const handleConfirm = async (method: PayMethod, cashReceived: number, items: ActiveOrderItem[]) => {
+    if (!selectedOrder) return
+    try {
+      const { data } = await api.post('/bills', {
+        orderId: selectedOrder.id,
+        paymentMethod: method,
+        cashReceived,
+        itemIds: items.map(i => i.id),
+        billGroupId: partialBillGroupId ?? undefined,
+      })
+      setReceipt({
+        number: data.receiptNumber,
+        method,
+        cashReceived,
+        items,
+        fullyPaid: !!data?.fullyPaid,
+        billId: data?.id ?? -1,
+        orderId: selectedOrder.id,
+        orderType: selectedOrder.type,
+        tableId: selectedOrder.tableId,
+        customerName: selectedOrder.customerName,
+      })
+    } catch (e: any) {
+      pushToast({
+        variant: 'error',
+        title: 'No se pudo registrar el cobro',
+        message: e?.response?.data?.error || 'Intenta nuevamente. Si persiste, revisa la conexión.',
+        durationMs: 5000,
+      })
+    }
   }
 
-  const handleFinalize = async () => {
-    if (selectedId && receipt) {
-      try {
-        const { data } = await api.post('/bills', {
-          orderId: selectedId,
-          paymentMethod: receipt.method,
-          cashReceived: receipt.cashReceived,
-          receiptNumber: receipt.number,
-          itemIds: receipt.items.map(i => i.id),
-          billGroupId: partialBillGroupId ?? undefined,
-        })
-        if (data?.fullyPaid) {
-          removeOrder(selectedId)
-          setReceipt(null)
-          setPartialItems(null)
-          setPartialBillGroupId(null)
-          navigate('/tables')
-        } else {
-          // Marcar localmente los items como pagados
-          replaceOrderItems(selectedId, receipt.items.map(i => i.id), data.id ?? -1)
-          setReceipt(null)
-          setPartialItems(null)
-          setPartialBillGroupId(null)
-        }
-      } catch (e: any) {
-        const status = e?.response?.status
-        const serverMsg = e?.response?.data?.error
-        if (status === 409) {
-          // Número de boleta colisionó; re-sincronizar y avisar al cajero
-          pushToast({
-            variant: 'warning',
-            title: 'Número de boleta ya en uso',
-            message: 'Se generó uno nuevo automáticamente. Reintenta el cobro.',
-            durationMs: 5000,
-          })
-        } else {
-          pushToast({
-            variant: 'error',
-            title: 'No se pudo registrar el cobro',
-            message: serverMsg || 'Intenta nuevamente. Si persiste, revisa la conexión.',
-            durationMs: 5000,
-          })
-        }
-        setReceipt(null)
-        api.get('/bills/next-number')
-          .then(({ data }) => syncWithBackend(data.lastNumber))
-          .catch(() => { /* el toast superior ya informó; evitamos ruido extra */ })
+  // La boleta ya está creada en el servidor; "Finalizar" solo limpia el estado y
+  // cierra. La sincronización del store ya la hizo el socket (order:removed/updated);
+  // igual aplicamos un fallback local por si el socket estuviera caído.
+  const handleDone = () => {
+    if (receipt) {
+      if (receipt.fullyPaid) {
+        removeOrder(receipt.orderId)
+        navigate('/tables')
+      } else {
+        replaceOrderItems(receipt.orderId, receipt.items.map(i => i.id), receipt.billId)
       }
-    } else {
-      setReceipt(null)
     }
+    setReceipt(null)
+    setPartialItems(null)
+    setPartialBillGroupId(null)
   }
 
   const handlePrePrint = async () => {
@@ -1123,7 +1125,7 @@ export default function Cash() {
               <PaymentPanel
                 order={selectedOrder}
                 items={itemsForPayment}
-                onPaid={handlePaid}
+                onConfirm={handleConfirm}
                 onPrePrint={handlePrePrint}
                 onSplit={() => setSplitOpen(true)}
                 onBack={() => setSelectedId(null)}
@@ -1154,15 +1156,18 @@ export default function Cash() {
         />
       )}
 
-      {/* Receipt modal */}
-      {receipt && selectedOrder && (
+      {/* Receipt modal — se muestra desde el snapshot en `receipt`, no depende de
+          selectedOrder (que puede desaparecer al llegar order:removed por socket). */}
+      {receipt && (
         <ReceiptModal
-          order={selectedOrder}
+          orderType={receipt.orderType}
+          tableId={receipt.tableId}
+          customerName={receipt.customerName}
           items={receipt.items}
           receiptNumber={receipt.number}
           payMethod={receipt.method}
           cashReceived={receipt.cashReceived}
-          onClose={handleFinalize}
+          onClose={handleDone}
         />
       )}
     </div>
