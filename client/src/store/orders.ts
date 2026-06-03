@@ -75,8 +75,6 @@ interface OrdersStore {
     items: ItemPayload[]
   }) => Promise<ActiveOrder>
   addItemsToOrder: (orderId: number, items: ItemPayload[]) => Promise<void>
-  toggleItemReady: (orderId: number, itemId: number) => Promise<void>
-  markOrderReady: (orderId: number) => Promise<void>
   cancelOrder: (orderId: number) => Promise<void>
   markOrderPaying: (orderId: number) => Promise<void>
   removeOrder: (orderId: number) => void
@@ -171,33 +169,6 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
 
   addItemsToOrder: async (orderId, items) => {
     await api.post(`/orders/${orderId}/items`, { items })
-  },
-
-  toggleItemReady: async (orderId, itemId) => {
-    set(s => ({
-      orders: s.orders.map(o => {
-        if (o.id !== orderId) return o
-        const items = o.items.map(i =>
-          i.id !== itemId ? i : { ...i, status: i.status === 'ready' ? ('preparing' as const) : ('ready' as const) }
-        )
-        const allReady = items.every(i => i.status === 'ready')
-        return { ...o, items, status: allReady ? 'ready' : 'preparing' }
-      }),
-    }))
-    await api.patch(`/orders/${orderId}/items/${itemId}/toggle`)
-  },
-
-  markOrderReady: async (orderId) => {
-    set(s => ({
-      orders: s.orders.map(o =>
-        o.id !== orderId ? o : {
-          ...o,
-          status: 'ready',
-          items: o.items.map(i => ({ ...i, status: 'ready' as const })),
-        }
-      ),
-    }))
-    await api.patch(`/orders/${orderId}/ready`)
   },
 
   cancelOrder: async (orderId) => {
