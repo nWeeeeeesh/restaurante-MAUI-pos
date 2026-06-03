@@ -226,7 +226,7 @@ function UserFormModal({ user, onClose, onSaved }: {
             <div>
               <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-1.5 block">Contraseña inicial</label>
               <input value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Mínimo 4 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 type="password"
                 className="w-full bg-white border-2 border-[#E2E8F0] focus:border-[#0077B6] rounded-xl px-3 py-2.5 text-sm focus:outline-none"/>
               <p className="text-[10px] text-[#94A3B8] mt-1">El usuario podrá cambiarla después desde su sesión.</p>
@@ -274,8 +274,8 @@ function PasswordResetModal({ user, onClose }: { user: User; onClose: () => void
   const { push: toast }         = useToastStore()
 
   const handleSave = async () => {
-    if (!password || password.length < 4) {
-      toast({ variant: 'warning', title: 'Mínimo 4 caracteres' }); return
+    if (!password || password.length < 8) {
+      toast({ variant: 'warning', title: 'Mínimo 8 caracteres' }); return
     }
     if (password !== confirm) {
       toast({ variant: 'warning', title: 'Las contraseñas no coinciden' }); return

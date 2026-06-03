@@ -2,10 +2,11 @@ import { Router } from 'express'
 import { eq, and, isNull, inArray, gte, lte, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, tables, billGroups, users } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { CreateBillSchema } from '../schemas/bills'
 import { io } from '../index'
+import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
 
 const router = Router()
 
@@ -31,12 +32,12 @@ router.get('/', requireAuth, async (req, res) => {
   let to: string
 
   if (role === 'owner') {
-    from = req.query.from ? parseDateParam(String(req.query.from), 'start') : todayStart()
-    to   = req.query.to   ? parseDateParam(String(req.query.to),   'end')   : todayEnd()
+    from = req.query.from ? parseDayBoundary(String(req.query.from), 'start') : localDayStart()
+    to   = req.query.to   ? parseDayBoundary(String(req.query.to),   'end')   : localDayEnd()
   } else {
     // waiter / cashier solo ven el día actual
-    from = todayStart()
-    to   = todayEnd()
+    from = localDayStart()
+    to   = localDayEnd()
   }
 
   const rows = await db.select().from(bills)
@@ -73,7 +74,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
   // waiter/cashier solo pueden ver boletas del día actual
   if (req.user!.role !== 'owner') {
-    if (!bill.paidAt || bill.paidAt < todayStart() || bill.paidAt > todayEnd()) {
+    if (!bill.paidAt || bill.paidAt < localDayStart() || bill.paidAt > localDayEnd()) {
       res.status(403).json({ error: 'Sin permisos para boletas anteriores' })
       return
     }
@@ -102,28 +103,12 @@ router.get('/:id', requireAuth, async (req, res) => {
   })
 })
 
-// Helpers de fecha. La DB guarda paidAt en UTC ('YYYY-MM-DD HH:MM:SS').
-// El "día" que ve el restaurante está en hora local (Lima/Tacna). Por eso para
-// "hoy" tomamos local 00:00–23:59 y convertimos a UTC vía toISOString().
-function todayStart(): string {
-  const d = new Date(); d.setHours(0, 0, 0, 0)
-  return d.toISOString().slice(0, 19).replace('T', ' ')
-}
-function todayEnd(): string {
-  const d = new Date(); d.setHours(23, 59, 59, 999)
-  return d.toISOString().slice(0, 19).replace('T', ' ')
-}
-function parseDateParam(s: string, kind: 'start' | 'end'): string {
-  // Acepta 'YYYY-MM-DD' (interpretado como medianoche local) o ISO completo.
-  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s)
-  const d = dateOnly ? new Date(s + 'T00:00:00') : new Date(s)
-  if (kind === 'start') d.setHours(0, 0, 0, 0)
-  else                   d.setHours(23, 59, 59, 999)
-  return d.toISOString().slice(0, 19).replace('T', ' ')
-}
+// P2: los rangos de fecha se centralizan en utils/dates
+// (localDayStart / localDayEnd / parseDayBoundary) para que "hoy" sea idéntico
+// en bills, reports y print.
 
-router.post('/', requireAuth, validateBody(CreateBillSchema), async (req, res) => {
-  const { orderId, paymentMethod, cashReceived, receiptNumber, itemIds, billGroupId } = req.body
+router.post('/', requireAuth, requireRole('owner', 'cashier'), validateBody(CreateBillSchema), async (req, res) => {
+  const { orderId, paymentMethod, cashReceived, itemIds, billGroupId } = req.body
 
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
   if (!order) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
@@ -197,80 +182,95 @@ router.post('/', requireAuth, validateBody(CreateBillSchema), async (req, res) =
   let result: {
     bill: typeof bills.$inferSelect
     fullyPaid: boolean
-  }
+  } | undefined
+
+  // P1: el número de boleta se genera en el SERVIDOR, dentro de la transacción,
+  // calculando MAX+1 de forma atómica. El cliente ya no lo manda (eliminamos la
+  // clase de bug de números duplicados entre dispositivos con contadores locales).
+  // El UNIQUE de receiptNumber + el reintento cubren la carrera teórica de dos
+  // cobros que calculen el mismo MAX+1 (con SQLite, un único escritor, es muy raro).
   try {
-    result = await db.transaction(async (tx) => {
-      // Pre-check de colisión de número (atómico dentro del tx).
-      const [taken] = await tx.select({ id: bills.id }).from(bills)
-        .where(eq(bills.receiptNumber, receiptNumber)).limit(1)
-      if (taken) {
-        throw Object.assign(new Error('RECEIPT_TAKEN'), { httpStatus: 409 })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await db.transaction(async (tx) => {
+          // C7: número siguiente atómico (MAX del sufijo numérico + 1).
+          const [maxRow] = await tx
+            .select({
+              max: sql<number | null>`MAX(CAST(SUBSTR(${bills.receiptNumber}, INSTR(${bills.receiptNumber}, '-')+1) AS INTEGER))`,
+            })
+            .from(bills)
+          const receiptNumber = `B001-${String((maxRow?.max ?? 0) + 1).padStart(5, '0')}`
+
+          const [bill] = await tx.insert(bills).values({
+            orderId,
+            subtotal: total,
+            total,
+            paymentMethod,
+            // El schema + la validación anterior garantizan que cuando
+            // paymentMethod === 'cash', cashReceived es un número >= total.
+            cashReceived: paymentMethod === 'cash' ? cashReceived! : null,
+            changeAmount: paymentMethod === 'cash' ? (cashReceived! - total) : null,
+            receiptNumber,
+            createdBy: req.user!.id,
+          }).returning()
+
+          // Marcar items como pagados
+          await tx.update(orderItems)
+            .set({ billId: bill.id })
+            .where(inArray(orderItems.id, targetItems.map(i => i.id)))
+
+          // Si pagamos un grupo, marcarlo como pagado SÓLO si ya no le quedan items
+          // sin facturar. Cubre items agregados al grupo entre la confirmación y el cobro.
+          if (groupBeingPaid) {
+            const groupRemaining = await tx.select().from(orderItems).where(and(
+              eq(orderItems.orderId, orderId),
+              eq(orderItems.billGroupId, groupBeingPaid.id),
+              isNull(orderItems.billId),
+            ))
+            if (groupRemaining.length === 0) {
+              await tx.update(billGroups)
+                .set({ status: 'paid', billId: bill.id })
+                .where(eq(billGroups.id, groupBeingPaid.id))
+            }
+          }
+
+          // ¿Quedan items sin facturar?
+          const remaining = await tx.select().from(orderItems).where(and(
+            eq(orderItems.orderId, orderId),
+            isNull(orderItems.billId),
+          ))
+          const fullyPaid = remaining.length === 0
+
+          if (fullyPaid) {
+            await tx.update(orders)
+              .set({ status: 'paid', updatedAt: new Date().toISOString() })
+              .where(eq(orders.id, orderId))
+
+            if (order.tableId) {
+              await tx.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
+            }
+          }
+
+          return { bill, fullyPaid }
+        })
+        break // éxito
+      } catch (err: any) {
+        // Carrera de numeración: el UNIQUE de receiptNumber falló. Reintentamos
+        // recalculando MAX+1. Cualquier otro error se propaga.
+        if (/UNIQUE/i.test(String(err?.message ?? '')) && attempt < 2) continue
+        throw err
       }
-
-      const [bill] = await tx.insert(bills).values({
-        orderId,
-        subtotal: total,
-        total,
-        paymentMethod,
-        // En este punto, el schema + la validación anterior garantizan que cuando
-        // paymentMethod === 'cash', cashReceived es un número >= total.
-        cashReceived: paymentMethod === 'cash' ? cashReceived! : null,
-        changeAmount: paymentMethod === 'cash' ? (cashReceived! - total) : null,
-        receiptNumber,
-        createdBy: req.user!.id,
-      }).returning()
-
-      // Marcar items como pagados
-      await tx.update(orderItems)
-        .set({ billId: bill.id })
-        .where(inArray(orderItems.id, targetItems.map(i => i.id)))
-
-      // Si pagamos un grupo, marcarlo como pagado SÓLO si ya no le quedan items
-      // sin facturar. Esto cubre el caso en el que se agregaron items al grupo
-      // entre la confirmación y el cobro: el grupo sigue abierto para esos extras.
-      if (groupBeingPaid) {
-        const groupRemaining = await tx.select().from(orderItems).where(and(
-          eq(orderItems.orderId, orderId),
-          eq(orderItems.billGroupId, groupBeingPaid.id),
-          isNull(orderItems.billId),
-        ))
-        if (groupRemaining.length === 0) {
-          await tx.update(billGroups)
-            .set({ status: 'paid', billId: bill.id })
-            .where(eq(billGroups.id, groupBeingPaid.id))
-        }
-      }
-
-      // ¿Quedan items sin facturar?
-      const remaining = await tx.select().from(orderItems).where(and(
-        eq(orderItems.orderId, orderId),
-        isNull(orderItems.billId),
-      ))
-      const fullyPaid = remaining.length === 0
-
-      if (fullyPaid) {
-        await tx.update(orders)
-          .set({ status: 'paid', updatedAt: new Date().toISOString() })
-          .where(eq(orders.id, orderId))
-
-        if (order.tableId) {
-          await tx.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
-        }
-      }
-
-      return { bill, fullyPaid }
-    })
-  } catch (error: any) {
-    if (error?.message === 'RECEIPT_TAKEN' || error?.httpStatus === 409) {
-      res.status(409).json({
-        error: 'El número de boleta ya está en uso. Reintentá — el sistema generará uno nuevo.',
-        code: 'RECEIPT_TAKEN',
-      })
-      return
     }
-    // A2: ya no exponer error.message al cliente; loguear server-side.
+  } catch (error: any) {
+    // A2: no exponer error.message al cliente; loguear server-side.
     console.error('[bills POST] Error en transacción:', error)
     res.status(500).json({ error: 'Error interno al crear boleta' })
+    return
+  }
+
+  if (!result) {
+    console.error('[bills POST] No se pudo generar un número de boleta único tras varios intentos')
+    res.status(500).json({ error: 'No se pudo generar el número de boleta. Reintentá.' })
     return
   }
 

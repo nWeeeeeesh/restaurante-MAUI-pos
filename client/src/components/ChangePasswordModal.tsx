@@ -14,7 +14,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 
   const handleSave = async () => {
     if (!current || !next) { toast({ variant: 'warning', title: 'Completa todos los campos' }); return }
-    if (next.length < 4)   { toast({ variant: 'warning', title: 'La nueva contraseña debe tener al menos 4 caracteres' }); return }
+    if (next.length < 8)   { toast({ variant: 'warning', title: 'La nueva contraseña debe tener al menos 8 caracteres' }); return }
     if (next !== confirm)  { toast({ variant: 'warning', title: 'Las contraseñas no coinciden' }); return }
     setSaving(true)
     try {

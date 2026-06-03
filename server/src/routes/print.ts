@@ -17,17 +17,14 @@ import {
   checkPrinterStatus,
   clearWindowsQueue,
 } from '../utils/printer'
+import { localDayStart, localDayEnd } from '../utils/dates'
 
 const router = Router()
 
 // Helper local para validar acceso por rol (waiter/cashier solo hoy)
 function isToday(paidAt: string | null): boolean {
   if (!paidAt) return false
-  const start = new Date(); start.setHours(0, 0, 0, 0)
-  const end   = new Date(); end.setHours(23, 59, 59, 999)
-  const startUtc = start.toISOString().slice(0, 19).replace('T', ' ')
-  const endUtc   = end.toISOString().slice(0, 19).replace('T', ' ')
-  return paidAt >= startUtc && paidAt <= endUtc
+  return paidAt >= localDayStart() && paidAt <= localDayEnd()
 }
 
 // GET /api/print/status — diagnostico rapido sin imprimir nada

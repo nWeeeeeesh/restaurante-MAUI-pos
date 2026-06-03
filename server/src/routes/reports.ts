@@ -5,22 +5,9 @@ import { bills, orders, orderItems, expenses } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { CreateExpenseSchema } from '../schemas/reports'
+import { periodStart, localDateString } from '../utils/dates'
 
 const router = Router()
-
-function periodStart(period: string): string {
-  const now = new Date()
-  if (period === 'today') {
-    now.setUTCHours(0, 0, 0, 0)
-  } else if (period === 'week') {
-    now.setDate(now.getDate() - 7)
-    now.setUTCHours(0, 0, 0, 0)
-  } else {
-    now.setUTCDate(1)
-    now.setUTCHours(0, 0, 0, 0)
-  }
-  return now.toISOString().replace('T', ' ').substring(0, 19)
-}
 
 // GET /api/reports/summary?period=today|week|month
 router.get('/summary', requireAuth, requireRole('owner', 'cashier'), async (req, res) => {
@@ -111,7 +98,7 @@ router.post(
       description,
       amount,
       category: category || 'general',
-      date: date || new Date().toISOString().substring(0, 10),
+      date: date || localDateString(),
       notes: notes ?? null,
       createdBy: req.user!.id,
     }).returning()

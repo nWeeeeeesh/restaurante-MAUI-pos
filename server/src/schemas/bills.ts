@@ -5,11 +5,12 @@ import { z } from 'zod'
 // del lado del server en base a los items reales. Esa validación se hace
 // en el handler tras conocer el total. Sí garantizamos que cuando el método
 // es 'cash', cashReceived sea un número >= 0.
+// P1: receiptNumber YA NO viene del cliente — lo genera el servidor dentro de la
+// transacción de cobro (ver routes/bills.ts).
 export const CreateBillSchema = z.object({
   orderId: z.number().int().positive(),
   paymentMethod: z.enum(['cash', 'yape', 'plin']),
   cashReceived: z.number().nonnegative().max(999999).optional().nullable(),
-  receiptNumber: z.string().trim().min(1).max(40),
   itemIds: z.array(z.number().int().positive()).max(500).optional(),
   billGroupId: z.number().int().positive().optional(),
 }).refine(
