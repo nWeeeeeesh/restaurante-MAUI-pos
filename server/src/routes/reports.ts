@@ -3,14 +3,17 @@ import { eq, gte, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, expenses } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
-import { validateBody } from '../middleware/validate'
-import { CreateExpenseSchema } from '../schemas/reports'
+import { validateBody, validateQuery } from '../middleware/validate'
+import {
+  CreateExpenseSchema, UpdateExpenseSchema,
+  PeriodQuerySchema, DateRangeQuerySchema,
+} from '../schemas/reports'
 import { periodStart, localDateString } from '../utils/dates'
 
 const router = Router()
 
 // GET /api/reports/summary?period=today|week|month
-router.get('/summary', requireAuth, requireRole('owner', 'cashier'), async (req, res) => {
+router.get('/summary', requireAuth, requireRole('owner', 'cashier'), validateQuery(PeriodQuerySchema), async (req, res) => {
   const period = (req.query.period as string) || 'today'
   const start = periodStart(period)
 
@@ -53,7 +56,7 @@ router.get('/summary', requireAuth, requireRole('owner', 'cashier'), async (req,
 })
 
 // GET /api/reports/expenses?period=today|week|month
-router.get('/expenses', requireAuth, requireRole('owner', 'cashier'), async (req, res) => {
+router.get('/expenses', requireAuth, requireRole('owner', 'cashier'), validateQuery(PeriodQuerySchema), async (req, res) => {
   const period = (req.query.period as string) || 'today'
   const start = periodStart(period).substring(0, 10)
 
@@ -65,7 +68,7 @@ router.get('/expenses', requireAuth, requireRole('owner', 'cashier'), async (req
 })
 
 // GET /api/reports/bills?period=today|week|month
-router.get('/bills', requireAuth, requireRole('owner', 'cashier'), async (req, res) => {
+router.get('/bills', requireAuth, requireRole('owner', 'cashier'), validateQuery(PeriodQuerySchema), async (req, res) => {
   const period = (req.query.period as string) || 'today'
   const start = periodStart(period)
 
@@ -89,21 +92,40 @@ router.get('/bills', requireAuth, requireRole('owner', 'cashier'), async (req, r
 })
 
 // POST /api/reports/expenses
-router.post(
-  '/expenses',
-  requireAuth, requireRole('owner', 'cashier'), validateBody(CreateExpenseSchema),
-  async (req, res) => {
-    const { description, amount, category, date, notes } = req.body
-    const [expense] = await db.insert(expenses).values({
-      description,
-      amount,
-      category: category || 'general',
-      date: date || localDateString(),
-      notes: notes ?? null,
-      createdBy: req.user!.id,
-    }).returning()
-    res.status(201).json(expense)
-  },
-)
+router.post('/expenses', requireAuth, requireRole('owner', 'cashier'), validateBody(CreateExpenseSchema), async (req, res) => {
+  const { description, amount, category, date, notes } = req.body
+  const [expense] = await db.insert(expenses).values({
+    description,
+    amount,
+    category: category || 'general',
+    date: date || localDateString(),
+    notes: notes ?? null,
+    createdBy: req.user!.id,
+  }).returning()
+  res.status(201).json(expense)
+})
+
+// PATCH /api/reports/expenses/:id
+router.patch('/expenses/:id', requireAuth, requireRole('owner'), validateBody(UpdateExpenseSchema), async (req, res) => {
+  const id = Number(req.params.id)
+  const [existing] = await db.select().from(expenses).where(eq(expenses.id, id))
+  if (!existing) { res.status(404).json({ error: 'Gasto no encontrado' }); return }
+
+  const [updated] = await db.update(expenses)
+    .set(req.body)
+    .where(eq(expenses.id, id))
+    .returning()
+  res.json(updated)
+})
+
+// DELETE /api/reports/expenses/:id
+router.delete('/expenses/:id', requireAuth, requireRole('owner'), async (req, res) => {
+  const id = Number(req.params.id)
+  const [existing] = await db.select().from(expenses).where(eq(expenses.id, id))
+  if (!existing) { res.status(404).json({ error: 'Gasto no encontrado' }); return }
+
+  await db.delete(expenses).where(eq(expenses.id, id))
+  res.json({ ok: true })
+})
 
 export default router

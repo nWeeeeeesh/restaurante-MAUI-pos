@@ -38,5 +38,18 @@ export async function applyStartupMigrations() {
     console.warn('[migrate] layout_items failed:', e.message)
   }
 
+  // 3) Índices de rendimiento — idempotentes con IF NOT EXISTS.
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_order_items_bill_id   ON order_items(bill_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_bills_paid_at         ON bills(paid_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_orders_table_status   ON orders(table_id, status)`,
+  ]
+  for (const sql of indexes) {
+    try { await client.execute(sql) } catch (e: any) {
+      console.warn('[migrate] index failed:', e.message)
+    }
+  }
+
   client.close()
 }

@@ -106,8 +106,8 @@ function computeContentBounds(tables: ApiTable[], items: LayoutItem[]) {
   maxX = Math.min(CANVAS_W, maxX + CONTENT_PAD)
   maxY = Math.min(CANVAS_H, maxY + CONTENT_PAD)
 
-  let w = maxX - minX
-  let h = maxY - minY
+  const w = maxX - minX
+  const h = maxY - minY
   const ar = w / h
   if (ar > MAX_AR) {
     const newH = w / MAX_AR

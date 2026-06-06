@@ -8,6 +8,8 @@ import { CreateBillSchema } from '../schemas/bills'
 import { io } from '../index'
 import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
 import { createBill, BillingError } from '../services/billing.service'
+import { validateQuery } from '../middleware/validate'
+import { DateRangeQuerySchema } from '../schemas/bills'
 
 const router = Router()
 
@@ -27,7 +29,7 @@ router.get('/next-number', requireAuth, async (_req, res) => {
 })
 
 // GET /api/bills — historial. waiter/cashier ven solo HOY; owner puede pasar from/to
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, res) => {
   const role = req.user!.role
   let from: string
   let to: string

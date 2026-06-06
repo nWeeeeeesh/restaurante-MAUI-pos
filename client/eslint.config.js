@@ -18,5 +18,13 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Pre-existente: catch handlers de axios usan any intencionalmente.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      // Zustand llama set() dentro de socket.on() registrado en useEffect — patrón válido.
+      'react-hooks/set-state-in-effect': 'warn',
+      // Los stores exportan funciones utilitarias junto al hook — intencional.
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

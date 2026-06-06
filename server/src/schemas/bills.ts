@@ -19,3 +19,5 @@ export const CreateBillSchema = z.object({
 )
 
 export type CreateBillInput = z.infer<typeof CreateBillSchema>
+
+export { DateRangeQuerySchema } from './reports'
