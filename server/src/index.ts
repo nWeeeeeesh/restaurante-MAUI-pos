@@ -1,10 +1,9 @@
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import jwt from 'jsonwebtoken'
 import * as dotenv from 'dotenv'
 dotenv.config()
 
-import type { AuthPayload } from './middleware/auth'
+import { resolveSessionUser, type AuthPayload } from './middleware/auth'
 import { createApp, type AllowedOrigins } from './app'
 import { applyStartupMigrations } from './db/migrate'
 import { setIo } from './realtime'
@@ -55,18 +54,16 @@ setIo(io)
 // C3: middleware de autenticación para Socket.io. Antes, cualquier cliente sin
 // token podía conectarse y escuchar todos los eventos (order:new, kitchen:print-result, etc).
 // Ahora se exige un JWT válido en el handshake (mismo que se usa para REST).
-io.use((socket, next) => {
+// Igual que en HTTP, se verifica que el usuario siga activo (TD-13).
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token
   if (typeof token !== 'string' || !token) {
     return next(new Error('Unauthorized: missing token'))
   }
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthPayload
-    socket.data.user = payload
-    next()
-  } catch {
-    next(new Error('Unauthorized: invalid token'))
-  }
+  const user = await resolveSessionUser(token).catch(() => null)
+  if (!user) return next(new Error('Unauthorized: invalid token'))
+  socket.data.user = user
+  next()
 })
 
 io.on('connection', (socket) => {

@@ -19,7 +19,12 @@ socket.on('connect', () => useConnectionStore.getState().set('connected'))
 socket.on('disconnect', (reason: string) => {
   // Si el servidor cerró la conexión deliberadamente (logout / token inválido),
   // no mostramos banner de reconexión: el flujo de auth ya redirige a /login.
-  if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+  if (reason === 'io server disconnect') {
+    // El servidor corta el socket cuando al usuario lo inhabilitan o le cambian el
+    // rol (TD-13): se recarga para validar la sesión y tomar los permisos vigentes.
+    useConnectionStore.getState().set('idle')
+    window.location.reload()
+  } else if (reason === 'io client disconnect') {
     useConnectionStore.getState().set('idle')
   } else {
     useConnectionStore.getState().set('disconnected', reason)

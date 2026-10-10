@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
+import { disconnectUser } from '../realtime'
 import { validateBody } from '../middleware/validate'
 import {
   CreateUserSchema,
@@ -97,9 +98,13 @@ router.patch(
       }
     }
 
+    const [before] = await db.select().from(users).where(eq(users.id, id))
+    if (!before) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
     await db.update(users).set(updates).where(eq(users.id, id))
     const [u] = await db.select().from(users).where(eq(users.id, id))
-    if (!u) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
+    // Al inhabilitar o cambiar el rol, se cortan sus sockets abiertos: el próximo
+    // request HTTP ya usa el estado nuevo (requireAuth consulta la BD).
+    if (u.active === false || u.role !== before.role) disconnectUser(id)
     res.json(publicShape(u))
   },
 )
