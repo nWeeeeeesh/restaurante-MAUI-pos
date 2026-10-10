@@ -268,7 +268,7 @@ export async function resolveItems(db: Executor, items: OrderItemRequest[]): Pro
         throw new DomainError(`Modificador inválido para ${dish.name}`, 400, 'INVALID_MODIFIER')
       }
       const entry: StoredModifier = { groupId: group.id, groupName: group.name }
-      if (mod.optionId != null) {
+      if (mod.optionId !== undefined && mod.optionId !== null) {
         const option = optionById.get(mod.optionId)
         if (!option || option.groupId !== group.id) {
           throw new DomainError(`Opción inválida en "${group.name}" para ${dish.name}`, 400, 'INVALID_MODIFIER')

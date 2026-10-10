@@ -53,7 +53,7 @@ router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, re
       orderType: o?.type ?? null,
       tableId: o?.tableId ?? null,
       // Número visible de la mesa (TD-06); tableId es solo la clave técnica
-      tableNumber: o?.tableId != null ? numberByTableId.get(o.tableId) ?? null : null,
+      tableNumber: o?.tableId ? numberByTableId.get(o.tableId) ?? null : null,
       customerName: o?.customerName ?? null,
       cashierName: u?.name ?? null,
     }
