@@ -1,14 +1,15 @@
 import { Router } from 'express'
-import { eq, gte, desc, sql } from 'drizzle-orm'
+import { eq, gte, desc } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, orderItems, expenses, tables } from '../db/schema'
+import { bills, orders, expenses, tables } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody, validateQuery } from '../middleware/validate'
 import {
   CreateExpenseSchema, UpdateExpenseSchema,
-  PeriodQuerySchema, DateRangeQuerySchema,
+  PeriodQuerySchema,
 } from '../schemas/reports'
 import { periodStart, localDateString } from '../utils/dates'
+import { salesSummary } from '../services/report.service'
 
 const router = Router()
 
@@ -17,42 +18,7 @@ router.get('/summary', requireAuth, requireRole('owner', 'cashier'), validateQue
   const period = (req.query.period as string) || 'today'
   const start = periodStart(period)
 
-  const billList = await db.select().from(bills).where(gte(bills.paidAt, start))
-
-  const totalSales = billList.reduce((s, b) => s + b.total, 0)
-  const orderCount = billList.length
-  const byMethod = {
-    cash: billList.filter(b => b.paymentMethod === 'cash').reduce((s, b) => s + b.total, 0),
-    yape: billList.filter(b => b.paymentMethod === 'yape').reduce((s, b) => s + b.total, 0),
-    plin: billList.filter(b => b.paymentMethod === 'plin').reduce((s, b) => s + b.total, 0),
-  }
-
-  const topDishes = await db
-    .select({
-      dishName: orderItems.dishName,
-      totalQty: sql<number>`sum(${orderItems.quantity})`,
-      totalRevenue: sql<number>`sum(${orderItems.unitPrice} * ${orderItems.quantity})`,
-    })
-    .from(orderItems)
-    .innerJoin(orders, eq(orderItems.orderId, orders.id))
-    .innerJoin(bills, eq(bills.orderId, orders.id))
-    .where(gte(bills.paidAt, start))
-    .groupBy(orderItems.dishName)
-    .orderBy(desc(sql<number>`sum(${orderItems.quantity})`))
-    .limit(8)
-
-  const daily = await db
-    .select({
-      date: sql<string>`date(${bills.paidAt})`,
-      total: sql<number>`sum(${bills.total})`,
-      count: sql<number>`count(*)`,
-    })
-    .from(bills)
-    .where(gte(bills.paidAt, start))
-    .groupBy(sql`date(${bills.paidAt})`)
-    .orderBy(sql`date(${bills.paidAt})`)
-
-  res.json({ totalSales, orderCount, byMethod, topDishes, daily })
+  res.json(await salesSummary(db, start))
 })
 
 // GET /api/reports/expenses?period=today|week|month

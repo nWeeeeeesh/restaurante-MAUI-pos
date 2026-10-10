@@ -1,8 +1,10 @@
+import { formatDbDateTime } from './dates'
+
 type Period = 'today' | 'week' | 'month'
 
 interface Summary {
   totalSales: number
-  orderCount: number
+  billCount: number
   byMethod: { cash: number; yape: number; plin: number }
   topDishes: { dishName: string; totalQty: number; totalRevenue: number }[]
   daily: { date: string; total: number; count: number }[]
@@ -46,8 +48,8 @@ function badge(method: 'cash' | 'yape' | 'plin'): string {
   return `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;${styles[method]}">${PAY_LABEL[method]}</span>`
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('es-PE', {
+function formatDate(value: string): string {
+  return formatDbDateTime(value, {
     day: '2-digit', month: '2-digit', year: '2-digit',
     hour: '2-digit', minute: '2-digit',
   })
@@ -181,7 +183,7 @@ export function generateReportHTML(
     <div style="grid-column:span 2;background:linear-gradient(135deg,#0077B6,#004E86);color:#fff;border-radius:12px;padding:20px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;opacity:.7;margin-bottom:6px">Total Ventas</div>
       <div style="font-size:32px;font-weight:900">${fmt(summary.totalSales)}</div>
-      <div style="font-size:11px;opacity:.6;margin-top:4px">${summary.orderCount} pedido${summary.orderCount !== 1 ? 's' : ''} cobrado${summary.orderCount !== 1 ? 's' : ''}</div>
+      <div style="font-size:11px;opacity:.6;margin-top:4px">${summary.billCount} boleta${summary.billCount !== 1 ? 's' : ''}</div>
     </div>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:6px">Efectivo</div>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import { formatDbDateTime } from '../utils/dates'
 import { useAuthStore } from '../store/auth'
 import { useToastStore, printerErrorMessage } from '../store/toast'
 import {
@@ -48,13 +49,8 @@ const PAY_COLOR: Record<PayMethod, string> = {
   plin: 'bg-sky-50 text-sky-700',
 }
 
-function formatLocal(paidAt: string): string {
-  // paidAt es 'YYYY-MM-DD HH:MM:SS' UTC; lo convertimos a hora local
-  return new Date(paidAt + 'Z').toLocaleString('es-PE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
+// paidAt es 'YYYY-MM-DD HH:MM:SS' UTC; se muestra en hora local
+const formatLocal = (paidAt: string) => formatDbDateTime(paidAt)
 
 function todayISO(): string {
   const d = new Date()

@@ -50,6 +50,13 @@ export function periodStart(period: string): string {
   return toDbUtc(d)
 }
 
+// Modificador de SQLite para pasar un timestamp UTC a hora local en date()/datetime().
+// getTimezoneOffset devuelve minutos a SUMAR a la hora local para obtener UTC
+// (300 en Lima, UTC-5), así que local = UTC - offset. Perú no tiene horario de verano.
+export function sqliteLocalOffset(tzOffsetMinutes = new Date().getTimezoneOffset()): string {
+  return `${-tzOffsetMinutes} minutes`
+}
+
 // Fecha local en formato 'YYYY-MM-DD' (para columnas DATE como expenses.date).
 export function localDateString(base: Date = new Date()): string {
   const d = new Date(base)

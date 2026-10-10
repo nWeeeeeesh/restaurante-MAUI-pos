@@ -5,13 +5,15 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 import api from '../api/client'
+import { useToastStore } from '../store/toast'
+import { formatDbDateTime } from '../utils/dates'
 import { generateReportHTML } from '../utils/reportHTML'
 
 type Period = 'today' | 'week' | 'month'
 
 interface Summary {
   totalSales: number
-  orderCount: number
+  billCount: number
   byMethod: { cash: number; yape: number; plin: number }
   topDishes: { dishName: string; totalQty: number; totalRevenue: number }[]
   daily: { date: string; total: number; count: number }[]
@@ -74,7 +76,7 @@ function buildCSV(period: Period, summary: Summary, expenses: Expense[], billHis
     [],
     ['RESUMEN'],
     ['Total Ventas', `S/ ${summary.totalSales.toFixed(2)}`],
-    ['Pedidos', summary.orderCount.toString()],
+    ['Boletas', summary.billCount.toString()],
     ['Efectivo', `S/ ${summary.byMethod.cash.toFixed(2)}`],
     ['Yape', `S/ ${summary.byMethod.yape.toFixed(2)}`],
     ['Plin', `S/ ${summary.byMethod.plin.toFixed(2)}`],
@@ -111,7 +113,7 @@ function buildCSV(period: Period, summary: Summary, expenses: Expense[], billHis
     rows.push(['HISTORIAL DE BOLETAS'], ['Boleta', 'Fecha y Hora', 'Mesa/Cliente', 'Método', 'Total (S/)'])
     billHistory.forEach(b => {
       const dest = b.orderType === 'delivery' ? `Delivery - ${b.customerName ?? ''}` : `Mesa ${b.tableNumber ?? '?'}`
-      rows.push([b.receiptNumber, b.paidAt ?? '', dest, b.paymentMethod, b.total.toFixed(2)])
+      rows.push([b.receiptNumber, formatDbDateTime(b.paidAt), dest, b.paymentMethod, b.total.toFixed(2)])
     })
   }
 
@@ -134,6 +136,7 @@ export default function Reports() {
   const [loading, setLoading]     = useState(true)
   const [form, setForm]           = useState({ description: '', amount: '', category: 'ingredientes' })
   const [adding, setAdding]       = useState(false)
+  const pushToast = useToastStore(st => st.push)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -146,10 +149,12 @@ export default function Reports() {
       setSummary(s.data)
       setExpenses(e.data)
       setBills(b.data)
+    } catch (err: any) {
+      pushToast({ variant: 'error', title: 'No se pudieron cargar los reportes', message: err?.response?.data?.error ?? 'Verifica la conexión.' })
     } finally {
       setLoading(false)
     }
-  }, [period])
+  }, [period, pushToast])
 
   useEffect(() => { load() }, [load])
 
@@ -165,6 +170,8 @@ export default function Reports() {
       })
       setForm(f => ({ ...f, description: '', amount: '' }))
       await load()
+    } catch (err: any) {
+      pushToast({ variant: 'error', title: 'No se pudo registrar el gasto', message: err?.response?.data?.error ?? 'Intenta nuevamente.' })
     } finally {
       setAdding(false)
     }
@@ -200,8 +207,9 @@ export default function Reports() {
     win.document.close()
   }
 
-  const formatBillDate = (iso: string) =>
-    new Date(iso).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  // paidAt viene en UTC de la BD: sin convertir se mostraba 5 h corrido (TD-10)
+  const formatBillDate = (value: string) =>
+    formatDbDateTime(value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="h-full overflow-y-auto bg-[#EEF3F8]">
@@ -250,7 +258,7 @@ export default function Reports() {
                 <p className="text-white/70 text-xs font-bold uppercase tracking-wider mb-1">Total Ventas</p>
                 <p className="text-4xl font-black">S/ {(summary?.totalSales ?? 0).toFixed(2)}</p>
                 <p className="text-white/60 text-xs mt-2">
-                  {summary?.orderCount ?? 0} pedido{summary?.orderCount !== 1 ? 's' : ''} cobrado{summary?.orderCount !== 1 ? 's' : ''}
+                  {summary?.billCount ?? 0} boleta{summary?.billCount !== 1 ? 's' : ''}
                 </p>
               </div>
 
