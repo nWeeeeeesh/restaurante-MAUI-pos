@@ -10,7 +10,8 @@ import {
   UpdateOrderStatusSchema,
   type OrderItemInput,
 } from '../schemas/orders'
-import { io } from '../index'
+import { emit } from '../realtime'
+import { getFullOrder } from '../services/order.serializer'
 import { printKitchenTicket } from '../utils/printer'
 
 const router = Router()
@@ -60,7 +61,7 @@ async function autoPrintKitchen(opts: {
       .set({ kitchenPrinted: true })
       .where(inArray(orderItems.id, opts.itemIds))
 
-    io.emit('kitchen:print-result', {
+    emit('kitchen:print-result', {
       orderId: opts.orderId,
       ok: true,
       isAddition: opts.isAddition,
@@ -70,7 +71,7 @@ async function autoPrintKitchen(opts: {
   } catch (err: any) {
     const reason = err?.message ?? String(err)
     console.warn('[kitchen-print] Falla al imprimir comanda:', reason)
-    io.emit('kitchen:print-result', {
+    emit('kitchen:print-result', {
       orderId: opts.orderId,
       ok: false,
       isAddition: opts.isAddition,
@@ -81,31 +82,17 @@ async function autoPrintKitchen(opts: {
   }
 }
 
-// ─── Helper: fetch full order with items ──────────────────────────────────────
-async function getFullOrder(orderId: number) {
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
-  if (!order) return null
-  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-  const groups = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-  return {
-    ...order,
-    createdAt: order.createdAt ? new Date(order.createdAt + 'Z').toISOString() : new Date().toISOString(),
-    items: items.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers ?? '[]') })),
-    billGroups: groups,
-  }
-}
-
 // GET /api/orders/active
 router.get('/active', requireAuth, async (_req, res) => {
   const activeOrders = await db.select().from(orders)
     .where(notInArray(orders.status, ['paid', 'cancelled']))
-  const result = await Promise.all(activeOrders.map(o => getFullOrder(o.id)))
+  const result = await Promise.all(activeOrders.map(o => getFullOrder(db, o.id)))
   res.json(result.filter(Boolean))
 })
 
 // GET /api/orders/:id
 router.get('/:id', requireAuth, async (req, res) => {
-  const order = await getFullOrder(Number(req.params.id))
+  const order = await getFullOrder(db, Number(req.params.id))
   if (!order) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
   res.json(order)
 })
@@ -164,8 +151,8 @@ router.post('/', requireAuth, validateBody(CreateOrderSchema), async (req, res) 
     waiterName: req.user!.name,
   })
 
-  const full = await getFullOrder(order.id)
-  io.emit('order:new', full)
+  const full = await getFullOrder(db, order.id)
+  emit('order:new', full)
   res.status(201).json(full)
 })
 
@@ -221,8 +208,8 @@ router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req,
     waiterName: req.user!.name,
   })
 
-  const full = await getFullOrder(orderId)
-  io.emit('order:updated', full)
+  const full = await getFullOrder(db, orderId)
+  emit('order:updated', full)
   res.json(full)
 })
 
@@ -265,13 +252,13 @@ router.post('/:id/reprint-kitchen', requireAuth, async (req, res) => {
       })),
     })
 
-    io.emit('kitchen:print-result', {
+    emit('kitchen:print-result', {
       orderId, ok: true, isAddition: false, label, itemCount: items.length, manual: true,
     })
     res.json({ ok: true })
   } catch (err: any) {
     const reason = err?.message ?? 'Error al imprimir'
-    io.emit('kitchen:print-result', {
+    emit('kitchen:print-result', {
       orderId, ok: false, isAddition: false, label, itemCount: items.length, reason, manual: true,
     })
     res.status(500).json({ error: reason })
@@ -297,11 +284,11 @@ router.patch('/:id/status', requireAuth, validateBody(UpdateOrderStatusSchema), 
     await db.update(tables).set({ status: tableStatus }).where(eq(tables.id, order.tableId))
   }
 
-  const full = await getFullOrder(orderId)
+  const full = await getFullOrder(db, orderId)
   if (status === 'paid' || status === 'cancelled') {
-    io.emit('order:removed', orderId)
+    emit('order:removed', orderId)
   } else {
-    io.emit('order:updated', full)
+    emit('order:updated', full)
   }
   res.json(full)
 })
@@ -327,8 +314,8 @@ router.patch('/:id/items/:itemId/toggle', requireAuth, async (req, res) => {
   const orderStatus = allReady ? 'ready' : 'preparing'
   await db.update(orders).set({ status: orderStatus, updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
 
-  const full = await getFullOrder(orderId)
-  io.emit('order:updated', full)
+  const full = await getFullOrder(db, orderId)
+  emit('order:updated', full)
   res.json(full)
 })
 
@@ -337,8 +324,8 @@ router.patch('/:id/ready', requireAuth, async (req, res) => {
   const orderId = Number(req.params.id)
   await db.update(orderItems).set({ status: 'ready' }).where(eq(orderItems.orderId, orderId))
   await db.update(orders).set({ status: 'ready', updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
-  const full = await getFullOrder(orderId)
-  io.emit('order:updated', full)
+  const full = await getFullOrder(db, orderId)
+  emit('order:updated', full)
   res.json(full)
 })
 
@@ -350,7 +337,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     await db.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
   }
   await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.id, orderId))
-  io.emit('order:removed', orderId)
+  emit('order:removed', orderId)
   res.status(204).send()
 })
 

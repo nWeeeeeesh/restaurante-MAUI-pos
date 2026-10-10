@@ -20,6 +20,7 @@ import tablesRoutes from './routes/tables'
 import splitRoutes from './routes/split'
 import usersRoutes from './routes/users'
 import { applyStartupMigrations } from './db/migrate'
+import { setIo } from './realtime'
 
 // ── Validación de configuración crítica al startup ────────────────────────
 // JWT_SECRET es obligatorio y debe ser largo. Sin esto, todo el flujo de auth
@@ -60,13 +61,14 @@ const corsOptions: cors.CorsOptions = {
 const app = express()
 const httpServer = createServer(app)
 
-export const io = new Server(httpServer, {
+const io = new Server(httpServer, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: allowedOrigins !== '*',
   },
 })
+setIo(io)
 
 // C3: middleware de autenticación para Socket.io. Antes, cualquier cliente sin
 // token podía conectarse y escuchar todos los eventos (order:new, kitchen:print-result, etc).

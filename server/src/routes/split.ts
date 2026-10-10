@@ -1,27 +1,19 @@
 import { Router } from 'express'
 import { eq, and, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../db'
-import { orders, orderItems, billGroups } from '../db/schema'
+import { orderItems, billGroups } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { SplitGroupsSchema, type SplitGroupsInput } from '../schemas/split'
-import { io } from '../index'
+import { emit } from '../realtime'
+import { getFullOrder } from '../services/order.serializer'
 
 const router = Router({ mergeParams: true })
 
 // Helper: re-emite la orden completa con sus grupos
 async function emitOrder(orderId: number) {
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
-  if (!order) return null
-  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-  const groups = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-  const full = {
-    ...order,
-    createdAt: order.createdAt ? new Date(order.createdAt + 'Z').toISOString() : new Date().toISOString(),
-    items: items.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers ?? '[]') })),
-    billGroups: groups,
-  }
-  io.emit('order:updated', full)
+  const full = await getFullOrder(db, orderId)
+  if (full) emit('order:updated', full)
   return full
 }
 

@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import { eq, and, gte, lte, desc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, orderItems, billGroups, users } from '../db/schema'
+import { bills, orders, orderItems, users } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { CreateBillSchema } from '../schemas/bills'
-import { io } from '../index'
+import { emit } from '../realtime'
+import { getFullOrder } from '../services/order.serializer'
 import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
 import { createBill, BillingError } from '../services/billing.service'
 import { validateQuery } from '../middleware/validate'
@@ -123,18 +124,12 @@ router.post('/', requireAuth, requireRole('owner', 'cashier'), validateBody(Crea
   }
 
   // Emits post-commit: suceden DESPUÉS de que la transacción está commiteada.
-  const { bill, fullyPaid, order } = result
+  const { bill, fullyPaid } = result
   if (fullyPaid) {
-    io.emit('order:removed', orderId)
+    emit('order:removed', orderId)
   } else {
-    const updatedItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-    const updatedGroups = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-    io.emit('order:updated', {
-      ...order,
-      createdAt: order.createdAt ? new Date(order.createdAt + 'Z').toISOString() : new Date().toISOString(),
-      items: updatedItems.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers ?? '[]') })),
-      billGroups: updatedGroups,
-    })
+    const full = await getFullOrder(db, orderId)
+    if (full) emit('order:updated', full)
   }
 
   res.status(201).json({ ...bill, fullyPaid })
