@@ -40,6 +40,8 @@ export interface BillGroup {
 export interface ActiveOrder {
   id: number
   tableId: number | null
+  // Número visible de la mesa (tableId es solo la clave técnica, TD-06)
+  tableNumber: number | null
   type: 'dine_in' | 'delivery'
   status: 'pending' | 'preparing' | 'ready' | 'paying'
   customerName: string | null

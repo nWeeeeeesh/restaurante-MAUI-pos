@@ -33,6 +33,7 @@ interface BillRecord {
   paymentMethod: 'cash' | 'yape' | 'plin'
   orderType: 'dine_in' | 'delivery'
   tableId: number | null
+  tableNumber: number | null
   customerName: string | null
 }
 
@@ -109,7 +110,7 @@ function buildCSV(period: Period, summary: Summary, expenses: Expense[], billHis
   if (billHistory.length > 0) {
     rows.push(['HISTORIAL DE BOLETAS'], ['Boleta', 'Fecha y Hora', 'Mesa/Cliente', 'Método', 'Total (S/)'])
     billHistory.forEach(b => {
-      const dest = b.orderType === 'delivery' ? `Delivery - ${b.customerName ?? ''}` : `Mesa ${b.tableId}`
+      const dest = b.orderType === 'delivery' ? `Delivery - ${b.customerName ?? ''}` : `Mesa ${b.tableNumber ?? '?'}`
       rows.push([b.receiptNumber, b.paidAt ?? '', dest, b.paymentMethod, b.total.toFixed(2)])
     })
   }
@@ -479,7 +480,7 @@ export default function Reports() {
                                 <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold">Delivery</span>
                                 {b.customerName}
                               </span>
-                            ) : `Mesa ${b.tableId}`}
+                            ) : `Mesa ${b.tableNumber ?? '?'}`}
                           </td>
                           <td className="px-4 py-3.5">
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${PAY_BADGE[b.paymentMethod]}`}>

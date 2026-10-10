@@ -21,7 +21,7 @@ export const PrintReceiptSchema = z.object({
   receiptNumber: z.string().min(1).max(40),
   date: z.string().min(1).max(60),
   orderType: z.enum(['dine-in', 'delivery']),
-  tableId: z.number().int().positive().nullable().optional(),
+  tableNumber: z.number().int().positive().nullable().optional(),
   customerName: z.string().max(200).nullable().optional(),
   cashierName: z.string().min(1).max(120),
   items: z.array(ReceiptItemSchema).min(1).max(200),
@@ -34,7 +34,7 @@ export const PrintReceiptSchema = z.object({
 export const PrintPreReceiptSchema = z.object({
   date: z.string().min(1).max(60),
   orderType: z.enum(['dine-in', 'delivery']),
-  tableId: z.number().int().positive().nullable().optional(),
+  tableNumber: z.number().int().positive().nullable().optional(),
   customerName: z.string().max(200).nullable().optional(),
   cashierName: z.string().min(1).max(120),
   items: z.array(ReceiptItemSchema).min(1).max(200),
@@ -51,7 +51,7 @@ const KitchenItemSchema = z.object({
 export const PrintKitchenSchema = z.object({
   orderId: z.number().int().positive(),
   orderType: z.enum(['dine-in', 'delivery']),
-  tableId: z.number().int().positive().nullable().optional(),
+  tableNumber: z.number().int().positive().nullable().optional(),
   customerName: z.string().max(200).nullable().optional(),
   waiterName: z.string().min(1).max(120),
   date: z.string().min(1).max(60),

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq, gte, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, orderItems, expenses } from '../db/schema'
+import { bills, orders, orderItems, expenses, tables } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody, validateQuery } from '../middleware/validate'
 import {
@@ -81,10 +81,12 @@ router.get('/bills', requireAuth, requireRole('owner', 'cashier'), validateQuery
       paymentMethod: bills.paymentMethod,
       orderType:     orders.type,
       tableId:       orders.tableId,
+      tableNumber:   tables.number,
       customerName:  orders.customerName,
     })
     .from(bills)
     .innerJoin(orders, eq(bills.orderId, orders.id))
+    .leftJoin(tables, eq(orders.tableId, tables.id))
     .where(gte(bills.paidAt, start))
     .orderBy(desc(bills.paidAt))
 

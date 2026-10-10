@@ -317,7 +317,7 @@ export interface ReceiptData {
   receiptNumber: string
   date: string
   orderType: 'dine-in' | 'delivery'
-  tableId?: number | null
+  tableNumber?: number | null
   customerName?: string | null
   cashierName: string
   items: Array<{
@@ -353,7 +353,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
       data.orderType === 'delivery' ? 'Cliente:' : 'Mesa:',
       data.orderType === 'delivery'
         ? (data.customerName ?? 'Delivery')
-        : `Mesa ${data.tableId}`,
+        : `Mesa ${data.tableNumber ?? '?'}`,
     ),
     row('Cajero:', data.cashierName),
     divider(),
@@ -403,7 +403,7 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
 export interface PreReceiptData {
   date: string
   orderType: 'dine-in' | 'delivery'
-  tableId?: number | null
+  tableNumber?: number | null
   customerName?: string | null
   cashierName: string
   items: Array<{
@@ -435,7 +435,7 @@ export async function printPreReceipt(data: PreReceiptData): Promise<void> {
       data.orderType === 'delivery' ? 'Cliente:' : 'Mesa:',
       data.orderType === 'delivery'
         ? (data.customerName ?? 'Delivery')
-        : `Mesa ${data.tableId}`,
+        : `Mesa ${data.tableNumber ?? '?'}`,
     ),
     row('Atiende:', data.cashierName),
     divider(),
@@ -471,11 +471,13 @@ export async function printPreReceipt(data: PreReceiptData): Promise<void> {
 export interface KitchenTicketData {
   orderId: number
   orderType: 'dine-in' | 'delivery'
-  tableId?: number | null
+  tableNumber?: number | null
   customerName?: string | null
   waiterName: string
   date: string
   isAddition: boolean
+  // Reimpresión manual (T6): la cocina debe distinguirla para no preparar dos veces
+  isReprint?: boolean
   items: Array<{
     dishName: string
     quantity: number
@@ -487,7 +489,7 @@ export interface KitchenTicketData {
 export async function printKitchenTicket(data: KitchenTicketData): Promise<void> {
   const headerLabel = data.orderType === 'delivery'
     ? 'DELIVERY'
-    : `MESA ${data.tableId}`
+    : `MESA ${data.tableNumber ?? '?'}`
 
   const chunks: Buffer[] = [
     CMD.INIT,
@@ -496,9 +498,11 @@ export async function printKitchenTicket(data: KitchenTicketData): Promise<void>
     CMD.BOLD_ON, CMD.DOUBLE_ON,
     txt(`${headerLabel}\n`),
     CMD.DOUBLE_OFF, CMD.BOLD_OFF,
-    data.isAddition
-      ? Buffer.concat([CMD.BOLD_ON, txt('++ ITEMS AGREGADOS ++\n'), CMD.BOLD_OFF])
-      : txt('-- COMANDA NUEVA --\n'),
+    data.isReprint
+      ? Buffer.concat([CMD.BOLD_ON, txt('-- REIMPRESION --\n'), CMD.BOLD_OFF])
+      : data.isAddition
+        ? Buffer.concat([CMD.BOLD_ON, txt('++ ITEMS AGREGADOS ++\n'), CMD.BOLD_OFF])
+        : txt('-- COMANDA NUEVA --\n'),
     CMD.ALIGN_LEFT,
     divider(),
     row(`Pedido #${String(data.orderId).padStart(4, '0')}`, data.date),

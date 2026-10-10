@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { eq, and, notInArray, inArray } from 'drizzle-orm'
+import { notInArray, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { orders, orderItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
@@ -15,6 +15,7 @@ import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
 import { createOrder, addItems, setOrderStatus, cancelOrder } from '../services/order.service'
 import { printKitchenTicket } from '../utils/printer'
+import { buildKitchenTicketData, orderLabel } from '../utils/tickets'
 
 const router = Router()
 
@@ -28,36 +29,15 @@ async function autoPrintKitchen(opts: {
 }) {
   if (opts.itemIds.length === 0) return
 
-  const [ord] = await db.select().from(orders).where(eq(orders.id, opts.orderId))
-  if (!ord) return
-  const label = ord.type === 'delivery'
-    ? `Delivery${ord.customerName ? ` · ${ord.customerName}` : ''}`
-    : `Mesa ${ord.tableId}`
+  const full = await getFullOrder(db, opts.orderId)
+  if (!full) return
+  const label = orderLabel(full)
 
   try {
-    const items = await db.select().from(orderItems)
-      .where(inArray(orderItems.id, opts.itemIds))
-
-    const date = new Date().toLocaleString('es-PE', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-
-    await printKitchenTicket({
-      orderId: opts.orderId,
-      orderType: ord.type === 'delivery' ? 'delivery' : 'dine-in',
-      tableId: ord.tableId,
-      customerName: ord.customerName,
-      waiterName: opts.waiterName,
-      date,
-      isAddition: opts.isAddition,
-      items: items.map(i => ({
-        dishName: i.dishName,
-        quantity: i.quantity ?? 1,
-        modifiers: JSON.parse(i.modifiers ?? '[]'),
-        notes: i.notes,
-      })),
-    })
+    const items = full.items.filter(i => opts.itemIds.includes(i.id))
+    await printKitchenTicket(buildKitchenTicketData({
+      order: full, items, waiterName: opts.waiterName, isAddition: opts.isAddition,
+    }))
 
     await db.update(orderItems)
       .set({ kitchenPrinted: true })
@@ -70,6 +50,9 @@ async function autoPrintKitchen(opts: {
       label,
       itemCount: opts.itemIds.length,
     })
+    // kitchenPrinted cambió: los dispositivos lo necesitan para el aviso de reimpresión
+    const updated = await getFullOrder(db, opts.orderId)
+    if (updated) emit('order:updated', updated)
   } catch (err: any) {
     const reason = err?.message ?? String(err)
     console.warn('[kitchen-print] Falla al imprimir comanda:', reason)
@@ -142,41 +125,19 @@ router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req,
 // POST /api/orders/:id/reprint-kitchen — reimprimir comanda manualmente
 router.post('/:id/reprint-kitchen', requireAuth, async (req, res) => {
   const orderId = Number(req.params.id)
-  const items = await db.select().from(orderItems)
-    .where(and(eq(orderItems.orderId, orderId), notInArray(orderItems.status, ['ready'])))
-
+  const full = await getFullOrder(db, orderId)
+  if (!full) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
+  const items = full.items
   if (items.length === 0) {
-    res.status(400).json({ error: 'No hay items pendientes para imprimir' })
+    res.status(400).json({ error: 'No hay items para imprimir' })
     return
   }
-
-  const [ord] = await db.select().from(orders).where(eq(orders.id, orderId))
-  if (!ord) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
-  const label = ord.type === 'delivery'
-    ? `Delivery${ord.customerName ? ` · ${ord.customerName}` : ''}`
-    : `Mesa ${ord.tableId}`
+  const label = orderLabel(full)
 
   try {
-    const date = new Date().toLocaleString('es-PE', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-
-    await printKitchenTicket({
-      orderId,
-      orderType: ord.type === 'delivery' ? 'delivery' : 'dine-in',
-      tableId: ord.tableId,
-      customerName: ord.customerName,
-      waiterName: req.user!.name,
-      date,
-      isAddition: false,
-      items: items.map(i => ({
-        dishName: i.dishName,
-        quantity: i.quantity ?? 1,
-        modifiers: JSON.parse(i.modifiers ?? '[]'),
-        notes: i.notes,
-      })),
-    })
+    await printKitchenTicket(buildKitchenTicketData({
+      order: full, items, waiterName: req.user!.name, isAddition: false, isReprint: true,
+    }))
 
     emit('kitchen:print-result', {
       orderId, ok: true, isAddition: false, label, itemCount: items.length, manual: true,

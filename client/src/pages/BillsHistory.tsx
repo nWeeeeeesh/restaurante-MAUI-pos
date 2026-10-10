@@ -21,6 +21,7 @@ interface BillRow {
   changeAmount: number | null
   orderType: 'dine_in' | 'delivery' | null
   tableId: number | null
+  tableNumber: number | null
   customerName: string | null
   cashierName: string | null
   orderId: number | null
@@ -28,7 +29,7 @@ interface BillRow {
 
 interface BillDetail {
   bill: BillRow
-  order: { id: number; type: 'dine_in' | 'delivery'; tableId: number | null; customerName: string | null } | null
+  order: { id: number; type: 'dine_in' | 'delivery'; tableId: number | null; tableNumber: number | null; customerName: string | null } | null
   cashier: { id: number; name: string; username: string } | null
   items: Array<{
     id: number
@@ -97,7 +98,7 @@ export default function BillsHistory() {
     return (
       b.receiptNumber.toLowerCase().includes(q) ||
       (b.customerName ?? '').toLowerCase().includes(q) ||
-      (b.tableId !== null && `mesa ${b.tableId}`.includes(q)) ||
+      (b.tableNumber !== null && `mesa ${b.tableNumber}`.includes(q)) ||
       (b.cashierName ?? '').toLowerCase().includes(q)
     )
   })
@@ -210,7 +211,7 @@ export default function BillsHistory() {
                         ? <Bike size={15} className="text-[#F4792B]"/>
                         : <LayoutGrid size={15} className="text-[#0077B6]"/>}
                       <span className="text-sm font-bold text-[#0F172A]">
-                        {b.orderType === 'delivery' ? (b.customerName ?? 'Delivery') : `Mesa ${b.tableId}`}
+                        {b.orderType === 'delivery' ? (b.customerName ?? 'Delivery') : `Mesa ${b.tableNumber ?? '?'}`}
                       </span>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${PAY_COLOR[b.paymentMethod]}`}>
@@ -258,7 +259,7 @@ export default function BillsHistory() {
                       label={selected.order?.type === 'delivery' ? 'Cliente' : 'Mesa'}
                       value={selected.order?.type === 'delivery'
                         ? (selected.order?.customerName ?? '—')
-                        : `Mesa ${selected.order?.tableId ?? '—'}`}/>
+                        : `Mesa ${selected.order?.tableNumber ?? '—'}`}/>
                     <Info label="Pago" value={PAY_LABEL[selected.bill.paymentMethod]}/>
                   </div>
 

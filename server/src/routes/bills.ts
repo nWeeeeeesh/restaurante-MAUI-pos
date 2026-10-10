@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq, and, gte, lte, desc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, orderItems, users } from '../db/schema'
+import { bills, orders, orderItems, users, tables } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { CreateBillSchema } from '../schemas/bills'
@@ -53,6 +53,9 @@ router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, re
   const userIds  = [...new Set(rows.map(b => b.createdBy).filter((x): x is number => x !== null))]
   const ords  = orderIds.length ? await db.select().from(orders).where(inArray(orders.id, orderIds)) : []
   const usrs  = userIds.length  ? await db.select().from(users).where(inArray(users.id, userIds))   : []
+  const tableIds = [...new Set(ords.map(o => o.tableId).filter((x): x is number => x !== null))]
+  const tbls  = tableIds.length ? await db.select().from(tables).where(inArray(tables.id, tableIds)) : []
+  const numberByTableId = new Map(tbls.map(t => [t.id, t.number]))
   const ordById = new Map(ords.map(o => [o.id, o]))
   const usrById = new Map(usrs.map(u => [u.id, u]))
 
@@ -63,6 +66,8 @@ router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, re
       ...b,
       orderType: o?.type ?? null,
       tableId: o?.tableId ?? null,
+      // Número visible de la mesa (TD-06); tableId es solo la clave técnica
+      tableNumber: o?.tableId != null ? numberByTableId.get(o.tableId) ?? null : null,
       customerName: o?.customerName ?? null,
       cashierName: u?.name ?? null,
     }
@@ -90,8 +95,10 @@ router.get('/:id', requireAuth, async (req, res) => {
 
   let order: any = null
   if (bill.orderId !== null) {
-    const [o] = await db.select().from(orders).where(eq(orders.id, bill.orderId))
-    order = o ?? null
+    const [row] = await db.select({ order: orders, tableNumber: tables.number })
+      .from(orders).leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(eq(orders.id, bill.orderId))
+    order = row ? { ...row.order, tableNumber: row.tableNumber } : null
   }
   let cashier: any = null
   if (bill.createdBy !== null) {

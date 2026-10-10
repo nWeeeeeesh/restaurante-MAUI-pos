@@ -16,7 +16,7 @@ interface BillRecord {
   id: number; receiptNumber: string; paidAt: string; total: number
   paymentMethod: 'cash' | 'yape' | 'plin'
   orderType: 'dine_in' | 'delivery'
-  tableId: number | null; customerName: string | null
+  tableId: number | null; tableNumber: number | null; customerName: string | null
 }
 
 const PAY_LABEL = { cash: 'Efectivo', yape: 'Yape', plin: 'Plin' }
@@ -130,7 +130,7 @@ export function generateReportHTML(
             <td style="padding:9px 12px;font-size:12px;font-weight:600;color:#0f172a">
               ${b.orderType === 'delivery'
                 ? `<span style="background:#fff7ed;color:#9a3412;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">Delivery</span> ${b.customerName ?? ''}`
-                : `Mesa ${b.tableId}`}
+                : `Mesa ${b.tableNumber ?? '?'}`}
             </td>
             <td style="padding:9px 12px">${badge(b.paymentMethod)}</td>
             <td style="padding:9px 20px;font-size:13px;font-weight:900;color:#0f172a;text-align:right">${fmt(b.total)}</td>

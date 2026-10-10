@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, orderItems, users } from '../db/schema'
+import { bills, orders, orderItems, users, tables } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import {
@@ -104,10 +104,12 @@ router.post('/reprint/:billId', requireAuth, async (req, res) => {
     return
   }
 
-  let order: any = null
+  let order: (typeof orders.$inferSelect & { tableNumber: number | null }) | null = null
   if (bill.orderId !== null) {
-    const [o] = await db.select().from(orders).where(eq(orders.id, bill.orderId))
-    order = o ?? null
+    const [row] = await db.select({ order: orders, tableNumber: tables.number })
+      .from(orders).leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(eq(orders.id, bill.orderId))
+    order = row ? { ...row.order, tableNumber: row.tableNumber } : null
   }
   let cashierName = 'Cajero'
   if (bill.createdBy !== null) {
@@ -126,7 +128,7 @@ router.post('/reprint/:billId', requireAuth, async (req, res) => {
       receiptNumber: bill.receiptNumber,
       date,
       orderType: order?.type === 'delivery' ? 'delivery' : 'dine-in',
-      tableId: order?.tableId ?? null,
+      tableNumber: order?.tableNumber ?? null,
       customerName: order?.customerName ?? null,
       cashierName,
       items: items.map(i => ({

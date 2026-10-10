@@ -24,9 +24,9 @@ const unpaidItems = (order: ActiveOrder): ActiveOrderItem[] =>
 const itemSubtotal = (i: ActiveOrderItem) => i.unitPrice * i.quantity
 
 // ─── Receipt Modal ─────────────────────────────────────────────────────────────
-function ReceiptModal({ orderType, tableId, customerName, items, receiptNumber, payMethod, cashReceived, onClose }: {
+function ReceiptModal({ orderType, tableNumber, customerName, items, receiptNumber, payMethod, cashReceived, onClose }: {
   orderType: ActiveOrder['type']
-  tableId: number | null
+  tableNumber: number | null
   customerName: string | null
   items: ActiveOrderItem[]
   receiptNumber: string
@@ -73,7 +73,7 @@ function ReceiptModal({ orderType, tableId, customerName, items, receiptNumber, 
         receiptNumber,
         date,
         orderType: orderType === 'delivery' ? 'delivery' : 'dine-in',
-        tableId,
+        tableNumber,
         customerName,
         cashierName: user?.name ?? 'Cajero',
         items: items.map(i => ({
@@ -117,7 +117,7 @@ function ReceiptModal({ orderType, tableId, customerName, items, receiptNumber, 
             <div className="row"><span>Fecha:</span><span>{date}</span></div>
             <div className="row">
               <span>{orderType === 'delivery' ? 'Delivery:' : 'Mesa:'}</span>
-              <span>{orderType === 'delivery' ? customerName : `Mesa ${tableId}`}</span>
+              <span>{orderType === 'delivery' ? customerName : `Mesa ${tableNumber ?? '?'}`}</span>
             </div>
             <div className="line" />
             {items.map(item => (
@@ -390,7 +390,7 @@ function SplitBillModal({ order, onClose, onCharge }: {
             <div className="min-w-0">
               <h3 className="font-black text-[#0F172A] text-lg leading-tight truncate">Dividir cuenta</h3>
               <p className="text-xs text-[#64748B]">
-                {order.type === 'delivery' ? order.customerName : `Mesa ${order.tableId}`} · Total S/ {totalOrder.toFixed(2)}
+                {order.type === 'delivery' ? order.customerName : `Mesa ${order.tableNumber ?? '?'}`} · Total S/ {totalOrder.toFixed(2)}
               </p>
             </div>
           </div>
@@ -860,7 +860,7 @@ export default function Cash() {
     billId: number
     orderId: number
     orderType: ActiveOrder['type']
-    tableId: number | null
+    tableNumber: number | null
     customerName: string | null
   } | null>(null)
 
@@ -954,7 +954,7 @@ export default function Cash() {
         billId: data?.id ?? -1,
         orderId: selectedOrder.id,
         orderType: selectedOrder.type,
-        tableId: selectedOrder.tableId,
+        tableNumber: selectedOrder.tableNumber,
         customerName: selectedOrder.customerName,
       })
     } catch (e: any) {
@@ -999,7 +999,7 @@ export default function Cash() {
       await api.post('/print/pre-receipt', {
         date,
         orderType: selectedOrder.type === 'delivery' ? 'delivery' : 'dine-in',
-        tableId: selectedOrder.tableId,
+        tableNumber: selectedOrder.tableNumber,
         customerName: selectedOrder.customerName,
         cashierName: user?.name ?? 'Cajero',
         items: items.map(i => ({
@@ -1076,7 +1076,7 @@ export default function Cash() {
                             : <LayoutGrid size={13} className="text-[#0077B6] shrink-0"/>
                           }
                           <span className="font-bold text-xs text-[#0F172A] truncate">
-                            {order.type === 'delivery' ? order.customerName : `Mesa ${order.tableId}`}
+                            {order.type === 'delivery' ? order.customerName : `Mesa ${order.tableNumber ?? '?'}`}
                           </span>
                         </div>
                         {/* Sin pantalla de cocina, los estados útiles son 'por cobrar' o abierto */}
@@ -1159,7 +1159,7 @@ export default function Cash() {
       {receipt && (
         <ReceiptModal
           orderType={receipt.orderType}
-          tableId={receipt.tableId}
+          tableNumber={receipt.tableNumber}
           customerName={receipt.customerName}
           items={receipt.items}
           receiptNumber={receipt.number}
