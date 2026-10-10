@@ -8,7 +8,8 @@ Guía paso a paso para desplegar MauiDesk en la Cevichería MAUI. Hardware objet
 |---|---|---|
 | Raspberry Pi 5 4GB | ✓ disponible | El servidor |
 | Caja con ventilador | ✓ disponible | Refrigeración del SoC |
-| microSD | ✓ disponible | **Trade-off conocido — ver nota abajo** |
+| microSD | ✓ disponible | Solo para el primer arranque: **reemplazar por SSD** (ver nota) |
+| SSD USB / NVMe | **requerido** (v1.1) | Disco de producción del sistema y la base de datos |
 | Fuente 5V/5A USB-C | a confirmar | El Pi 5 falla con fuentes < 5A o no oficiales |
 | Cable Ethernet × 2 | a confirmar | Uno para el Pi al router, otro para la impresora |
 | UPS mini (opcional) | opcional | Aguanta apagones de 10-30 min |
@@ -24,7 +25,7 @@ Endurance) llega a 2-3 años.
 si la SD muere, restaurás el último backup en una SD nueva y volvés a operar
 en ~30 min.
 
-**Migración futura a SSD USB** (opcional, cuando quieras blindar el sistema):
+**Migración a SSD USB** (requerida desde v1.1: es la base de datos de las ventas):
 1. Apagar el Pi.
 2. Conectar SSD USB a tu PC.
 3. Clonar la SD al SSD con Raspberry Pi Imager (opción "Use custom image" →
@@ -99,12 +100,13 @@ sudo apt update && sudo apt upgrade -y
 
 sudo apt install -y git curl build-essential
 
-# Node.js 20 LTS via NodeSource
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Node.js 24 LTS via NodeSource (Node 20 quedó fuera de soporte en abril de 2026;
+# los package.json exigen >= 22)
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # Verificar
-node --version    # v20.x.x
+node --version    # v24.x.x
 npm --version
 ```
 
@@ -183,11 +185,14 @@ Guardar con `Ctrl+O`, salir con `Ctrl+X`.
 
 ```bash
 cd /home/mauidesk/MAUI/server
-npm run db:push    # crea tablas
+npm run db:push    # crea tablas — SOLO en la primera instalación
 npm run db:seed    # inserta usuarios y menú demo
+npm run db:migrate # aplica las migraciones de arranque (índices, auditoría, WAL)
 ```
 
-**Importante:** después del primer arranque, **entrá por la web y cambiá las contraseñas seed (`admin123`, `cajero123`, `mozo123`)**.
+**Importante:**
+- después del primer arranque, **entrá por la web y cambiá las contraseñas seed (`admin123`, `cajero123`, `mozo123`)**. Mientras no lo hagas, el server lo avisa en el log al arrancar.
+- **Nunca** ejecutes `db:push` en actualizaciones: los cambios de esquema los aplica `migrate.ts` (ver Fase 12).
 
 ## Fase 8 — systemd: arranque automático
 
@@ -211,6 +216,8 @@ ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+# "Hoy", los reportes y las horas de los tickets usan la zona del proceso
+Environment=TZ=America/Lima
 EnvironmentFile=/home/mauidesk/MAUI/server/.env
 
 # Limitar reinicios para evitar loops infinitos si hay un crash recurrente
@@ -235,7 +242,7 @@ Ver logs en vivo:
 journalctl -u mauidesk -f
 ```
 
-Debería aparecer `MauiDesk server running on port 3001`.
+Debería aparecer `MauiDesk server running on port 3001` y **ninguna** línea `[startup] ATENCIÓN` (zona horaria distinta de Lima o contraseñas por defecto).
 
 ## Fase 9 — Probar end-to-end
 
@@ -300,10 +307,10 @@ Agregar:
 
 Corre todos los días a las 3 AM y mantiene 30 días de historia.
 
-**Opcional — Sincronizar backups a Google Drive con `rclone`** (muy recomendado: el SSD se puede quemar):
+**Obligatorio — Copia fuera del local con `rclone`** (un backup que vive en el mismo disco no sirve si el disco muere, se roban el equipo o hay un incendio):
 ```bash
 sudo apt install -y rclone
-rclone config         # seguir el wizard, configurar "gdrive" como remote
+rclone config         # seguir el wizard, configurar "gdrive" (o Backblaze B2) como remote
 ```
 
 Luego al final del `backup.sh` agregar:
@@ -311,17 +318,49 @@ Luego al final del `backup.sh` agregar:
 rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
 ```
 
+**Probar la restauración** (al menos una vez y después de cada cambio de equipo): bajar un backup a otra máquina, restaurarlo como se indica en *Troubleshooting* y verificar que el Historial y los Reportes muestran los mismos totales que el local. Un backup nunca restaurado no está probado.
+
+> La base usa modo WAL desde v1.1: además de `mauidisk.db` existen `mauidisk.db-wal` y `mauidisk.db-shm`. `sqlite3 .backup` los consolida en un único archivo, por eso el script no cambia.
+
 ## Fase 12 — Mantenimiento
 
 | Tarea | Comando |
 |---|---|
 | Ver logs en vivo | `journalctl -u mauidesk -f` |
 | Reiniciar el server | `sudo systemctl restart mauidesk` |
-| Actualizar código (git) | `cd ~/MAUI && git pull && cd server && npm ci && npm run build && cd ../client && npm ci && npm run build && sudo systemctl restart mauidesk` |
+| Actualizar a una versión nueva | Ver *Actualizar a una versión nueva* (abajo) |
 | Backup manual | `/home/mauidesk/backup.sh` |
 | Probar puerto impresora | `nc -zv 192.168.1.100 9100` |
 | Espacio en disco | `df -h` |
 | Limpiar logs viejos | `sudo journalctl --vacuum-time=30d` |
+
+### Actualizar a una versión nueva (con rollback)
+
+Hacerlo en un momento sin servicio. Los cambios de base de datos de cada versión son **aditivos**, así que volver a la versión anterior del código funciona con la base nueva.
+
+```bash
+# 1. Backup previo, guardado también fuera del Pi
+sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '/home/mauidesk/backups/pre-update.db'"
+
+# 2. Bajar la versión nueva (ej. la etiqueta maui-v1.1)
+cd /home/mauidesk/MAUI && git fetch --tags && git checkout maui-v1.1
+
+# 3. Detener el servicio (npm ci reemplaza node_modules) y compilar
+sudo systemctl stop mauidesk
+cd server && npm ci && npm run build
+cd ../client && npm ci && npm run build
+
+# 4. Aplicar y validar el esquema (NO usar db:push)
+cd ../server && npm run db:migrate      # debe terminar en "[migrate] OK"
+
+# 5. Arrancar y revisar el log
+sudo systemctl start mauidesk
+journalctl -u mauidesk -n 50 --no-pager
+```
+
+Después: prueba de humo con un dispositivo por rol (pedido → comanda con el número de mesa correcto → cobro → boleta → reportes).
+
+**Rollback:** `git checkout <versión anterior>` → `npm ci && npm run build` en server y client → `sudo systemctl restart mauidesk`. Restaurar `pre-update.db` solo si los datos se dañaron.
 
 ## Checklist final pre-producción
 
@@ -332,7 +371,10 @@ rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
 - [ ] Los mozos pueden tomar pedidos desde celular y la comanda sale en cocina
 - [ ] Las contraseñas seed (admin123, cajero123, mozo123) fueron cambiadas
 - [ ] El dueño accede desde fuera vía Tailscale
-- [ ] Hay un backup en `/home/mauidesk/backups/` con fecha de hoy
+- [ ] Hay un backup en `/home/mauidesk/backups/` con fecha de hoy **y su copia fuera del local**
+- [ ] Se probó restaurar un backup en otro equipo y los totales coinciden
+- [ ] El sistema corre desde el SSD (no desde la microSD)
+- [ ] El log de arranque no muestra avisos `[startup] ATENCIÓN`
 - [ ] Si tenés UPS, probar apagón y verificar que el sistema vuelve solo
 
 ## Troubleshooting
@@ -341,6 +383,9 @@ rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
 - `JWT_SECRET` falta o < 32 chars → el código aborta intencionalmente
 - Ruta de `DATABASE_URL` inaccesible
 - Puerto 3001 ya en uso
+- `[FATAL] Falló una migración requerida` → el esquema no se pudo actualizar; correr `npm run db:migrate` para ver el detalle, o volver a la versión anterior (rollback)
+
+**El log avisa "mesas con varios pedidos activos"**: hay mesas con más de un pedido abierto (datos anteriores a v1.1). El sistema funciona, pero conviene que el cajero cancele el pedido sobrante; al reiniciar, el índice de protección se crea solo.
 
 **La impresora no imprime**: probar `nc -zv 192.168.1.100 9100`. Si falla, problema de red/IP/impresora apagada. La app muestra el error en pantalla al fallar el pre-check.
 
@@ -349,6 +394,9 @@ rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
 **Después de un corte de luz la DB se corrompió**: por eso usamos `.backup` (atómico) en el script de backup, no `cp`. Restaurar el último backup:
 ```bash
 sudo systemctl stop mauidesk
+# En modo WAL hay que borrar los archivos auxiliares de la base anterior:
+# si quedan, SQLite intentaría aplicarlos sobre el backup restaurado
+rm -f /home/mauidesk/MAUI/server/mauidisk.db-wal /home/mauidesk/MAUI/server/mauidisk.db-shm
 gunzip -c /home/mauidesk/backups/mauidisk-<fecha>.db.gz > /home/mauidesk/MAUI/server/mauidisk.db
 sudo systemctl start mauidesk
 ```

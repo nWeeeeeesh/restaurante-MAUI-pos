@@ -1,14 +1,17 @@
 # MauiDesk — Guía para Claude Code
 
-POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, sin nube. Usuarios: dueño, cajero, mozos — todos operando desde celulares en la LAN del local.
+POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, sin nube. Usuarios: dueño, encargado, cajero y mozos, todos operando desde celulares en la LAN del local.
+
+**Estado del proyecto:** MAUI v1.1 está en **modo mantenimiento** (solo correcciones). Las funcionalidades nuevas van al producto POS que nace de la etiqueta `maui-v1.1`. Plan y decisiones: [docs/plan-maui-v1.1.md](docs/plan-maui-v1.1.md). Arquitectura: [docs/architecture/README.md](docs/architecture/README.md).
 
 ## Stack
 
-- **Server**: Node.js + Express 5 + TypeScript + Drizzle ORM + `@libsql/client` (SQLite local) + Socket.io 4 + Zod (validación)
+- **Server**: Node.js (≥ 22; producción con 24 LTS) + Express 5 + TypeScript + Drizzle ORM + `@libsql/client` (SQLite local) + Socket.io 4 + Zod
 - **Client**: React 19 + Vite 8 + Tailwind 4 + Zustand + React Router 7 + axios + socket.io-client + Lucide icons
-- **Auth**: JWT en `localStorage`, middleware en HTTP (`requireAuth`) y Socket.io (`io.use`)
-- **DB**: SQLite local (`server/mauidisk.db`). Migraciones idempotentes en `server/src/db/migrate.ts` corridas al startup.
-- **Impresión térmica**: ESC/POS sobre TCP (Ethernet) — modelo configurado en `server/.env`. La rama Windows existe solo para desarrollo en la PC.
+- **Auth**: JWT en `localStorage`; `requireAuth` y el handshake de Socket.io verifican además que el usuario siga activo en la BD
+- **DB**: SQLite local (`server/mauidisk.db`), modo WAL. Migraciones idempotentes en `server/src/db/migrate.ts` al arrancar.
+- **Impresión térmica**: ESC/POS sobre TCP (Ethernet), configurada en `server/.env`. La rama Windows existe solo para desarrollo en la PC.
+- **Tests**: Vitest + supertest (servidor). El cliente se verifica con typecheck, lint y pruebas manuales.
 
 ## Comandos
 
@@ -20,15 +23,19 @@ npm run dev:server   # tsx watch src/index.ts en :3001
 npm run dev:client   # vite en :5173 (proxy /api → :3001)
 
 # Base de datos
-npm run db:push      # aplicar schema de drizzle (idempotente)
+npm run db:push      # SOLO en desarrollo o primera instalación: aplica schema.ts
 npm run db:seed      # sembrar usuarios + menú demo (solo si DB vacía)
+cd server && npm run db:migrate   # aplica migrate.ts sin levantar el server (despliegues)
+
+# Verificación (antes de cada commit)
+npm run ci           # server: tsc + vitest + eslint · client: tsc + eslint
 ```
 
 Cliente compila con `npm run build` desde `client/` → genera `client/dist/`, que el server sirve estático en producción.
 
 ## Cuentas seed por defecto
 
-Solo para desarrollo. **Cambiarlas en producción tras el primer login.**
+Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el server avisa al arrancar si siguen con la contraseña por defecto).
 
 | Usuario | Password | Rol |
 |---|---|---|
@@ -36,64 +43,115 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login.**
 | `cajero` | `cajero123` | cashier |
 | `mozo1` | `mozo123` | waiter |
 
+## Roles y permisos
+
+Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
+- Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
+- Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**.
+- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, marcar platos agotados.
+- Dueño: todo, incluidos precios, menú, mesas/plano y usuarios.
+
 ## Estructura
 
 ```
 server/src/
-  index.ts           startup: valida JWT_SECRET, configura CORS, monta rutas, autentica sockets
+  index.ts           bootstrap: valida entorno, crea io, migra (fail-fast), avisos de arranque, escucha
+  app.ts             createApp(): CORS, JSON, routers, manejador de errores (usado también en tests)
+  realtime.ts        setIo / emit / disconnectUser — los routers NO importan index.ts
+  errors.ts          DomainError(message, status, code, details)
+  startup-checks.ts  avisos: zona horaria ≠ Lima, cuentas seed con contraseña por defecto
   middleware/
-    auth.ts          requireAuth, requireRole — JWT en header Authorization
-    validate.ts      validateBody(schema) — middleware Zod genérico
-  routes/            REST endpoints (auth, menu, orders, bills, split, tables, reports, print, users)
-  schemas/           Schemas Zod por recurso — usados en validateBody
+    auth.ts          requireAuth (JWT + usuario activo en BD), requireRole
+    validate.ts      validateBody / validateQuery (Zod)
+    error.ts         errores → JSON (DomainError, SQLITE_BUSY → 503, JSON inválido → 400)
+  routes/            controladores delgados (auth, menu, orders, bills, split, tables, reports, print, users)
+  services/
+    order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
+    billing.service.ts   cobro atómico (lecturas dentro de la tx, guardia bill_id IS NULL)
+    split.service.ts     sub-cuentas
+    report.service.ts    resumen de ventas (top platos por bill_id, días locales)
+    receipt.service.ts   boleta armada desde la BD
+    order.serializer.ts  forma única del pedido (incluye tableNumber)
+    audit.ts             audit(tx, …) — registro en audit_log
+  schemas/           Schemas Zod por recurso
   db/
-    schema.ts        tablas drizzle
-    migrate.ts       migraciones idempotentes (corren al startup)
+    schema.ts        tablas drizzle (incluye índices declarados)
+    migrate.ts       migraciones idempotentes: requeridas (fallo = no arranca) y opcionales
+    migrate-cli.ts   npm run db:migrate
+    write-lock.ts    withWriteLock (mutex de escrituras) + withBusyRetry
     seed.ts          datos de demostración
-    index.ts         cliente drizzle + libsql
-  utils/printer.ts   ESC/POS: TCP (cross-platform) y Windows (dev only)
+    index.ts         cliente drizzle + libsql; tipo Executor (BD o tx)
+  utils/
+    printer.ts       ESC/POS: TCP (cross-platform) y Windows (dev only)
+    tickets.ts       etiqueta de pedido, datos de comanda, selección de reimpresión
+    dates.ts / math.ts
+  __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol)
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users}
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
-  store/             zustand: auth, order (draft), orders (activos), receipt, toast, connection
-  api/               client.ts (axios + interceptors 401), socket.ts (auth handshake, listeners)
+  store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
+  api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
+  utils/             dates.ts (parseDbUtc), reportHTML.ts (escapeHtml)
 ```
 
 ## Convenciones y gotchas
 
 ### Auth
-- Todo endpoint HTTP que no sea `/api/auth/*` o `/api/health` exige `Authorization: Bearer <jwt>`.
-- Socket.io exige el mismo JWT en `socket.handshake.auth.token` — lo pasa `client/src/api/socket.ts`.
-- 401 en cualquier respuesta → el interceptor de axios borra el token y redirige a `/login`.
+- Todo endpoint HTTP que no sea `/api/auth/login` o `/api/health` exige `Authorization: Bearer <jwt>`.
+- `requireAuth` consulta el usuario en cada request: rol y nombre salen de la BD, no del token. Inhabilitar o cambiar el rol surte efecto de inmediato (y `PATCH /users/:id` corta sus sockets).
+- Login: 5 fallos por IP+usuario en 5 min → 429.
 - `JWT_SECRET` se valida al startup: si falta o es < 32 chars, el server **aborta**.
 
+### Precios y pedidos
+- **El cliente nunca define precios ni nombres.** Envía `dishId`, `quantity`, `modifiers` (`groupId`, `optionId`, `freeText`) y `notes`; `resolveItems` calcula `unitPrice = precio + priceAdjustment` desde el catálogo. Plato agotado → 409 `DISH_UNAVAILABLE`.
+- Estados del pedido: activos `pending` y `paying` ("por cobrar"); cerrados `paid` (solo lo pone el cobro) y `cancelled` (solo `POST /orders/:id/cancel` con motivo). `preparing`/`ready` son heredados y se tratan como `pending`.
+- Un pedido activo por mesa: verificado en la transacción y por el índice único parcial `uq_orders_active_table`.
+- Lo visible o impreso usa `tableNumber` (número de la mesa), nunca `tableId`.
+
 ### Validación
-- Todas las rutas POST/PATCH usan `validateBody(SchemaX)`. Si recibís un body con tipos inválidos, responde 400 con `issues` detallados (Zod).
+- Todas las rutas POST/PATCH usan `validateBody(SchemaX)`. Body inválido → 400 con `issues` (Zod).
+- Errores de negocio: lanzar `DomainError(mensaje, status, code)` desde el servicio; el manejador global responde JSON.
 - Nunca volver a `req.body as any` — usar el tipo `infer<typeof Schema>` o el `XxxInput` exportado por el schema.
 
 ### Concurrencia
-- Cobrar (`POST /api/bills`) y dividir cuenta (`POST /api/orders/:id/split`) corren dentro de `db.transaction(...)`. No agregar mutaciones nuevas a esas rutas fuera de la transacción.
-- El número de boleta se genera atómicamente con `SELECT MAX(...)` dentro de la transacción. Si colisiona (race extrema), el server responde 409 `RECEIPT_TAKEN` y el cajero recibe un toast para reintentar.
+- **Toda escritura de varios pasos va dentro de `withWriteLock(() => db.transaction(...))`**. `@libsql/client` no encola transacciones (la segunda falla con `SQLITE_BUSY`) y un `PRAGMA busy_timeout` se pierde tras cada transacción, por eso el mutex. **No anidar** `withWriteLock` (se bloquea).
+- Las precondiciones se leen **dentro** de la transacción (ver `billing.service.ts`). Al marcar ítems como cobrados se exige `bill_id IS NULL` y se verifica la cantidad de filas.
+- La impresión (lenta) ocurre **fuera** del candado; solo el `UPDATE` posterior va dentro.
+- El número de boleta se genera con `MAX+1` dentro de la transacción; el `UNIQUE` + reintento ×3 cubre colisiones.
+
+### Auditoría
+- Operaciones sensibles escriben en `audit_log` con `audit(tx, …)` **en la misma transacción**: cancelaciones, correcciones/borrados de gastos (con motivo), precios y disponibilidad de platos, cambios de usuarios y mesas. El dueño lo ve en Reportes → "Cancelaciones y correcciones".
 
 ### Socket
-- Events emitidos por el server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`.
-- Estado de conexión vive en `client/src/store/connection.ts`. El banner sticky [ReconnectBanner.tsx](client/src/components/ReconnectBanner.tsx) aparece cuando el socket está caído.
-- Hoy todos los eventos van a todos los sockets autenticados. Si más adelante se segmenta por rol, hay que cambiar `io.emit` por `io.to('role:X').emit` y hacer que los sockets se unan a salas según su payload JWT al conectar.
+- Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`. Se emiten con `emit()` de `realtime.ts`, después del commit.
+- El cliente vuelve a pedir `/orders/active` al reconectar y al volver la app al frente (más de 30 s).
+- Estado de conexión en `client/src/store/connection.ts`; banner en [ReconnectBanner.tsx](client/src/components/ReconnectBanner.tsx).
+- Todos los eventos van a todos los sockets autenticados (segmentar por rol queda para el producto).
 
 ### UX
-- Errores y avisos van por toasts (`useToastStore.push({...})`). **Nunca usar `alert()` ni `console.error` en flujos visibles**.
-- Los inputs numéricos que mostramos en celular tienen `inputMode="decimal"`. Los de teléfono tienen `inputMode="tel"`.
+- Errores y avisos van por toasts (`useToastStore.push({...})`). **Nunca usar `alert()`, `confirm()` ni `console.error` en flujos visibles**; para confirmar, `ConfirmDialog` (admite un campo de motivo como `children`).
+- Botones que envían datos tienen estado "enviando" y se deshabilitan durante el request.
+- Inputs numéricos con `inputMode="decimal"`; teléfono con `inputMode="tel"`.
+- Fechas de la BD (UTC sin zona): mostrarlas siempre con `formatDbDateTime`/`parseDbUtc` de `client/src/utils/dates.ts`.
+- Todo HTML generado con texto de usuarios pasa por `escapeHtml`.
 
 ### Impresora
-- El flujo de impresión hace `checkPrinterStatus()` ANTES de mandar el buffer ESC/POS. Si la impresora no responde, devolvemos error inmediato (no encolamos trabajos).
-- En producción (Pi) usamos `PRINTER_TYPE=tcp`. En desarrollo Windows el dev puede usar `PRINTER_TYPE=windows` con `PRINTER_NAME`.
-- La cocina **no tiene pantalla** — solo recibe la comanda impresa. La ruta `/kitchen` está deshabilitada intencionalmente en [App.tsx](client/src/App.tsx).
+- Ningún endpoint de impresión acepta el contenido del ticket: el cliente indica qué imprimir (`/print/reprint/:billId`, `/print/pre-receipt/:orderId`, `/orders/:id/reprint-kitchen`) y el servidor lo arma desde la BD.
+- `checkPrinterStatus()` corre ANTES de mandar el buffer; si la impresora no responde, error inmediato (502 `PRINTER_UNAVAILABLE`, no se encola).
+- `kitchen_printed` indica si el ítem llegó a la comanda; el POS muestra "Sin comanda" y permite reintentar solo lo pendiente.
+- En producción (Pi) `PRINTER_TYPE=tcp`. En desarrollo Windows se puede usar `PRINTER_TYPE=windows` con `PRINTER_NAME`.
+- La cocina **no tiene pantalla**: solo recibe la comanda impresa. `/kitchen` está deshabilitada en [App.tsx](client/src/App.tsx).
 
 ### DB migrations
-- Drizzle config: `server/drizzle.config.ts`.
-- Para schema changes: editar `server/src/db/schema.ts`, después `npm run db:push` (idempotente).
-- Las migraciones en `migrate.ts` corren al startup y son seguras de re-ejecutar (chequean si la columna/tabla existe primero).
+- Para cambios de esquema: editar `server/src/db/schema.ts` **y** agregar el paso idempotente en `migrate.ts` (producción no usa `db:push`).
+- Solo cambios **aditivos** (tablas, columnas nulables, índices): así volver a la versión anterior del código funciona con la BD nueva.
+- Todo índice va también en `schema.ts` con el mismo nombre; si no, `drizzle-kit push` lo borra. (`push` siempre propone recrear el índice parcial `uq_orders_active_table`: es inocuo.)
+- Pasos requeridos de `migrate.ts` que fallan → el server no arranca. Los opcionales avisan y siguen.
+
+### Tests
+- Esquema de tests generado desde `schema.ts` (`helpers/db.ts`); tests HTTP con `setupHttpApp()` y `ctx.as(rol)` (`helpers/http.ts`). Un archivo de test HTTP no debe importar estáticamente nada que importe `src/db`.
+- Al corregir un defecto: primero el test que lo reproduce.
 
 ### Estilo de código
 - Comentarios en español. Solo explican el *porqué*, no el *qué*.
@@ -107,7 +165,8 @@ Ver [server/.env.example](server/.env.example) — variables documentadas una po
 - `ALLOWED_ORIGINS` (CORS allowlist; vacío = defaults de dev)
 - `DATABASE_URL` (en Pi: ruta absoluta al SSD)
 - `PRINTER_TYPE` + (`PRINTER_HOST`/`PRINTER_PORT` o `PRINTER_NAME`)
+- Zona horaria del proceso: `TZ=America/Lima` (en la unidad systemd)
 
 ## Deploy
 
-Guía paso a paso en [DEPLOYMENT.md](DEPLOYMENT.md). Objetivo: Raspberry Pi 5 + SSD USB + systemd, impresora POS-D Basic 200 por Ethernet, Tailscale para acceso remoto del dueño, backup diario por cron.
+Guía paso a paso en [DEPLOYMENT.md](DEPLOYMENT.md): Raspberry Pi 5 + SSD + systemd, impresora POS-D Basic 200 por Ethernet, Tailscale para acceso remoto del dueño, backup diario fuera del local y procedimiento de actualización con rollback.

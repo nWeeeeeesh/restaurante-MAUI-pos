@@ -4,6 +4,23 @@
 >
 > **Cómo usar este documento:** las tareas se ejecutan en el orden indicado. Cada una tiene casillas que se marcan al terminarla, archivos a tocar, cambios concretos, criterios de aceptación y notas de implementación. Las decisiones de negocio pendientes están en la [sección 2](#2-decisiones); mientras no se confirmen, se usan los valores por defecto.
 
+## Estado de ejecución (2026-10-09)
+
+Rama `release/maui-v1.1`. Estado detallado por problema en [technical-debt.md → Estado tras MAUI v1.1](architecture/technical-debt.md#estado-tras-maui-v11).
+
+| Bloque | Estado |
+|---|---|
+| Fase 0 (P1, P3–P7) | ✅ Hecho |
+| Fase 1–3 (T1–T12) | ✅ Hecho, con tests |
+| Fase 4 (M1–M11) | ✅ Hecho (M8 quedó dentro de T8) |
+| O6 documentación | ✅ Hecho |
+| `npm run ci` | ✅ Verde: 102 tests, `tsc` y ESLint sin errores |
+| Prueba de humo contra servidor real | ✅ 18/18 pasos (BD sembrada, sin impresora) |
+| **P2** revisión de datos de producción | ⏳ Necesita una copia del backup de la Pi |
+| **Verificación manual en dispositivos** | ⏳ T4 (doble toque), T6 (impresora apagada/encendida), T7 (corte de WiFi), D2 (pedir cuenta), M10/M11 en pantalla |
+| **O1–O5** (contraseñas, SSD, backup externo + restauración, UPS/Tailscale, despliegue) | ⏳ Del lado del usuario, con el procedimiento de `DEPLOYMENT.md` |
+| **O7** merge a `main` + etiqueta `maui-v1.1` | ⏳ Tras el despliegue y una jornada sin incidentes |
+
 ## 0. Leyenda y reglas
 
 | Marca | Significado |
@@ -116,8 +133,8 @@
 ## 3. Fase 0 — Preparación
 
 ### P1 · Versionar la documentación 🔧
-- [ ] Crear la rama `release/maui-v1.1` desde `main`.
-- [ ] Commit de `docs/architecture/` y de este plan (con autorización del usuario).
+- [x] Crear la rama `release/maui-v1.1` desde `main`.
+- [x] Commit de `docs/architecture/` y de este plan (con autorización del usuario).
 
 ### P2 · Revisar los datos de producción (solo lectura) 🔴
 Objetivo: saber si los defectos **ya causaron daño** antes de corregir. Requiere una copia del último backup de la Pi; **no se commitea** (`*.db` ya está en `.gitignore`) y se trata como confidencial (contiene datos de clientes de delivery).
@@ -154,40 +171,40 @@ PRAGMA journal_mode;
 
 ### P3 · Esquema real en los tests (TD-26) 🔧
 **Archivos:** `server/src/__tests__/helpers/db.ts`, `server/src/db/migrate.ts`.
-- [ ] `createTestDb()` crea el esquema desde `schema.ts` con `pushSQLiteSchema` de `drizzle-kit/api` (verificado que existe en 0.31.10). Alternativa si la firma no encaja: `generateSQLiteMigration(generateSQLiteDrizzleJson({}), generateSQLiteDrizzleJson(schema))` y ejecutar las sentencias.
-- [ ] `applyStartupMigrations(client?)` acepta un cliente por parámetro (hoy crea el suyo desde `DATABASE_URL`) para poder aplicarlo en tests.
-- [ ] Borrar el DDL escrito a mano.
+- [x] `createTestDb()` crea el esquema desde `schema.ts` con `pushSQLiteSchema` de `drizzle-kit/api` (verificado que existe en 0.31.10). Alternativa si la firma no encaja: `generateSQLiteMigration(generateSQLiteDrizzleJson({}), generateSQLiteDrizzleJson(schema))` y ejecutar las sentencias.
+- [x] `applyStartupMigrations(client?)` acepta un cliente por parámetro (hoy crea el suyo desde `DATABASE_URL`) para poder aplicarlo en tests.
+- [x] Borrar el DDL escrito a mano.
 
 **Aceptación:** los 11 tests actuales pasan; un test nuevo comprueba que insertar un `order_item` con `order_id` inexistente falla por FK.
 
 ### P4 · `realtime.ts` y serializador único (TD-20 parcial) 🔧
 **Archivos:** nuevo `server/src/realtime.ts`; nuevo `server/src/services/order.serializer.ts`; `index.ts`, `routes/orders.ts`, `routes/split.ts`, `routes/bills.ts`.
-- [ ] `realtime.ts`: `setIo(io)`, `emit(event, payload)` (no hace nada si no hay `io`, útil en tests) y `disconnectUser(userId)` (para T11).
-- [ ] `index.ts` llama a `setIo(io)`; los routers importan `emit` desde `../realtime`. **Ningún archivo importa `../index`.**
-- [ ] `getFullOrder(db, orderId)` único: pedido + ítems (modificadores parseados) + sub-cuentas + **`tableNumber`** (JOIN con `tables`). Reemplaza `orders.ts:85-96`, `split.ts:13-26` y `bills.ts:130-137`.
+- [x] `realtime.ts`: `setIo(io)`, `emit(event, payload)` (no hace nada si no hay `io`, útil en tests) y `disconnectUser(userId)` (para T11).
+- [x] `index.ts` llama a `setIo(io)`; los routers importan `emit` desde `../realtime`. **Ningún archivo importa `../index`.**
+- [x] `getFullOrder(db, orderId)` único: pedido + ítems (modificadores parseados) + sub-cuentas + **`tableNumber`** (JOIN con `tables`). Reemplaza `orders.ts:85-96`, `split.ts:13-26` y `bills.ts:130-137`.
 
 **Aceptación:** `tsc` limpio; test del serializador con una mesa de id 16 y número 15 → `tableNumber = 15`.
 
 ### P5 · Candado de escritura y manejador de errores (TD-11, TD-21) 🔧
 **Archivos:** nuevo `server/src/db/write-lock.ts`; nuevo `server/src/errors.ts`; `index.ts`; `services/billing.service.ts`.
-- [ ] `withWriteLock(fn)`: mutex basado en una cadena de promesas, más reintento ante `SQLITE_BUSY` (3 intentos con 50/100/200 ms) como defensa para escrituras que no pasen por el candado.
-- [ ] `DomainError(message, statusCode, code?, details?)`; `BillingError` pasa a extenderla (sin romper los tests actuales).
-- [ ] Manejador global al final de `index.ts`: `DomainError` → `{error, code, details}` con su status; `SQLITE_BUSY` → 503 `{error:'Servidor ocupado, reintenta', code:'DB_BUSY'}`; resto → 500 `{error:'Error interno'}`, con el detalle solo en el log.
+- [x] `withWriteLock(fn)`: mutex basado en una cadena de promesas, más reintento ante `SQLITE_BUSY` (3 intentos con 50/100/200 ms) como defensa para escrituras que no pasen por el candado.
+- [x] `DomainError(message, statusCode, code?, details?)`; `BillingError` pasa a extenderla (sin romper los tests actuales).
+- [x] Manejador global al final de `index.ts`: `DomainError` → `{error, code, details}` con su status; `SQLITE_BUSY` → 503 `{error:'Servidor ocupado, reintenta', code:'DB_BUSY'}`; resto → 500 `{error:'Error interno'}`, con el detalle solo en el log.
 
 **Aceptación:** test de que dos funciones bajo `withWriteLock` no se solapan; test de reintento ante un error `SQLITE_BUSY` simulado.
 
 ### P6 · `createApp()` y tests HTTP (TD-20 parcial) 🔧
 **Archivos:** nuevo `server/src/app.ts`; `index.ts`; `server/package.json` (`supertest`, `@types/supertest` como devDependencies).
-- [ ] `app.ts` exporta `createApp()` (CORS, JSON, routers, manejador de errores) sin `listen` ni migraciones. `index.ts` queda como bootstrap: valida el entorno, crea el server e `io`, migra y escucha.
-- [ ] El `db` sigue siendo un singleton. Para tests HTTP, `DATABASE_URL` apunta a un archivo temporal antes de importar `app`; documentar el patrón en el helper.
-- [ ] Helper `tokenFor(role)` que firma un JWT de prueba (`JWT_SECRET` de prueba en el setup de Vitest).
+- [x] `app.ts` exporta `createApp()` (CORS, JSON, routers, manejador de errores) sin `listen` ni migraciones. `index.ts` queda como bootstrap: valida el entorno, crea el server e `io`, migra y escucha.
+- [x] El `db` sigue siendo un singleton. Para tests HTTP, `DATABASE_URL` apunta a un archivo temporal antes de importar `app`; documentar el patrón en el helper.
+- [x] Helper `tokenFor(role)` que firma un JWT de prueba (`JWT_SECRET` de prueba en el setup de Vitest).
 
 **Aceptación:** test HTTP de humo (`GET /api/health` 200, `GET /api/orders/active` sin token → 401).
 
 ### P7 · Índices declarados en el esquema (TD-18 parcial) 🔴
 **Archivos:** `server/src/db/schema.ts`, `server/src/db/migrate.ts`.
-- [ ] Declarar en `schema.ts` los 4 índices de `migrate.ts:42-52` con los **mismos nombres**.
-- [ ] `migrate.ts` los sigue creando con `IF NOT EXISTS` (para BDs existentes).
+- [x] Declarar en `schema.ts` los 4 índices de `migrate.ts:42-52` con los **mismos nombres**.
+- [x] `migrate.ts` los sigue creando con `IF NOT EXISTS` (para BDs existentes).
 
 **Aceptación:** repetir la verificación V6 (`push` → migrar → `push --verbose`): el 2.º `push` **no** propone `DROP INDEX`.
 
@@ -197,57 +214,57 @@ PRAGMA journal_mode;
 
 ### T1 · Cobro atómico (TD-03, TD-11) 🔴
 **Archivos:** `server/src/services/billing.service.ts`, `server/src/routes/bills.ts`, `server/src/__tests__/billing.test.ts`.
-- [ ] Test rojo V5: segunda transacción iniciada tras el commit de la primera → hoy crea 2 boletas.
-- [ ] Test rojo V2: dos cobros simultáneos → hoy `SQLITE_BUSY`.
-- [ ] Todo `createBill` corre dentro de `withWriteLock(() => db.transaction(tx => …))`. **Las lecturas** (pedido, sub-cuenta, ítems) se hacen con `tx`, dentro de la transacción.
-- [ ] Rechazar pedidos `paid` o `cancelled` → 409.
-- [ ] `UPDATE order_items SET bill_id = ? WHERE id IN (…) AND bill_id IS NULL RETURNING id`; si la cantidad devuelta ≠ `targetItems.length` → `BillingError 409 'ITEMS_ALREADY_BILLED'` (rollback).
-- [ ] El resultado incluye los ítems cobrados y `tableNumber` (los usa T8).
-- [ ] `bills.ts` emite eventos con `realtime.emit` + `getFullOrder`.
+- [x] Test rojo V5: segunda transacción iniciada tras el commit de la primera → hoy crea 2 boletas.
+- [x] Test rojo V2: dos cobros simultáneos → hoy `SQLITE_BUSY`.
+- [x] Todo `createBill` corre dentro de `withWriteLock(() => db.transaction(tx => …))`. **Las lecturas** (pedido, sub-cuenta, ítems) se hacen con `tx`, dentro de la transacción.
+- [x] Rechazar pedidos `paid` o `cancelled` → 409.
+- [x] `UPDATE order_items SET bill_id = ? WHERE id IN (…) AND bill_id IS NULL RETURNING id`; si la cantidad devuelta ≠ `targetItems.length` → `BillingError 409 'ITEMS_ALREADY_BILLED'` (rollback).
+- [x] El resultado incluye los ítems cobrados y `tableNumber` (los usa T8).
+- [x] `bills.ts` emite eventos con `realtime.emit` + `getFullOrder`.
 
 **Aceptación:** V2 y V5 → exactamente 1 boleta y suma de boletas = consumo; un pedido cancelado → 409; los 11 tests originales siguen pasando.
 
 ### T2 · Precios desde la BD (TD-01, `priceAdjustment` de TD-31) 🔴
 **Archivos:** nuevo `server/src/services/order.service.ts` (función `resolveItems`), `server/src/schemas/orders.ts`, `server/src/routes/orders.ts`, `client/src/pages/POS.tsx`, `client/src/store/order.ts`, `client/src/store/orders.ts`.
 - **Servidor**
-  - [ ] `OrderItemInputSchema` = `{ dishId, quantity, modifiers?: [{ groupId, optionId?, freeText? }], notes? }`. Se elimina `unitPrice`/`dishName`; Zod descarta claves extra, así que una pestaña con el bundle viejo sigue funcionando.
-  - [ ] `resolveItems(tx, items)`: carga platos, grupos y opciones con `inArray`. Plato inexistente o `available=false` → `DomainError 409 'DISH_UNAVAILABLE'` con `details.dishes` (D3).
-  - [ ] Validaciones: la opción pertenece al grupo y el grupo al plato → si no, 400. Grupo `required` sin opción → 400. Grupo con `multiple=false` y más de una opción → 400.
-  - [ ] `unitPrice = roundMoney(dish.price + Σ priceAdjustment)`, `dishName = dish.name`, `modifiers` armados desde la BD con la misma forma de hoy (`{groupId, groupName, optionId, optionName}` / `{groupId, groupName, freeText}`).
+  - [x] `OrderItemInputSchema` = `{ dishId, quantity, modifiers?: [{ groupId, optionId?, freeText? }], notes? }`. Se elimina `unitPrice`/`dishName`; Zod descarta claves extra, así que una pestaña con el bundle viejo sigue funcionando.
+  - [x] `resolveItems(tx, items)`: carga platos, grupos y opciones con `inArray`. Plato inexistente o `available=false` → `DomainError 409 'DISH_UNAVAILABLE'` con `details.dishes` (D3).
+  - [x] Validaciones: la opción pertenece al grupo y el grupo al plato → si no, 400. Grupo `required` sin opción → 400. Grupo con `multiple=false` y más de una opción → 400.
+  - [x] `unitPrice = roundMoney(dish.price + Σ priceAdjustment)`, `dishName = dish.name`, `modifiers` armados desde la BD con la misma forma de hoy (`{groupId, groupName, optionId, optionName}` / `{groupId, groupName, freeText}`).
 - **Cliente**
-  - [ ] Enviar solo `dishId`, `quantity`, `modifiers` (`groupId`, `optionId`, `freeText`) y `notes`.
-  - [ ] Al cargar el menú en el POS, sincronizar el borrador: actualizar `unitPrice`/`dishName` y quitar los platos que ya no estén, con un toast.
-  - [ ] Manejar el 409 `DISH_UNAVAILABLE`: toast con los nombres y quitarlos del borrador.
+  - [x] Enviar solo `dishId`, `quantity`, `modifiers` (`groupId`, `optionId`, `freeText`) y `notes`.
+  - [x] Al cargar el menú en el POS, sincronizar el borrador: actualizar `unitPrice`/`dishName` y quitar los platos que ya no estén, con un toast.
+  - [x] Manejar el 409 `DISH_UNAVAILABLE`: toast con los nombres y quitarlos del borrador.
 
 **Aceptación (tests de servicio y HTTP):** un precio manipulado en el body → se guarda el precio de la BD; plato no disponible → 409; opción de otro plato → 400; falta el picante obligatorio → 400; `priceAdjustment` se suma. **Manual:** crear un pedido desde el POS y verificar precios y modificadores en la comanda.
 
 ### T3 · Máquina de estados, cancelación controlada y auditoría mínima (TD-02, TD-07, TD-08, TD-16 parcial) 🔴
 **Archivos:** `server/src/db/schema.ts` + `migrate.ts` (tabla `audit_log`), `server/src/services/order.service.ts`, nuevo `server/src/services/audit.ts`, `server/src/routes/orders.ts`, `server/src/schemas/orders.ts`, `client/src/pages/POS.tsx`, `client/src/store/orders.ts`, `client/src/pages/Tables.tsx`, `client/src/pages/Cash.tsx`.
 - **Rol Encargado (D5)**
-  - [ ] Agregar `manager` al enum de `users.role` en `schema.ts` (sin cambio de BD: la columna es texto sin `CHECK`), en `AuthPayload` y en los schemas de usuarios.
-  - [ ] Cliente: tipo `Role`, etiqueta "Encargado" en `Layout.tsx` y en `admin/Users.tsx` (crear y editar), y rutas habilitadas según la matriz de la sección 2.
-  - [ ] La salvaguarda del último dueño activo (`users.ts:86-98`) no cambia: un encargado no cuenta como dueño.
+  - [x] Agregar `manager` al enum de `users.role` en `schema.ts` (sin cambio de BD: la columna es texto sin `CHECK`), en `AuthPayload` y en los schemas de usuarios.
+  - [x] Cliente: tipo `Role`, etiqueta "Encargado" en `Layout.tsx` y en `admin/Users.tsx` (crear y editar), y rutas habilitadas según la matriz de la sección 2.
+  - [x] La salvaguarda del último dueño activo (`users.ts:86-98`) no cambia: un encargado no cuenta como dueño.
 - **Base de datos (aditivo)**
-  - [ ] `audit_log(id INTEGER PK AUTOINCREMENT, at TEXT DEFAULT (datetime('now')), user_id INTEGER REFERENCES users(id), action TEXT NOT NULL, entity TEXT NOT NULL, entity_id INTEGER, data TEXT)` en `schema.ts` y en `migrate.ts` (`CREATE TABLE IF NOT EXISTS`).
-  - [ ] `audit(tx, {userId, action, entity, entityId, data})`, escrito **dentro** de la misma transacción.
+  - [x] `audit_log(id INTEGER PK AUTOINCREMENT, at TEXT DEFAULT (datetime('now')), user_id INTEGER REFERENCES users(id), action TEXT NOT NULL, entity TEXT NOT NULL, entity_id INTEGER, data TEXT)` en `schema.ts` y en `migrate.ts` (`CREATE TABLE IF NOT EXISTS`).
+  - [x] `audit(tx, {userId, action, entity, entityId, data})`, escrito **dentro** de la misma transacción.
 - **Estados**
-  - [ ] Activos: `pending`, `paying`, más los heredados `preparing`/`ready` (tratados como `pending`). Cerrados: `paid`, `cancelled`.
-  - [ ] `PATCH /:id/status` acepta solo `pending` | `paying`. 404 si el pedido no existe, 409 si está cerrado. Persiste `paying` (DT3) y sincroniza `tables.status`.
-  - [ ] `POST /:id/items`: 404 si no existe, 409 `ORDER_CLOSED` si está cerrado; si estaba `paying`, vuelve a `pending`. Corre con `withWriteLock` + transacción; la comanda se imprime después del commit.
-  - [ ] `POST /:id/cancel` `{ reason }` (Zod: 3–200 caracteres) con la política D1. Rechaza pedidos `paid`/`cancelled` (409). Libera la mesa, actualiza `updatedAt` y registra `audit('order.cancel', {reason, billedTotal, unbilledTotal, items})`.
-  - [ ] **Eliminar** `DELETE /:id`, `PATCH /:id/items/:itemId/toggle` y `PATCH /:id/ready`.
+  - [x] Activos: `pending`, `paying`, más los heredados `preparing`/`ready` (tratados como `pending`). Cerrados: `paid`, `cancelled`.
+  - [x] `PATCH /:id/status` acepta solo `pending` | `paying`. 404 si el pedido no existe, 409 si está cerrado. Persiste `paying` (DT3) y sincroniza `tables.status`.
+  - [x] `POST /:id/items`: 404 si no existe, 409 `ORDER_CLOSED` si está cerrado; si estaba `paying`, vuelve a `pending`. Corre con `withWriteLock` + transacción; la comanda se imprime después del commit.
+  - [x] `POST /:id/cancel` `{ reason }` (Zod: 3–200 caracteres) con la política D1. Rechaza pedidos `paid`/`cancelled` (409). Libera la mesa, actualiza `updatedAt` y registra `audit('order.cancel', {reason, billedTotal, unbilledTotal, items})`.
+  - [x] **Eliminar** `DELETE /:id`, `PATCH /:id/items/:itemId/toggle` y `PATCH /:id/ready`.
 - **Cliente**
-  - [ ] "Cancelar pedido" visible según D1, con `ConfirmDialog` y motivo obligatorio (reemplaza `confirm()` de `POS.tsx:331`).
-  - [ ] Botón del mozo "Pedir cuenta" / dueño y cajero "Cobrar" (D2). Esperar la respuesta y mostrar un toast si falla (hoy es una promesa sin manejar en `store/orders.ts:192-197`).
-  - [ ] Tipos y badges con `paying` en el store, Mesas y Caja; los estados heredados se muestran como "Pendiente".
+  - [x] "Cancelar pedido" visible según D1, con `ConfirmDialog` y motivo obligatorio (reemplaza `confirm()` de `POS.tsx:331`).
+  - [x] Botón del mozo "Pedir cuenta" / dueño y cajero "Cobrar" (D2). Esperar la respuesta y mostrar un toast si falla (hoy es una promesa sin manejar en `store/orders.ts:192-197`).
+  - [x] Tipos y badges con `paying` en el store, Mesas y Caja; los estados heredados se muestran como "Pendiente".
 
 **Aceptación (HTTP):** mozo cancela → 403; cajero cancela un pedido con cobros → 403; encargado y dueño cancelan un pedido con cobros → 200 + fila en `audit_log`; cancelar un pagado → 409; agregar a pagado/cancelado → 409; a inexistente → 404; `PATCH status=paid` → 400; "Por cobrar" persiste y revierte al agregar ítems. **Manual:** dos dispositivos ven "Por cobrar" en la misma mesa.
 
 ### T4 · Pedidos sin duplicados (TD-04) 🔴
 **Archivos:** `server/src/services/order.service.ts`, `server/src/routes/orders.ts`, `server/src/db/schema.ts`, `server/src/db/migrate.ts`, `client/src/pages/POS.tsx`.
-- [ ] `createOrder` con `withWriteLock` + transacción: verifica la mesa, inserta el pedido y los ítems (vía T2), marca la mesa; comanda y evento después del commit.
-- [ ] Índice parcial `uq_orders_active_table ON orders(table_id) WHERE table_id IS NOT NULL AND status NOT IN ('paid','cancelled')` en `schema.ts` (`uniqueIndex().on().where()`, verificado en Drizzle 0.45) y en `migrate.ts`. Si falla por duplicados → advertencia con los ids y se continúa (DT4).
-- [ ] POS: estado `sending` que deshabilita "Enviar a cocina" y "Agregar a pedido" y muestra un spinner.
+- [x] `createOrder` con `withWriteLock` + transacción: verifica la mesa, inserta el pedido y los ítems (vía T2), marca la mesa; comanda y evento después del commit.
+- [x] Índice parcial `uq_orders_active_table ON orders(table_id) WHERE table_id IS NOT NULL AND status NOT IN ('paid','cancelled')` en `schema.ts` (`uniqueIndex().on().where()`, verificado en Drizzle 0.45) y en `migrate.ts`. Si falla por duplicados → advertencia con los ids y se continúa (DT4).
+- [x] POS: estado `sending` que deshabilita "Enviar a cocina" y "Agregar a pedido" y muestra un spinner.
 
 **Aceptación:** dos `createOrder` simultáneos sobre la misma mesa → uno 201 y otro 409, con 1 solo pedido activo; tras cancelar, se puede crear otro. **Manual:** doble toque rápido en "Enviar" → 1 pedido y 1 comanda.
 
@@ -257,36 +274,36 @@ PRAGMA journal_mode;
 
 ### T5 · Número de mesa en todas las salidas (TD-06) 🔴
 **Archivos:** `server/src/utils/printer.ts`, `server/src/routes/orders.ts`, `bills.ts`, `print.ts`, `reports.ts`; `client/src/pages/Cash.tsx`, `Reports.tsx`, `BillsHistory.tsx`, `client/src/utils/reportHTML.ts`, `client/src/store/orders.ts`.
-- [ ] En `printer.ts`, renombrar `tableId` → `tableNumber` en `ReceiptData`, `PreReceiptData` y `KitchenTicketData` (el compilador señala cada llamada).
-- [ ] Etiquetas de `autoPrintKitchen` y de la reimpresión con `tableNumber`.
-- [ ] `GET /bills`, `GET /bills/:id` y `GET /reports/bills` incluyen `tableNumber` (LEFT JOIN con `tables`).
-- [ ] Cliente: `Mesa ${tableNumber}` en Caja (lista, división, boleta), Reportes (tabla, CSV, HTML) e Historial (vista y búsqueda).
-- [ ] Extraer `buildKitchenTicketData(order, items, waiter)` como función pura para poder testearla.
+- [x] En `printer.ts`, renombrar `tableId` → `tableNumber` en `ReceiptData`, `PreReceiptData` y `KitchenTicketData` (el compilador señala cada llamada).
+- [x] Etiquetas de `autoPrintKitchen` y de la reimpresión con `tableNumber`.
+- [x] `GET /bills`, `GET /bills/:id` y `GET /reports/bills` incluyen `tableNumber` (LEFT JOIN con `tables`).
+- [x] Cliente: `Mesa ${tableNumber}` en Caja (lista, división, boleta), Reportes (tabla, CSV, HTML) e Historial (vista y búsqueda).
+- [x] Extraer `buildKitchenTicketData(order, items, waiter)` como función pura para poder testearla.
 
 **Aceptación:** test con una mesa de id 16 y número 15 → comanda "MESA 15"; `grep "Mesa \${.*tableId"` en `client/src` sin resultados.
 
 ### T6 · Reimprimir la comanda desde la UI (TD-17) 🔴
 **Archivos:** `server/src/routes/orders.ts` (o `order.service`), `server/src/schemas/orders.ts`, `server/src/utils/printer.ts`, `client/src/pages/POS.tsx`, `client/src/store/orders.ts`.
-- [ ] `POST /:id/reprint-kitchen` `{ onlyUnprinted?: boolean }`: si `onlyUnprinted`, solo los ítems con `kitchen_printed = 0`; si no, todos. Tras imprimir, `kitchen_printed = 1` (hoy la reimpresión no lo actualiza). La impresión ocurre **fuera** del candado; solo el `UPDATE` va dentro.
-- [ ] La comanda lleva la cabecera "-- REIMPRESION --".
-- [ ] POS, modo pedido existente: aviso "N ítems no llegaron a cocina" + botón "Reintentar comanda" (`onlyUnprinted`) y "Reimprimir comanda completa" (permisos según D4).
-- [ ] El toast de fallo de `kitchen:print-result` indica dónde reintentar.
+- [x] `POST /:id/reprint-kitchen` `{ onlyUnprinted?: boolean }`: si `onlyUnprinted`, solo los ítems con `kitchen_printed = 0`; si no, todos. Tras imprimir, `kitchen_printed = 1` (hoy la reimpresión no lo actualiza). La impresión ocurre **fuera** del candado; solo el `UPDATE` va dentro.
+- [x] La comanda lleva la cabecera "-- REIMPRESION --".
+- [x] POS, modo pedido existente: aviso "N ítems no llegaron a cocina" + botón "Reintentar comanda" (`onlyUnprinted`) y "Reimprimir comanda completa" (permisos según D4).
+- [x] El toast de fallo de `kitchen:print-result` indica dónde reintentar.
 
 **Aceptación:** test de la selección de ítems (función pura). **Manual:** con la impresora apagada, crear un pedido → aviso visible → encender → "Reintentar" imprime solo lo faltante.
 
 ### T7 · Resincronizar al reconectar (TD-12) 🔴
 **Archivos:** `client/src/store/orders.ts`.
-- [ ] Extraer `refresh()` = `GET /orders/active` → reemplaza `orders`.
-- [ ] Handler con nombre propio en `socket.on('connect')` que llama a `refresh()` en las **reconexiones** (no en la primera conexión). `reset()` lo quita con `socket.off('connect', handler)`, sin borrar el handler de `api/socket.ts`.
-- [ ] `visibilitychange` → si la app vuelve al frente y pasaron más de 30 s desde el último refresh → `refresh()`.
+- [x] Extraer `refresh()` = `GET /orders/active` → reemplaza `orders`.
+- [x] Handler con nombre propio en `socket.on('connect')` que llama a `refresh()` en las **reconexiones** (no en la primera conexión). `reset()` lo quita con `socket.off('connect', handler)`, sin borrar el handler de `api/socket.ts`.
+- [x] `visibilitychange` → si la app vuelve al frente y pasaron más de 30 s desde el último refresh → `refresh()`.
 
 **Aceptación (manual):** cortar el WiFi de un celular, crear un pedido desde otro, reconectar → el pedido aparece sin recargar la página.
 
 ### T8 · La boleta impresa sale de la BD (TD-14) 🔴
 **Archivos:** `server/src/routes/bills.ts`, `server/src/routes/print.ts`, `server/src/schemas/print.ts`, `client/src/pages/Cash.tsx`.
-- [ ] La respuesta de `POST /bills` incluye los ítems cobrados, `tableNumber` y el nombre del cajero (vienen de T1).
-- [ ] `ReceiptModal` muestra los datos del servidor, y "Imprimir" llama a `POST /print/reprint/:billId`.
-- [ ] Eliminar `POST /print/receipt`, `POST /print/kitchen` y sus schemas.
+- [x] La respuesta de `POST /bills` incluye los ítems cobrados, `tableNumber` y el nombre del cajero (vienen de T1).
+- [x] `ReceiptModal` muestra los datos del servidor, y "Imprimir" llama a `POST /print/reprint/:billId`.
+- [x] Eliminar `POST /print/receipt`, `POST /print/kitchen` y sus schemas.
 
 **Aceptación:** la vista previa y el ticket coinciden con `GET /bills/:id`. **Manual:** cobro parcial → la boleta impresa muestra solo los ítems cobrados.
 
@@ -296,35 +313,35 @@ PRAGMA journal_mode;
 
 ### T9 · Reportes correctos (TD-09, TD-10, TD-25 parcial) 🔴
 **Archivos:** nuevo `server/src/services/report.service.ts`, `server/src/routes/reports.ts`, `server/src/utils/dates.ts`, nuevo `client/src/utils/dates.ts`, `client/src/pages/Reports.tsx`, `client/src/utils/reportHTML.ts`, `client/src/pages/BillsHistory.tsx`.
-- [ ] Top platos: `FROM order_items JOIN bills ON bills.id = order_items.bill_id` (sin pasar por `orders`).
-- [ ] Serie diaria: `date(paid_at, <desfase>)`, con el desfase calculado en `utils/dates.ts` a partir de la zona del proceso (Perú no tiene horario de verano).
-- [ ] Sumas con `roundMoney`; `orderCount` pasa a `billCount` y la UI dice "boletas".
-- [ ] Cliente: `parseDbUtc()` compartido, usado en Reportes, el reporte HTML, el CSV (hora local) y el Historial.
-- [ ] `Reports.tsx`: `load` y `handleAdd` muestran un toast si fallan.
+- [x] Top platos: `FROM order_items JOIN bills ON bills.id = order_items.bill_id` (sin pasar por `orders`).
+- [x] Serie diaria: `date(paid_at, <desfase>)`, con el desfase calculado en `utils/dates.ts` a partir de la zona del proceso (Perú no tiene horario de verano).
+- [x] Sumas con `roundMoney`; `orderCount` pasa a `billCount` y la UI dice "boletas".
+- [x] Cliente: `parseDbUtc()` compartido, usado en Reportes, el reporte HTML, el CSV (hora local) y el Historial.
+- [x] `Reports.tsx`: `load` y `handleAdd` muestran un toast si fallan.
 
 **Aceptación:** regresión V3 (Ceviche 1 u. / S/ 28) y V4 (venta de las 20:00 locales cae en su día) sobre `report.service`. **Manual:** el total de "Hoy" en Reportes coincide con el total de Historial.
 
 ### T10 · Escapar el reporte HTML (TD-05) 🔴
 **Archivos:** `client/src/utils/reportHTML.ts`.
-- [ ] Función `escapeHtml()` aplicada a **todo** valor interpolado de origen de usuario: `dishName`, `category`, `description`, `customerName`, `receiptNumber` y la etiqueta de `barRow`.
+- [x] Función `escapeHtml()` aplicada a **todo** valor interpolado de origen de usuario: `dishName`, `category`, `description`, `customerName`, `receiptNumber` y la etiqueta de `barRow`.
 
 **Aceptación (manual):** un gasto con descripción `<img src=x onerror=alert(1)>` se muestra como texto en el reporte.
 
 ### T11 · Sesiones y login (TD-13, TD-15) 🟡
 **Archivos:** `server/src/middleware/auth.ts`, `server/src/index.ts` (o `app.ts`), `server/src/routes/auth.ts`, `server/src/routes/users.ts`, `server/src/realtime.ts`.
-- [ ] `requireAuth` consulta el usuario por id: si no existe o está inactivo → 401. El rol y el nombre se toman **de la BD**, no del token.
-- [ ] `io.use` hace la misma verificación; al inhabilitar un usuario o cambiar su rol → `disconnectUser(id)`.
-- [ ] Límite de intentos de login en memoria: 5 fallos por IP+usuario cada 5 minutos → 429; se reinicia con un login correcto.
+- [x] `requireAuth` consulta el usuario por id: si no existe o está inactivo → 401. El rol y el nombre se toman **de la BD**, no del token.
+- [x] `io.use` hace la misma verificación; al inhabilitar un usuario o cambiar su rol → `disconnectUser(id)`.
+- [x] Límite de intentos de login en memoria: 5 fallos por IP+usuario cada 5 minutos → 429; se reinicia con un login correcto.
 
 **Aceptación (HTTP):** token de un usuario inhabilitado → 401; usuario degradado a mozo → 403 al cobrar; 6.º intento fallido → 429.
 
 ### T12 · Permisos de gastos, reportes y platos agotados (D5, D6) 🔴
 **Archivos:** `server/src/routes/reports.ts`, `server/src/routes/menu.ts`, `server/src/routes/bills.ts`, `server/src/routes/print.ts`, `client/src/App.tsx`, `client/src/components/Layout.tsx`, `client/src/pages/Reports.tsx`, `client/src/pages/admin/MenuAdmin.tsx`.
-- [ ] Gastos: `POST /reports/expenses` → `requireRole('owner','manager')` (hoy acepta cajero). `PATCH`/`DELETE` → dueño y encargado, con `reason` obligatorio y `audit('expense.update' | 'expense.delete', {antes, después, reason})`. El borrado queda auditado (los datos del gasto se guardan en el registro).
-- [ ] Reportes (`/reports/*` GET): dueño y encargado (hoy acepta cajero y no encargado). Ruta `/reports` del cliente para ambos.
-- [ ] Historial: encargado con rango de fechas como el dueño (`bills.ts:37-44`, `print.ts:96`, `bills.ts:79-84`).
-- [ ] Platos agotados: `PATCH /menu/dishes/:id/availability` `{ available }` para dueño y encargado, auditado. `PATCH /menu/dishes/:id` (precio, nombre, categoría) sigue siendo solo del dueño. En el cliente, el encargado ve en Menú solo el interruptor de disponibilidad.
-- [ ] Revisar cada `requireRole` del servidor contra la matriz de la sección 2 (la UI no es una barrera de seguridad).
+- [x] Gastos: `POST /reports/expenses` → `requireRole('owner','manager')` (hoy acepta cajero). `PATCH`/`DELETE` → dueño y encargado, con `reason` obligatorio y `audit('expense.update' | 'expense.delete', {antes, después, reason})`. El borrado queda auditado (los datos del gasto se guardan en el registro).
+- [x] Reportes (`/reports/*` GET): dueño y encargado (hoy acepta cajero y no encargado). Ruta `/reports` del cliente para ambos.
+- [x] Historial: encargado con rango de fechas como el dueño (`bills.ts:37-44`, `print.ts:96`, `bills.ts:79-84`).
+- [x] Platos agotados: `PATCH /menu/dishes/:id/availability` `{ available }` para dueño y encargado, auditado. `PATCH /menu/dishes/:id` (precio, nombre, categoría) sigue siendo solo del dueño. En el cliente, el encargado ve en Menú solo el interruptor de disponibilidad.
+- [x] Revisar cada `requireRole` del servidor contra la matriz de la sección 2 (la UI no es una barrera de seguridad).
 
 **Aceptación (HTTP):** cajero registra gasto → 403; encargado registra, corrige con motivo y borra → 200 + filas en `audit_log`; cajero pide reportes → 403; encargado cambia un precio → 403 y marca agotado → 200. Test de matriz: un caso por celda de la tabla de la sección 2.
 

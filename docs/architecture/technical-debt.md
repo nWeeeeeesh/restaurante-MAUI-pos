@@ -16,6 +16,49 @@
 
 ---
 
+## Estado tras MAUI v1.1
+
+El registro de abajo describe el snapshot analizado (`85664bb`). Esta tabla indica qué se hizo después en la rama `release/maui-v1.1` ([plan](../plan-maui-v1.1.md)). **Resuelto** = corregido y cubierto por tests; **Parcial** = mitigado, con un resto anotado; **Producto** = se resuelve en el nuevo proyecto.
+
+| ID | Estado | Cómo | Commit |
+|---|---|---|---|
+| TD-01 | Resuelto | Precios y nombres desde el catálogo (`order.service.resolveItems`); `priceAdjustment` aplicado | `d3aa557` |
+| TD-02 | Resuelto | `POST /orders/:id/cancel` con rol, motivo y auditoría; `PATCH status` solo `pending`/`paying`; eliminados `DELETE`, `toggle`, `ready` | `97aa093` |
+| TD-03 | Resuelto | Lecturas dentro de la transacción + guardia `bill_id IS NULL` + candado; regresiones V2/V5 | `0bb7c9f` |
+| TD-04 | Resuelto | Creación en transacción bajo candado, índice único parcial, botones con estado "enviando" | `abd982b` |
+| TD-05 | Resuelto | `escapeHtml` en el reporte HTML (verificado con carga XSS) | `c5a448b` |
+| TD-06 | Resuelto | `tableNumber` en serializador, comandas, boletas, caja, reportes e historial | `1467f78` |
+| TD-07 | Resuelto | Agregar ítems a pedidos cerrados → 409; inexistentes → 404 | `97aa093` |
+| TD-08 | Resuelto | `paying` se persiste y llega a todos por socket; el mozo "pide la cuenta" | `97aa093` |
+| TD-09 | Resuelto | Top platos por `order_items.bill_id` (regresión V3) | `c27c68f` |
+| TD-10 | Resuelto | Serie diaria por día local; `parseDbUtc` en el cliente (regresión V4) | `c27c68f` |
+| TD-11 | Resuelto | `withWriteLock` + `withBusyRetry`; `SQLITE_BUSY` residual → 503; WAL | `daf98f5`, `0bb7c9f`, `4aecfa3` |
+| TD-12 | Resuelto | `refresh()` al reconectar y al volver la app al frente. **Verificación manual pendiente** | `80e47f4` |
+| TD-13 | Parcial | Rol y estado se leen de la BD en cada request y socket; se cortan sockets al cambiar rol. **Falta:** invalidar tokens al cambiar la contraseña (producto) | `2e1a405` |
+| TD-14 | Resuelto | Boleta y pre-cuenta armadas en el servidor; eliminados `/print/receipt` y `/print/kitchen` | `cf93109` |
+| TD-15 | Parcial | Límite de intentos (429) y aviso de contraseñas por defecto al arrancar. **Falta:** verificar en producción (O1) | `2e1a405`, `4aecfa3` |
+| TD-16 | Resuelto | `audit_log` para cancelaciones, gastos, precios, disponibilidad, usuarios y mesas; vista en Reportes | `97aa093`, `b126e19`, `f948b68`, `844133c` |
+| TD-17 | Resuelto | Aviso "Sin comanda" y reintento/reimpresión desde el POS | `75e1d49` |
+| TD-18 | Parcial | Índices declarados en `schema.ts`, migraciones requeridas fail-fast, `npm run db:migrate`. **Producto:** migraciones versionadas | `9af9aae`, `4aecfa3` |
+| TD-19 | Producto | Solo se agregó el índice único parcial (T4); `CHECK` y FK en `bill_id` requieren recrear tablas | — |
+| TD-20 | Parcial | Servicios de pedidos, cobro, división, reportes y boleta; `realtime.ts`; `createApp`. **Producto:** menú, mesas y usuarios siguen en routers | `8ef2f8b` … `82c087b` |
+| TD-21 | Resuelto | Manejador global de errores en JSON | `daf98f5` |
+| TD-22 | Producto | Componentes grandes sin cambios | — |
+| TD-23 | Resuelto | División, plano y alta de plato en transacción | `82c087b` |
+| TD-24 | Resuelto | Endpoints, dependencias, assets y tipos sin uso eliminados (CRUD de categorías/modificadores se conserva para el producto) | `97aa093`, `6875723` |
+| TD-25 | Parcial | `confirm()` reemplazado; Reportes con manejo de errores; "boletas" en vez de "pedidos". **Producto:** `dine_in`/`dine-in`, formato de `updatedAt` | `97aa093`, `c27c68f` |
+| TD-26 | Resuelto | Tests con el esquema real (`pushSQLiteSchema`) | `cd79812` |
+| TD-27 | Resuelto | Aviso al arrancar + `TZ=America/Lima` en systemd | `4aecfa3` |
+| TD-28 | Resuelto | `CLAUDE.md` y `DEPLOYMENT.md` actualizados (O6) | este commit |
+| TD-29 | Producto | Montos siguen como `REAL` (sumas redondeadas en reportes) | — |
+| TD-30 | Resuelto | `jimp` en devDependencies; `@dnd-kit/*` eliminado | `6875723` |
+| TD-31 | Parcial | `priceAdjustment` se aplica. **Producto:** modificadores genéricos, separar "agotado" de "eliminado" | `d3aa557` |
+| TD-32 | Producto | Broadcast global | — |
+| TD-33 | Producto | N+1 en pedidos activos | — |
+| TD-34 | Resuelto | `engines >=22`; guía con Node 24 LTS | `4aecfa3` |
+
+---
+
 ## Registro
 
 | ID | Problema | Ubicación | Severidad | Impacto | Evidencia |

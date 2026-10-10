@@ -7,7 +7,8 @@ Punto de entrada de la documentación técnica de **MauiDesk**, el POS de la Cev
 | **Código analizado** | Rama `main` @ `85664bb` ("feat(h3): robustez operacional…") |
 | **Fecha del análisis** | 2026-09-23 |
 | **Método** | Lectura completa del código (server, client, configuración, scripts, despliegue) + ejecución de tests, typecheck y lint + 6 verificaciones empíricas sobre SQLite temporales ([testing.md](testing.md#5-verificaciones-ejecutadas-durante-el-análisis)) |
-| **Cambios al código** | Ninguno. Esta carpeta es el único agregado |
+| **Cambios al código** | Ninguno durante el análisis |
+| **Actualización** | Los problemas críticos y altos se corrigieron en `release/maui-v1.1` ([plan](../plan-maui-v1.1.md)). El estado de cada problema está en [technical-debt.md → Estado tras MAUI v1.1](technical-debt.md#estado-tras-maui-v11); el resto de esta documentación describe el snapshot `85664bb` |
 
 ---
 
