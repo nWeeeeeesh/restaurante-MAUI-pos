@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq, and, notInArray, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { orders, orderItems, tables } from '../db/schema'
+import { orders, orderItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import {
@@ -13,7 +13,7 @@ import {
 } from '../schemas/orders'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
-import { resolveItems, addItems, setOrderStatus, cancelOrder } from '../services/order.service'
+import { createOrder, addItems, setOrderStatus, cancelOrder } from '../services/order.service'
 import { printKitchenTicket } from '../utils/printer'
 
 const router = Router()
@@ -101,53 +101,19 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 // POST /api/orders — create new order
 router.post('/', requireAuth, validateBody(CreateOrderSchema), async (req, res) => {
-  const { tableId, type, customerName, customerPhone, customerAddress, notes, items: reqItems } = req.body
+  // Verificación de mesa, precios del catálogo, inserciones y mesa ocupada en una
+  // sola transacción bajo el candado (TD-04, TD-01).
+  const { orderId, insertedIds } = await createOrder(db, req.body, req.user!.id)
 
-  if (tableId) {
-    const [existing] = await db.select().from(orders)
-      .where(and(eq(orders.tableId, tableId), notInArray(orders.status, ['paid', 'cancelled'])))
-    if (existing) {
-      res.status(409).json({ error: `La mesa ya tiene un pedido activo (#${existing.id}). Agrégalo desde la vista de la mesa.` })
-      return
-    }
-  }
-
-  // Precios y nombres desde el catálogo (TD-01). Si un plato está agotado → 409.
-  const resolved = reqItems?.length ? await resolveItems(db, reqItems) : []
-
-  const [order] = await db.insert(orders).values({
-    tableId: tableId ?? null,
-    type,
-    status: 'pending',
-    customerName: customerName ?? null,
-    customerPhone: customerPhone ?? null,
-    customerAddress: customerAddress ?? null,
-    notes: notes ?? null,
-    createdBy: req.user!.id,
-  }).returning()
-
-  let insertedIds: number[] = []
-  if (resolved.length) {
-    const inserted = await db.insert(orderItems).values(
-      resolved.map((item) => ({ ...item, orderId: order.id, status: 'pending' as const }))
-    ).returning({ id: orderItems.id })
-    insertedIds = inserted.map(i => i.id)
-  }
-
-  // Update table status
-  if (tableId) {
-    await db.update(tables).set({ status: 'occupied' }).where(eq(tables.id, tableId))
-  }
-
-  // Imprimir comanda en cocina (no bloquea respuesta si falla)
+  // Imprimir comanda en cocina después del commit (no bloquea respuesta si falla)
   autoPrintKitchen({
-    orderId: order.id,
+    orderId,
     isAddition: false,
     itemIds: insertedIds,
     waiterName: req.user!.name,
   })
 
-  const full = await getFullOrder(db, order.id)
+  const full = await getFullOrder(db, orderId)
   emit('order:new', full)
   res.status(201).json(full)
 })

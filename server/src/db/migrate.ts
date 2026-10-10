@@ -73,5 +73,22 @@ export async function applyStartupMigrations(existing?: Client) {
     }
   }
 
+  // 5) Un solo pedido activo por mesa (v1.1, T4). Si la BD ya tiene mesas con dos
+  // pedidos activos, el índice no se puede crear: se avisa y se sigue, porque la
+  // creación de pedidos ya está serializada en la app y no debe impedir abrir el local.
+  try {
+    // Mismo texto que genera drizzle-kit: si difiere, `push` lo borra y recrea.
+    await client.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS `uq_orders_active_table` ON `orders` (`table_id`) WHERE table_id IS NOT NULL AND status NOT IN ('paid', 'cancelled')",
+    )
+  } catch (e: any) {
+    const dups = await client.execute(`
+      SELECT table_id, GROUP_CONCAT(id) AS ids FROM orders
+      WHERE table_id IS NOT NULL AND status NOT IN ('paid', 'cancelled')
+      GROUP BY table_id HAVING COUNT(*) > 1
+    `).catch(() => ({ rows: [] as unknown[] }))
+    console.warn('[migrate] uq_orders_active_table no creado:', e.message, '· mesas con varios pedidos activos:', JSON.stringify(dups.rows))
+  }
+
   if (!existing) client.close()
 }

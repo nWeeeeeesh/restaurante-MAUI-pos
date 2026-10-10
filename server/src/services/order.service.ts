@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, notInArray } from 'drizzle-orm'
 import {
   categories, dishes, modifierGroups, modifierOptions, orders, orderItems, billGroups, tables,
 } from '../db/schema'
@@ -26,6 +26,74 @@ async function loadActiveOrder(tx: Executor, orderId: number): Promise<OrderRow>
     throw new DomainError('El pedido ya está cerrado (pagado o cancelado)', 409, 'ORDER_CLOSED')
   }
   return order
+}
+
+export interface CreateOrderInput {
+  tableId?: number | null
+  type: 'dine_in' | 'delivery'
+  customerName?: string | null
+  customerPhone?: string | null
+  customerAddress?: string | null
+  notes?: string | null
+  items?: OrderItemRequest[]
+}
+
+// Crea el pedido, sus ítems y ocupa la mesa en una sola transacción bajo el
+// candado (TD-04). Antes la verificación "la mesa ya tiene pedido" y el INSERT
+// eran pasos sueltos: dos envíos casi simultáneos creaban dos pedidos activos.
+// El índice único parcial uq_orders_active_table es la segunda barrera.
+export async function createOrder(db: DB, input: CreateOrderInput, createdBy: number) {
+  try {
+    return await withWriteLock(() => db.transaction(async (tx) => {
+      const tableId = input.tableId ?? null
+      if (input.type === 'dine_in' && !tableId) {
+        throw new DomainError('Selecciona una mesa', 400, 'TABLE_REQUIRED')
+      }
+      if (tableId) {
+        const [table] = await tx.select().from(tables).where(eq(tables.id, tableId))
+        if (!table) throw new DomainError('Mesa no encontrada', 404, 'TABLE_NOT_FOUND')
+        if (table.active === false) throw new DomainError('La mesa está inhabilitada', 409, 'TABLE_INACTIVE')
+        const [existing] = await tx.select({ id: orders.id }).from(orders)
+          .where(and(eq(orders.tableId, tableId), notInArray(orders.status, ['paid', 'cancelled'])))
+        if (existing) {
+          throw new DomainError(
+            `La mesa ya tiene un pedido activo (#${existing.id}). Agrégalo desde la vista de la mesa.`,
+            409,
+            'TABLE_BUSY',
+          )
+        }
+      }
+
+      const resolved = input.items?.length ? await resolveItems(tx, input.items) : []
+      const [order] = await tx.insert(orders).values({
+        tableId,
+        type: input.type,
+        status: 'pending',
+        customerName: input.customerName ?? null,
+        customerPhone: input.customerPhone ?? null,
+        customerAddress: input.customerAddress ?? null,
+        notes: input.notes ?? null,
+        createdBy,
+      }).returning()
+
+      let insertedIds: number[] = []
+      if (resolved.length) {
+        const inserted = await tx.insert(orderItems)
+          .values(resolved.map(item => ({ ...item, orderId: order.id, status: 'pending' as const })))
+          .returning({ id: orderItems.id })
+        insertedIds = inserted.map(i => i.id)
+      }
+      if (tableId) {
+        await tx.update(tables).set({ status: 'occupied' }).where(eq(tables.id, tableId))
+      }
+      return { orderId: order.id, insertedIds }
+    }))
+  } catch (err: any) {
+    if (/uq_orders_active_table|UNIQUE constraint failed: orders\.table_id/i.test(String(err?.message ?? ''))) {
+      throw new DomainError('La mesa ya tiene un pedido activo', 409, 'TABLE_BUSY')
+    }
+    throw err
+  }
 }
 
 // Agrega ítems a un pedido activo (TD-07: antes reabría pedidos pagados o cancelados).

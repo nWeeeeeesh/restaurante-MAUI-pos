@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   ArrowLeft, Search, Flame, Plus, Minus, X,
-  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2,
+  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2, Loader2,
 } from 'lucide-react'
 
 // ─── Table definitions (ahora vienen del API; el TABLE_DEFS hardcodeado quedó obsoleto) ─
@@ -228,6 +228,7 @@ export default function POS() {
   const [cancelOpen, setCancelOpen]     = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling]     = useState(false)
+  const [sending, setSending]           = useState(false)
 
   const [menu, setMenu]                   = useState<Category[]>([])
   const [tables, setTables]               = useState<PosTable[]>([])
@@ -327,7 +328,11 @@ export default function POS() {
     pushToast({ variant: 'error', title, message: data?.error ?? 'Intenta nuevamente.', durationMs: 5000 })
   }
 
+  // TD-04: un doble toque en el celular enviaba dos veces (pedidos, ítems y
+  // comandas duplicados). Mientras hay un envío en curso, se ignoran los demás.
   const handleSend = async () => {
+    if (sending) return
+    setSending(true)
     try {
       await createOrder({
         tableId: orderType === 'dine_in' ? tableId : null,
@@ -341,17 +346,22 @@ export default function POS() {
       navigate('/tables')
     } catch (err: any) {
       handleSendError(err, 'No se pudo enviar el pedido')
+    } finally {
+      setSending(false)
     }
   }
 
   const handleAddToExisting = async () => {
-    if (!existingOrder) return
+    if (!existingOrder || sending) return
+    setSending(true)
     try {
       await addItemsToOrder(existingOrder.id, toPayload(items))
       clearOrder()
       navigate('/tables')
     } catch (err: any) {
       handleSendError(err, 'No se pudieron agregar los items')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -613,18 +623,20 @@ export default function POS() {
             )}
 
             {!isExistingMode && (
-              <button onClick={handleSend} disabled={!canSend}
+              <button onClick={handleSend} disabled={!canSend || sending}
                 className="w-full flex items-center justify-center gap-2 font-bold py-4 rounded-xl text-white text-sm disabled:opacity-40 shadow-md"
                 style={{ background: 'linear-gradient(135deg,#0077B6,#004E86)' }}>
-                <Send size={15}/> Enviar a Cocina
+                {sending ? <Loader2 size={15} className="animate-spin"/> : <Send size={15}/>}
+                {sending ? 'Enviando...' : 'Enviar a Cocina'}
               </button>
             )}
 
             {isExistingMode && canAddToExisting && (
-              <button onClick={handleAddToExisting}
-                className="w-full flex items-center justify-center gap-2 font-bold py-4 rounded-xl text-white text-sm shadow-md"
+              <button onClick={handleAddToExisting} disabled={sending}
+                className="w-full flex items-center justify-center gap-2 font-bold py-4 rounded-xl text-white text-sm disabled:opacity-40 shadow-md"
                 style={{ background: 'linear-gradient(135deg,#0077B6,#004E86)' }}>
-                <Send size={15}/> Agregar a pedido existente
+                {sending ? <Loader2 size={15} className="animate-spin"/> : <Send size={15}/>}
+                {sending ? 'Enviando...' : 'Agregar a pedido existente'}
               </button>
             )}
 

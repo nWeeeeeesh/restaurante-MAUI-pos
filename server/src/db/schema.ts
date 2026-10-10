@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 export const users = sqliteTable('users', {
@@ -92,6 +92,9 @@ export const orders = sqliteTable('orders', {
   // Los índices se declaran aquí además de en migrate.ts: si solo estuvieran
   // allí, `drizzle-kit push` los eliminaría (verificado).
   index('idx_orders_table_status').on(t.tableId, t.status),
+  // Un solo pedido activo por mesa, garantizado también por la BD (TD-04).
+  uniqueIndex('uq_orders_active_table').on(t.tableId)
+    .where(sql`table_id IS NOT NULL AND status NOT IN ('paid', 'cancelled')`),
 ])
 
 export const orderItems = sqliteTable('order_items', {
