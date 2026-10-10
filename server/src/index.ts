@@ -7,6 +7,7 @@ import { resolveSessionUser, type AuthPayload } from './middleware/auth'
 import { createApp, type AllowedOrigins } from './app'
 import { applyStartupMigrations } from './db/migrate'
 import { setIo } from './realtime'
+import { checkTimezone, checkDefaultPasswords } from './startup-checks'
 
 // ── Validación de configuración crítica al startup ────────────────────────
 // JWT_SECRET es obligatorio y debe ser largo. Sin esto, todo el flujo de auth
@@ -73,9 +74,16 @@ io.on('connection', (socket) => {
 })
 
 const PORT = process.env.PORT || 3001
+// M6: si una migración requerida falla, el servidor NO arranca (antes arrancaba
+// igual y fallaba después en cada request). El despliegue corre antes
+// `npm run db:migrate` para detectarlo sin cortar el servicio.
 applyStartupMigrations()
-  .then(() => httpServer.listen(PORT, () => console.log(`MauiDesk server running on port ${PORT}`)))
+  .then(async () => {
+    checkTimezone()
+    await checkDefaultPasswords()
+    httpServer.listen(PORT, () => console.log(`MauiDesk server running on port ${PORT}`))
+  })
   .catch(err => {
-    console.error('Failed to apply startup migrations:', err)
-    httpServer.listen(PORT, () => console.log(`MauiDesk server running on port ${PORT} (WITHOUT migrations)`))
+    console.error('[FATAL] Falló una migración requerida; el servidor no arranca:', err)
+    process.exit(1)
   })

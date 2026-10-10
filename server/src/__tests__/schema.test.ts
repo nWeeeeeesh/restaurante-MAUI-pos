@@ -12,6 +12,12 @@ describe('esquema de tests', () => {
     ).rejects.toThrow()
   })
 
+  it('las migraciones de arranque activan WAL (M5)', async () => {
+    const db = await createTestDb()
+    const [row] = await db.all<{ journal_mode: string }>('PRAGMA journal_mode' as any)
+    expect(row.journal_mode).toBe('wal')
+  })
+
   it('crea las tablas de menú y plano', async () => {
     const db = await createTestDb()
     const rows = await db.all<{ name: string }>(
