@@ -1,12 +1,13 @@
-import { createClient } from '@libsql/client'
+import { createClient, type Client } from '@libsql/client'
 import * as dotenv from 'dotenv'
 dotenv.config()
 
 // Pequeñas migraciones idempotentes que se aplican al arranque del servidor.
 // Para cambios mayores usar drizzle-kit. Aquí solo agregamos columnas/tablas
 // nuevas sin tocar datos existentes.
-export async function applyStartupMigrations() {
-  const client = createClient({ url: process.env.DATABASE_URL || 'file:./mauidisk.db' })
+// Acepta un cliente por parámetro para poder aplicarlas en tests.
+export async function applyStartupMigrations(existing?: Client) {
+  const client = existing ?? createClient({ url: process.env.DATABASE_URL || 'file:./mauidisk.db' })
 
   // 1) tables.active — flag para inhabilitar mesas sin perder historial.
   try {
@@ -39,6 +40,8 @@ export async function applyStartupMigrations() {
   }
 
   // 3) Índices de rendimiento — idempotentes con IF NOT EXISTS.
+  // También están declarados en schema.ts con los mismos nombres: si no lo
+  // estuvieran, `drizzle-kit push` los borraría (verificado).
   const indexes = [
     `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
     `CREATE INDEX IF NOT EXISTS idx_order_items_bill_id   ON order_items(bill_id)`,
@@ -51,5 +54,5 @@ export async function applyStartupMigrations() {
     }
   }
 
-  client.close()
+  if (!existing) client.close()
 }

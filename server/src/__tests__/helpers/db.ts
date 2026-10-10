@@ -1,121 +1,36 @@
 import * as os from 'os'
 import * as path from 'path'
-import { createClient } from '@libsql/client'
+import { createClient, type Client } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
+import { pushSQLiteSchema } from 'drizzle-kit/api'
 import * as schema from '../../db/schema'
-
-// DDL mínimo para los tests de cobro. Refleja exactamente schema.ts.
-const SCHEMA_SQL = [
-  `CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL,
-    active INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now'))
-  )`,
-  `CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    display_order INTEGER DEFAULT 0,
-    active INTEGER DEFAULT 1
-  )`,
-  `CREATE TABLE IF NOT EXISTS dishes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id INTEGER,
-    name TEXT NOT NULL,
-    description TEXT,
-    price REAL NOT NULL,
-    available INTEGER DEFAULT 1,
-    has_spice_level INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now'))
-  )`,
-  `CREATE TABLE IF NOT EXISTS tables (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    number INTEGER NOT NULL UNIQUE,
-    area TEXT DEFAULT 'salon',
-    capacity INTEGER DEFAULT 4,
-    status TEXT DEFAULT 'free',
-    pos_x REAL,
-    pos_y REAL,
-    active INTEGER DEFAULT 1
-  )`,
-  `CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    table_id INTEGER,
-    type TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    customer_name TEXT,
-    customer_phone TEXT,
-    customer_address TEXT,
-    notes TEXT,
-    created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  )`,
-  `CREATE TABLE IF NOT EXISTS order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER,
-    dish_id INTEGER,
-    dish_name TEXT NOT NULL,
-    unit_price REAL NOT NULL,
-    quantity INTEGER DEFAULT 1,
-    modifiers TEXT DEFAULT '[]',
-    notes TEXT,
-    status TEXT DEFAULT 'pending',
-    kitchen_printed INTEGER DEFAULT 0,
-    bill_id INTEGER,
-    bill_group_id INTEGER
-  )`,
-  `CREATE TABLE IF NOT EXISTS bill_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-    label TEXT NOT NULL,
-    status TEXT DEFAULT 'open',
-    bill_id INTEGER,
-    created_at TEXT DEFAULT (datetime('now'))
-  )`,
-  `CREATE TABLE IF NOT EXISTS bills (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER,
-    subtotal REAL NOT NULL,
-    total REAL NOT NULL,
-    payment_method TEXT NOT NULL,
-    cash_received REAL,
-    change_amount REAL,
-    receipt_number TEXT NOT NULL UNIQUE,
-    paid_at TEXT DEFAULT (datetime('now')),
-    created_by INTEGER
-  )`,
-  `CREATE TABLE IF NOT EXISTS expenses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    description TEXT NOT NULL,
-    amount REAL NOT NULL,
-    category TEXT DEFAULT 'general',
-    date TEXT NOT NULL,
-    notes TEXT,
-    created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now'))
-  )`,
-]
+import { applyStartupMigrations } from '../../db/migrate'
 
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>
 
-// Cada llamada crea un archivo SQLite temporal único para el test.
+// Ruta de archivo SQLite temporal única por test.
 // @libsql/client cicla conexiones durante db.transaction(), lo que invalida
-// bases de datos :memory:?cache=private entre el commit y la siguiente query.
-// Con archivo real, la BD persiste independientemente de qué conexión la abre.
-export async function createTestDb(): Promise<TestDb> {
+// bases :memory: entre el commit y la siguiente query; con archivo real la BD persiste.
+export function tempDbUrl(): string {
   const tmpFile = path.join(
     os.tmpdir(),
     `mauidesktest-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   )
-  const url = `file:${tmpFile.replace(/\\/g, '/')}`
-  const client = createClient({ url })
-  for (const sql of SCHEMA_SQL) {
-    await client.execute(sql)
-  }
+  return `file:${tmpFile.replace(/\\/g, '/')}`
+}
+
+// El esquema se genera desde schema.ts (misma fuente que producción) y luego se
+// aplican las migraciones de arranque. Así los tests ven FKs, índices y tablas reales.
+export async function createSchema(client: Client) {
+  const db = drizzle(client, { schema })
+  const { apply } = await pushSQLiteSchema(schema, db)
+  await apply()
+  await applyStartupMigrations(client)
+}
+
+export async function createTestDb(): Promise<TestDb> {
+  const client = createClient({ url: tempDbUrl() })
+  await createSchema(client)
   return drizzle(client, { schema })
 }
 
@@ -149,5 +64,5 @@ export async function seedBasicData(db: TestDb) {
     price: 35,
   }).returning()
 
-  return { user, table, dish1, dish2 }
+  return { user, table, cat, dish1, dish2 }
 }
