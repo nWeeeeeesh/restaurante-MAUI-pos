@@ -1,24 +1,11 @@
-import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import cors from 'cors'
-import path from 'path'
-import { existsSync } from 'fs'
 import jwt from 'jsonwebtoken'
 import * as dotenv from 'dotenv'
 dotenv.config()
 
 import type { AuthPayload } from './middleware/auth'
-
-import authRoutes from './routes/auth'
-import menuRoutes from './routes/menu'
-import ordersRoutes from './routes/orders'
-import billsRoutes from './routes/bills'
-import reportsRoutes from './routes/reports'
-import printRoutes from './routes/print'
-import tablesRoutes from './routes/tables'
-import splitRoutes from './routes/split'
-import usersRoutes from './routes/users'
+import { createApp, type AllowedOrigins } from './app'
 import { applyStartupMigrations } from './db/migrate'
 import { setIo } from './realtime'
 
@@ -42,7 +29,7 @@ if (JWT_SECRET.length < 32) {
 // explícitamente (ej: redes LAN dinámicas).
 const DEFAULT_DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:3001']
 const rawOrigins = (process.env.ALLOWED_ORIGINS ?? '').trim()
-const allowedOrigins: string[] | '*' = rawOrigins === '*'
+const allowedOrigins: AllowedOrigins = rawOrigins === '*'
   ? '*'
   : rawOrigins
     ? rawOrigins.split(',').map(s => s.trim()).filter(Boolean)
@@ -53,12 +40,7 @@ if (allowedOrigins !== '*' && allowedOrigins.length === 0) {
   process.exit(1)
 }
 
-const corsOptions: cors.CorsOptions = {
-  origin: allowedOrigins === '*' ? '*' : allowedOrigins,
-  credentials: allowedOrigins !== '*',
-}
-
-const app = express()
+const app = createApp({ allowedOrigins })
 const httpServer = createServer(app)
 
 const io = new Server(httpServer, {
@@ -86,33 +68,6 @@ io.use((socket, next) => {
     next(new Error('Unauthorized: invalid token'))
   }
 })
-
-app.use(cors(corsOptions))
-app.use(express.json())
-
-app.use('/api/auth', authRoutes)
-app.use('/api/menu', menuRoutes)
-app.use('/api/orders', ordersRoutes)
-app.use('/api/orders/:id/split', splitRoutes)
-app.use('/api/bills', billsRoutes)
-app.use('/api/reports', reportsRoutes)
-app.use('/api/print', printRoutes)
-app.use('/api/tables', tablesRoutes)
-app.use('/api/users', usersRoutes)
-
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', app: 'MauiDesk' }))
-
-// Servir el cliente compilado en producción.
-// Buscamos client/dist primero (build de Vite) — la ruta es relativa al cwd del servidor.
-const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist')
-if (existsSync(clientDist)) {
-  app.use(express.static(clientDist))
-  // SPA fallback: cualquier ruta que no sea /api o /socket.io devuelve index.html
-  app.get(/^(?!\/api|\/socket\.io).*/, (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'))
-  })
-  console.log(`Serving client from ${clientDist}`)
-}
 
 io.on('connection', (socket) => {
   const user = socket.data.user as AuthPayload | undefined

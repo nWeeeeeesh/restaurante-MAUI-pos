@@ -2,6 +2,7 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { bills, orders, orderItems, tables, billGroups } from '../db/schema'
 import type { DB } from '../db'
 import { sumItems } from '../utils/math'
+import { DomainError } from '../errors'
 
 export interface CreateBillParams {
   orderId: number
@@ -19,9 +20,9 @@ export interface CreateBillResult {
   order: typeof orders.$inferSelect
 }
 
-export class BillingError extends Error {
-  constructor(message: string, public readonly statusCode: number) {
-    super(message)
+export class BillingError extends DomainError {
+  constructor(message: string, statusCode: number, code?: string) {
+    super(message, statusCode, code)
     this.name = 'BillingError'
   }
 }
