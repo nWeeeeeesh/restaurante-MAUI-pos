@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   ArrowLeft, Search, Flame, Plus, Minus, X,
-  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2, Loader2,
+  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2, Loader2, Printer,
 } from 'lucide-react'
 
 // ─── Table definitions (ahora vienen del API; el TABLE_DEFS hardcodeado quedó obsoleto) ─
@@ -219,7 +219,7 @@ export default function POS() {
     setOrderType, setTableId, setCustomer, addItem, removeItem, removeDishes, changeQty, clearOrder,
     syncWithMenu } = useOrderStore()
 
-  const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, orders } = useOrdersStore()
+  const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, reprintKitchen, orders } = useOrdersStore()
   const pushToast = useToastStore(s => s.push)
   const role = useAuthStore(s => s.user?.role)
   // Matriz de permisos (plan v1.1 §2): el servidor es quien realmente decide.
@@ -229,6 +229,7 @@ export default function POS() {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling]     = useState(false)
   const [sending, setSending]           = useState(false)
+  const [reprinting, setReprinting]     = useState(false)
 
   const [menu, setMenu]                   = useState<Category[]>([])
   const [tables, setTables]               = useState<PosTable[]>([])
@@ -293,6 +294,7 @@ export default function POS() {
   const itemsQty       = displayItems.reduce((s, i) => s + i.quantity, 0)
   const isExistingMode = !!existingOrder
   const hasPayments    = !!existingOrder?.items.some(i => i.billId)
+  const unprintedCount = existingOrder?.items.filter(i => !i.kitchenPrinted && !i.billId).length ?? 0
   const pendingTotal   = existingOrder
     ? existingOrder.items.filter(i => !i.billId).reduce((s, i) => s + i.unitPrice * i.quantity, 0)
     : total
@@ -362,6 +364,22 @@ export default function POS() {
       handleSendError(err, 'No se pudieron agregar los items')
     } finally {
       setSending(false)
+    }
+  }
+
+  // El resultado (ok o falla) lo informa el toast de kitchen:print-result por socket;
+  // aquí solo se avisan errores que no pasan por la impresora (p. ej., 400/404).
+  const handleReprint = async (onlyUnprinted: boolean) => {
+    if (!existingOrder || reprinting) return
+    setReprinting(true)
+    try {
+      await reprintKitchen(existingOrder.id, onlyUnprinted)
+    } catch (err: any) {
+      if (err?.response?.status !== 502) {
+        pushToast({ variant: 'error', title: 'No se pudo reimprimir', message: err?.response?.data?.error ?? 'Intenta nuevamente.' })
+      }
+    } finally {
+      setReprinting(false)
     }
   }
 
@@ -581,10 +599,11 @@ export default function POS() {
                   {item.modifiers.find(m=>m.optionName) && (
                     <p className="text-xs text-[#F4792B] mt-0.5 flex items-center gap-1"><Flame size={10}/>{item.modifiers.find(m=>m.optionName)?.optionName}</p>
                   )}
+                  {/* Sin pantalla de cocina, lo útil es saber si el plato llegó a la comanda */}
                   <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                    item.status === 'ready' ? 'bg-emerald-100 text-emerald-700' :
-                    item.status === 'preparing' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                  }`}>{item.status === 'ready' ? 'Listo' : item.status === 'preparing' ? 'Preparando' : 'Pendiente'}</span>
+                    item.billId ? 'bg-emerald-100 text-emerald-700' :
+                    item.kitchenPrinted ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700'
+                  }`}>{item.billId ? 'Cobrado' : item.kitchenPrinted ? 'En cocina' : 'Sin comanda'}</span>
                 </div>
               ))
             ) : (
@@ -608,6 +627,27 @@ export default function POS() {
               </div>
             )}
           </div>
+
+          {/* Comanda: aviso si algo no llegó a cocina (TD-17) y reimpresión manual */}
+          {isExistingMode && (
+            <div className="px-4 pt-3 shrink-0 space-y-2">
+              {unprintedCount > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                  <p className="text-xs text-red-700 font-semibold">
+                    {unprintedCount} plato{unprintedCount !== 1 ? 's' : ''} no llegaron a cocina
+                  </p>
+                  <button onClick={() => handleReprint(true)} disabled={reprinting}
+                    className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-1 shrink-0">
+                    {reprinting ? <Loader2 size={12} className="animate-spin"/> : <Printer size={12}/>} Reintentar
+                  </button>
+                </div>
+              )}
+              <button onClick={() => handleReprint(false)} disabled={reprinting}
+                className="w-full text-xs font-semibold text-[#64748B] hover:text-[#0077B6] flex items-center justify-center gap-1.5 py-1 disabled:opacity-50">
+                <Printer size={12}/> Reimprimir comanda completa
+              </button>
+            </div>
+          )}
 
           {/* Total & actions */}
           <div className="border-t border-[#E2E8F0] p-4 space-y-3 shrink-0">

@@ -38,6 +38,11 @@ export const UpdateOrderStatusSchema = z.object({
   status: z.enum(['pending', 'paying']),
 })
 
+// Body opcional: sin body se reimprime la comanda completa.
+export const ReprintKitchenSchema = z.object({
+  onlyUnprinted: z.boolean().optional(),
+}).optional()
+
 export const CancelOrderSchema = z.object({
   reason: z.string().trim().min(3, 'Indica el motivo (mínimo 3 caracteres)').max(200),
 })

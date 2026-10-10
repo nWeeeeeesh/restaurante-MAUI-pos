@@ -78,6 +78,7 @@ interface OrdersStore {
   }) => Promise<ActiveOrder>
   addItemsToOrder: (orderId: number, items: ItemPayload[]) => Promise<void>
   cancelOrder: (orderId: number, reason: string) => Promise<void>
+  reprintKitchen: (orderId: number, onlyUnprinted: boolean) => Promise<void>
   markOrderPaying: (orderId: number) => Promise<void>
   removeOrder: (orderId: number) => void
   replaceOrderItems: (orderId: number, paidItemIds: number[], billId: number) => void
@@ -157,7 +158,7 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
         useToastStore.getState().push({
           variant: 'error',
           title: `No se imprimió la comanda · ${r.label}`,
-          message: printerErrorMessage({ message: r.reason }),
+          message: `${printerErrorMessage({ message: r.reason })} Reintenta desde el pedido de la mesa.`,
           durationMs: 6000,
         })
       }
@@ -190,6 +191,11 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
         items: o.items.map(i => ids.has(i.id) ? { ...i, billId } : i),
       }),
     }))
+  },
+
+  // El resultado llega también por socket (kitchen:print-result) con su toast.
+  reprintKitchen: async (orderId, onlyUnprinted) => {
+    await api.post(`/orders/${orderId}/reprint-kitchen`, { onlyUnprinted })
   },
 
   // Optimista: se marca al instante y se revierte si el servidor lo rechaza.

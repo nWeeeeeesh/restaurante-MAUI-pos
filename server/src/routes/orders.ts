@@ -9,13 +9,15 @@ import {
   AddItemsSchema,
   UpdateOrderStatusSchema,
   CancelOrderSchema,
+  ReprintKitchenSchema,
   type OrderItemInput,
 } from '../schemas/orders'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
 import { createOrder, addItems, setOrderStatus, cancelOrder } from '../services/order.service'
 import { printKitchenTicket } from '../utils/printer'
-import { buildKitchenTicketData, orderLabel } from '../utils/tickets'
+import { buildKitchenTicketData, orderLabel, selectReprint } from '../utils/tickets'
+import { withWriteLock } from '../db/write-lock'
 
 const router = Router()
 
@@ -39,9 +41,10 @@ async function autoPrintKitchen(opts: {
       order: full, items, waiterName: opts.waiterName, isAddition: opts.isAddition,
     }))
 
-    await db.update(orderItems)
+    // Corre en segundo plano y puede coincidir con un cobro: pasa por el candado.
+    await withWriteLock(() => db.update(orderItems)
       .set({ kitchenPrinted: true })
-      .where(inArray(orderItems.id, opts.itemIds))
+      .where(inArray(orderItems.id, opts.itemIds)))
 
     emit('kitchen:print-result', {
       orderId: opts.orderId,
@@ -122,33 +125,45 @@ router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req,
   res.json(full)
 })
 
-// POST /api/orders/:id/reprint-kitchen — reimprimir comanda manualmente
-router.post('/:id/reprint-kitchen', requireAuth, async (req, res) => {
+// POST /api/orders/:id/reprint-kitchen — reimprimir la comanda (T6, TD-17)
+// body opcional: { onlyUnprinted: true } reintenta solo lo que no llegó a cocina.
+router.post('/:id/reprint-kitchen', requireAuth, validateBody(ReprintKitchenSchema), async (req, res) => {
   const orderId = Number(req.params.id)
+  const onlyUnprinted = Boolean((req.body as { onlyUnprinted?: boolean } | undefined)?.onlyUnprinted)
   const full = await getFullOrder(db, orderId)
   if (!full) { res.status(404).json({ error: 'Pedido no encontrado' }); return }
-  const items = full.items
+  const { items, isReprint, isAddition } = selectReprint(full.items, onlyUnprinted)
   if (items.length === 0) {
-    res.status(400).json({ error: 'No hay items para imprimir' })
+    res.status(400).json({
+      error: onlyUnprinted ? 'Todos los platos ya llegaron a cocina' : 'No hay items para imprimir',
+      code: 'NOTHING_TO_PRINT',
+    })
     return
   }
   const label = orderLabel(full)
 
   try {
+    // La impresión ocurre fuera del candado de escritura: puede tardar segundos.
     await printKitchenTicket(buildKitchenTicketData({
-      order: full, items, waiterName: req.user!.name, isAddition: false, isReprint: true,
+      order: full, items, waiterName: req.user!.name, isAddition, isReprint,
     }))
+    const printedIds = items.map(i => i.id)
+    await withWriteLock(() => db.update(orderItems)
+      .set({ kitchenPrinted: true })
+      .where(inArray(orderItems.id, printedIds)))
 
     emit('kitchen:print-result', {
-      orderId, ok: true, isAddition: false, label, itemCount: items.length, manual: true,
+      orderId, ok: true, isAddition, label, itemCount: items.length, manual: true,
     })
-    res.json({ ok: true })
+    const updated = await getFullOrder(db, orderId)
+    if (updated) emit('order:updated', updated)
+    res.json({ ok: true, printed: items.length })
   } catch (err: any) {
     const reason = err?.message ?? 'Error al imprimir'
     emit('kitchen:print-result', {
-      orderId, ok: false, isAddition: false, label, itemCount: items.length, reason, manual: true,
+      orderId, ok: false, isAddition, label, itemCount: items.length, reason, manual: true,
     })
-    res.status(500).json({ error: reason })
+    res.status(502).json({ error: reason, code: 'PRINTER_UNAVAILABLE' })
   }
 })
 

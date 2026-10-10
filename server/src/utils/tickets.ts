@@ -29,6 +29,17 @@ export function orderLabel(order: OrderLike): string {
     : `Mesa ${order.tableNumber ?? '?'}`
 }
 
+// Qué imprimir al reimprimir la comanda (T6):
+//  - onlyUnprinted: solo lo que nunca llegó a cocina (falló la impresora). No es una
+//    reimpresión para la cocina: es la primera vez que ve esos platos.
+//  - completa: todo el pedido, marcado como REIMPRESION para que no se prepare dos veces.
+export function selectReprint<T extends { kitchenPrinted: boolean | null }>(items: T[], onlyUnprinted: boolean) {
+  if (!onlyUnprinted) return { items, isReprint: true, isAddition: false }
+  const pending = items.filter(i => !i.kitchenPrinted)
+  // Si otros platos ya estaban en cocina, los pendientes son un agregado.
+  return { items: pending, isReprint: false, isAddition: items.some(i => i.kitchenPrinted) }
+}
+
 export function buildKitchenTicketData(args: {
   order: OrderLike
   items: ItemLike[]
