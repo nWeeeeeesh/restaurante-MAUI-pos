@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq, gte, desc } from 'drizzle-orm'
 import { db } from '../db'
-import { bills, orders, expenses, tables } from '../db/schema'
+import { bills, orders, expenses, tables, auditLog, users } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody, validateQuery } from '../middleware/validate'
 import {
@@ -60,6 +60,29 @@ router.get('/bills', requireAuth, requireRole('owner', 'manager'), validateQuery
     .orderBy(desc(bills.paidAt))
 
   res.json(result)
+})
+
+// GET /api/reports/audit?period=today|week|month — cancelaciones, correcciones y
+// cambios sensibles del período (M10). Es la herramienta del dueño para revisar
+// lo que se hizo en su ausencia.
+router.get('/audit', requireAuth, requireRole('owner', 'manager'), validateQuery(PeriodQuerySchema), async (req, res) => {
+  const period = (req.query.period as string) || 'today'
+  const rows = await db
+    .select({
+      id: auditLog.id,
+      at: auditLog.at,
+      action: auditLog.action,
+      entity: auditLog.entity,
+      entityId: auditLog.entityId,
+      data: auditLog.data,
+      userName: users.name,
+    })
+    .from(auditLog)
+    .leftJoin(users, eq(auditLog.userId, users.id))
+    .where(gte(auditLog.at, periodStart(period)))
+    .orderBy(desc(auditLog.at))
+    .limit(500)
+  res.json(rows.map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null })))
 })
 
 // ── Gastos (D6) ──────────────────────────────────────────────────────────────

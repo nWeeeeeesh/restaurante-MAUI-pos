@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, ShoppingBag, Banknote, Smartphone, Plus, Download, FileText, Receipt } from 'lucide-react'
+import { TrendingUp, ShoppingBag, Banknote, Smartphone, Plus, Download, FileText, Receipt, Pencil, Trash2, ShieldAlert } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -8,6 +8,7 @@ import api from '../api/client'
 import { useToastStore } from '../store/toast'
 import { formatDbDateTime } from '../utils/dates'
 import { generateReportHTML } from '../utils/reportHTML'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -66,6 +67,60 @@ const PAY_BADGE: Record<BillRecord['paymentMethod'], string> = {
   cash: 'bg-emerald-100 text-emerald-700',
   yape: 'bg-purple-100 text-purple-700',
   plin: 'bg-sky-100 text-sky-700',
+}
+
+interface AuditEntry {
+  id: number
+  at: string
+  action: string
+  entity: string
+  entityId: number | null
+  userName: string | null
+  data: Record<string, any> | null
+}
+
+const AUDIT_LABELS: Record<string, string> = {
+  'order.cancel': 'Pedido cancelado',
+  'expense.update': 'Gasto corregido',
+  'expense.delete': 'Gasto eliminado',
+  'dish.update': 'Plato modificado',
+  'dish.availability': 'Disponibilidad de plato',
+  'user.update': 'Usuario modificado',
+  'user.password_reset': 'Contraseña restablecida',
+  'table.update': 'Mesa modificada',
+  'table.disable': 'Mesa inhabilitada',
+  'table.delete': 'Mesa eliminada',
+}
+
+function auditLabel(e: AuditEntry): string {
+  return AUDIT_LABELS[e.action] ?? e.action
+}
+
+// Resumen legible de cada evento: lo que el dueño necesita para entender qué pasó.
+function auditDetail(e: AuditEntry): string {
+  const d = e.data ?? {}
+  const money = (n: unknown) => 'S/ ' + Number(n ?? 0).toFixed(2)
+  switch (e.action) {
+    case 'order.cancel':
+      return 'Pedido #' + e.entityId + ' · sin cobrar ' + money(d.unbilledTotal)
+        + (d.billedTotal ? ' · cobrado ' + money(d.billedTotal) : '') + ' · "' + (d.reason ?? '') + '"'
+    case 'expense.update':
+      return (d.before?.description ?? '') + ': ' + money(d.before?.amount) + ' → ' + money(d.after?.amount) + ' · "' + (d.reason ?? '') + '"'
+    case 'expense.delete':
+      return (d.before?.description ?? '') + ' (' + money(d.before?.amount) + ') · "' + (d.reason ?? '') + '"'
+    case 'dish.update':
+      return (d.before?.name ?? '') + (d.changes?.price !== undefined ? ': ' + money(d.before?.price) + ' → ' + money(d.changes.price) : '')
+    case 'dish.availability':
+      return (d.name ?? '') + ': ' + (d.available ? 'disponible' : 'agotado')
+    case 'user.update':
+      return (d.after?.name ?? '')
+        + (d.before?.role !== d.after?.role ? ' · rol ' + d.before?.role + ' → ' + d.after?.role : '')
+        + (d.before?.active !== d.after?.active ? (d.after?.active === false ? ' · inhabilitado' : ' · reactivado') : '')
+    case 'user.password_reset':
+      return d.username ?? ''
+    default:
+      return d.number !== undefined ? 'Mesa ' + d.number : ''
+  }
 }
 
 function buildCSV(period: Period, summary: Summary, expenses: Expense[], billHistory: BillRecord[], totalExp: number, netBal: number): string {
@@ -136,19 +191,28 @@ export default function Reports() {
   const [loading, setLoading]     = useState(true)
   const [form, setForm]           = useState({ description: '', amount: '', category: 'ingredientes' })
   const [adding, setAdding]       = useState(false)
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  // Corrección/borrado de gastos (M11): siempre con motivo, queda en el registro
+  const [expenseEdit, setExpenseEdit] = useState<{ exp: Expense; mode: 'edit' | 'delete' } | null>(null)
+  const [expDescription, setExpDescription] = useState('')
+  const [expAmount, setExpAmount] = useState('')
+  const [expReason, setExpReason] = useState('')
+  const [savingExpense, setSavingExpense] = useState(false)
   const pushToast = useToastStore(st => st.push)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [s, e, b] = await Promise.all([
+      const [s, e, b, a] = await Promise.all([
         api.get<Summary>(`/reports/summary?period=${period}`),
         api.get<Expense[]>(`/reports/expenses?period=${period}`),
         api.get<BillRecord[]>(`/reports/bills?period=${period}`),
+        api.get<AuditEntry[]>(`/reports/audit?period=${period}`),
       ])
       setSummary(s.data)
       setExpenses(e.data)
       setBills(b.data)
+      setAuditEntries(a.data)
     } catch (err: any) {
       pushToast({ variant: 'error', title: 'No se pudieron cargar los reportes', message: err?.response?.data?.error ?? 'Verifica la conexión.' })
     } finally {
@@ -174,6 +238,37 @@ export default function Reports() {
       pushToast({ variant: 'error', title: 'No se pudo registrar el gasto', message: err?.response?.data?.error ?? 'Intenta nuevamente.' })
     } finally {
       setAdding(false)
+    }
+  }
+
+  const openExpenseEdit = (exp: Expense, mode: 'edit' | 'delete') => {
+    setExpenseEdit({ exp, mode })
+    setExpDescription(exp.description)
+    setExpAmount(String(exp.amount))
+    setExpReason('')
+  }
+
+  const confirmExpenseEdit = async () => {
+    if (!expenseEdit) return
+    setSavingExpense(true)
+    try {
+      if (expenseEdit.mode === 'edit') {
+        await api.patch('/reports/expenses/' + expenseEdit.exp.id, {
+          description: expDescription.trim(),
+          amount: parseFloat(expAmount),
+          reason: expReason.trim(),
+        })
+        pushToast({ variant: 'success', title: 'Gasto corregido' })
+      } else {
+        await api.delete('/reports/expenses/' + expenseEdit.exp.id, { data: { reason: expReason.trim() } })
+        pushToast({ variant: 'success', title: 'Gasto eliminado' })
+      }
+      setExpenseEdit(null)
+      await load()
+    } catch (err: any) {
+      pushToast({ variant: 'error', title: 'No se pudo guardar', message: err?.response?.data?.error ?? 'Intenta nuevamente.' })
+    } finally {
+      setSavingExpense(false)
     }
   }
 
@@ -404,9 +499,42 @@ export default function Reports() {
                         <p className="text-xs text-[#94A3B8]">{exp.category} · {exp.date}</p>
                       </div>
                       <span className="text-sm font-black text-red-500 shrink-0">−S/ {exp.amount.toFixed(2)}</span>
+                      <button onClick={() => openExpenseEdit(exp, 'edit')} title="Corregir gasto"
+                        className="text-[#94A3B8] hover:text-[#0077B6] p-1.5 rounded-lg hover:bg-blue-50 shrink-0">
+                        <Pencil size={13}/>
+                      </button>
+                      <button onClick={() => openExpenseEdit(exp, 'delete')} title="Eliminar gasto"
+                        className="text-[#94A3B8] hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 shrink-0">
+                        <Trash2 size={13}/>
+                      </button>
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* ── Cancelaciones y correcciones (M10): lo hecho en ausencia del dueño ── */}
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center gap-2">
+                <ShieldAlert size={16} className="text-amber-500"/>
+                <h2 className="font-black text-[#0F172A] text-sm">Cancelaciones y correcciones</h2>
+                <span className="ml-auto text-xs font-bold text-[#94A3B8]">{auditEntries.length}</span>
+              </div>
+              <div className="divide-y divide-[#F1F5F9] max-h-80 overflow-y-auto">
+                {auditEntries.length === 0 ? (
+                  <p className="text-sm text-[#94A3B8] text-center py-8">Sin cancelaciones ni correcciones en este período</p>
+                ) : auditEntries.map(e => (
+                  <div key={e.id} className="px-5 py-3 flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A]">{auditLabel(e)}</p>
+                      <p className="text-xs text-[#64748B] truncate">{auditDetail(e)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-semibold text-[#0F172A]">{e.userName ?? '—'}</p>
+                      <p className="text-[10px] text-[#94A3B8]">{formatDbDateTime(e.at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -508,6 +636,33 @@ export default function Reports() {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={!!expenseEdit}
+        title={expenseEdit?.mode === 'delete' ? 'Eliminar gasto' : 'Corregir gasto'}
+        message={expenseEdit?.mode === 'delete'
+          ? expenseEdit.exp.description + ' · S/ ' + expenseEdit.exp.amount.toFixed(2)
+          : undefined}
+        confirmLabel={expenseEdit?.mode === 'delete' ? 'Eliminar' : 'Guardar'}
+        variant={expenseEdit?.mode === 'delete' ? 'danger' : 'info'}
+        loading={savingExpense}
+        confirmDisabled={expReason.trim().length < 3 || (expenseEdit?.mode === 'edit' && !(parseFloat(expAmount) > 0))}
+        onConfirm={confirmExpenseEdit}
+        onCancel={() => setExpenseEdit(null)}
+      >
+        <div className="space-y-2">
+          {expenseEdit?.mode === 'edit' && (
+            <>
+              <input value={expDescription} onChange={e => setExpDescription(e.target.value)} maxLength={200}
+                className="w-full bg-[#EEF3F8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077B6]/30"/>
+              <input value={expAmount} onChange={e => setExpAmount(e.target.value)} type="number" inputMode="decimal" step="0.10"
+                className="w-full bg-[#EEF3F8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077B6]/30"/>
+            </>
+          )}
+          <textarea value={expReason} onChange={e => setExpReason(e.target.value)} rows={2} maxLength={200}
+            placeholder="Motivo (obligatorio)"
+            className="w-full bg-[#EEF3F8] rounded-xl px-3 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0077B6]/30 resize-none"/>
+        </div>
+      </ConfirmDialog>
     </div>
   )
 }

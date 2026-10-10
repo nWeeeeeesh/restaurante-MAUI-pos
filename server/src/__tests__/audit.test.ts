@@ -51,3 +51,15 @@ describe('audit_log', () => {
     expect(log?.data).toMatchObject({ number: 77 })
   })
 })
+
+describe('GET /api/reports/audit (M10)', () => {
+  it('lista los eventos del período con el nombre de quien los hizo; el cajero no accede', async () => {
+    const res = await request(ctx.app).get('/api/reports/audit?period=today').set('Authorization', owner)
+    expect(res.status).toBe(200)
+    expect(res.body.length).toBeGreaterThan(0)
+    expect(res.body[0]).toHaveProperty('userName')
+    expect(typeof res.body[0].data).toBe('object')
+    const cashier = (await ctx.as('cashier')).auth
+    expect((await request(ctx.app).get('/api/reports/audit?period=today').set('Authorization', cashier)).status).toBe(403)
+  })
+})
