@@ -8,7 +8,7 @@ import { CreateBillSchema } from '../schemas/bills'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
 import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
-import { createBill, BillingError } from '../services/billing.service'
+import { createBill } from '../services/billing.service'
 import { validateQuery } from '../middleware/validate'
 import { DateRangeQuerySchema } from '../schemas/bills'
 
@@ -110,18 +110,8 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requireRole('owner', 'cashier'), validateBody(CreateBillSchema), async (req, res) => {
   const { orderId, paymentMethod, cashReceived, itemIds, billGroupId } = req.body
 
-  let result
-  try {
-    result = await createBill(db, { orderId, paymentMethod, cashReceived, itemIds, billGroupId, createdBy: req.user!.id })
-  } catch (err) {
-    if (err instanceof BillingError) {
-      res.status(err.statusCode).json({ error: err.message })
-      return
-    }
-    console.error('[bills POST]', err)
-    res.status(500).json({ error: 'Error interno al crear boleta' })
-    return
-  }
+  // Los BillingError (4xx) y SQLITE_BUSY (503) los traduce el manejador global.
+  const result = await createBill(db, { orderId, paymentMethod, cashReceived, itemIds, billGroupId, createdBy: req.user!.id })
 
   // Emits post-commit: suceden DESPUÉS de que la transacción está commiteada.
   const { bill, fullyPaid } = result

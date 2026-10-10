@@ -224,6 +224,78 @@ describe('billing.service — createBill', () => {
     ).rejects.toMatchObject({ statusCode: 409 })
   })
 
+  // ── Concurrencia e integridad (T1: TD-03, TD-11) ──────────────────────────
+
+  it('V2: dos cobros simultáneos del mismo pedido → una sola boleta', async () => {
+    const order = await insertOrder(db, tableId, userId)
+    await insertItem(db, order.id, { unitPrice: 28, quantity: 2 })
+
+    const results = await Promise.allSettled([
+      createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+      createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+    ])
+
+    const allBills = await db.select().from(bills)
+    expect(allBills.length).toBe(1)
+    expect(allBills[0].total).toBe(56)
+    expect(results.filter(r => r.status === 'fulfilled').length).toBe(1)
+    const rejected = results.find(r => r.status === 'rejected') as PromiseRejectedResult
+    expect(rejected.reason).toBeInstanceOf(BillingError)
+  })
+
+  it('V5: segunda transacción iniciada tras el commit de la primera → no duplica', async () => {
+    const order = await insertOrder(db, tableId, userId)
+    await insertItem(db, order.id, { unitPrice: 28, quantity: 2 })
+
+    // Retrasa el inicio de la transacción de la 2.ª llamada (event loop cargado)
+    const slowDb = new Proxy(db, {
+      get(target, prop, recv) {
+        if (prop === 'transaction') {
+          return async (fn: any) => { await new Promise(r => setTimeout(r, 50)); return (target as any).transaction(fn) }
+        }
+        return Reflect.get(target, prop, recv)
+      },
+    })
+    await Promise.allSettled([
+      createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+      createBill(slowDb as any, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+    ])
+
+    const allBills = await db.select().from(bills)
+    expect(allBills.length).toBe(1)
+    expect(allBills.reduce((s, b) => s + b.total, 0)).toBe(56)
+  })
+
+  it('rechaza cobrar un pedido cancelado (409)', async () => {
+    const order = await insertOrder(db, tableId, userId)
+    await insertItem(db, order.id, { unitPrice: 28 })
+    await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.id, order.id))
+
+    await expect(
+      createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+    ).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('rechaza cobrar un pedido ya pagado (409)', async () => {
+    const order = await insertOrder(db, tableId, userId)
+    await insertItem(db, order.id, { unitPrice: 28 })
+    await createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId })
+
+    await expect(
+      createBill(db, { orderId: order.id, paymentMethod: 'yape', createdBy: userId }),
+    ).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('devuelve los ítems cobrados (base de la boleta impresa)', async () => {
+    const order = await insertOrder(db, tableId, userId)
+    const item1 = await insertItem(db, order.id, { unitPrice: 28 })
+    await insertItem(db, order.id, { unitPrice: 35 })
+
+    const result = await createBill(db, { orderId: order.id, paymentMethod: 'yape', itemIds: [item1.id], createdBy: userId })
+    expect(result.items.map(i => i.id)).toEqual([item1.id])
+    expect(result.items[0].billId).toBe(result.bill.id)
+  })
+
   it('BillingError es instancia de Error', () => {
     const err = new BillingError('test', 400)
     expect(err).toBeInstanceOf(Error)
