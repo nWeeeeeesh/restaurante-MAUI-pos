@@ -101,30 +101,34 @@ router.post(
   const [cat] = await db.select().from(categories).where(eq(categories.id, categoryId))
   if (!cat) { res.status(400).json({ error: 'La categoría no existe' }); return }
 
-  const [dish] = await db.insert(dishes).values({
-    categoryId,
-    name,
-    description: description ?? null,
-    price,
-    hasSpiceLevel: Boolean(hasSpiceLevel),
-    available: true,
-  }).returning()
-
-  if (hasSpiceLevel) {
-    const [group] = await db.insert(modifierGroups).values({
-      dishId: dish.id, name: 'Nivel de Picante', type: 'spice', required: true, multiple: false, displayOrder: 1,
+  // Plato y sus modificadores en una sola transacción (TD-23)
+  const dish = await withWriteLock(() => db.transaction(async (tx) => {
+    const [dish] = await tx.insert(dishes).values({
+      categoryId,
+      name,
+      description: description ?? null,
+      price,
+      hasSpiceLevel: Boolean(hasSpiceLevel),
+      available: true,
     }).returning()
-    await db.insert(modifierOptions).values([
-      { groupId: group.id, name: 'Sin picante', displayOrder: 1 },
-      { groupId: group.id, name: 'Poco picante', displayOrder: 2 },
-      { groupId: group.id, name: 'Normal', displayOrder: 3 },
-      { groupId: group.id, name: 'Picante', displayOrder: 4 },
-      { groupId: group.id, name: 'Muy picante', displayOrder: 5 },
-    ])
-    await db.insert(modifierGroups).values({
-      dishId: dish.id, name: 'Preferencias', type: 'preference', required: false, multiple: true, displayOrder: 2,
-    })
-  }
+
+    if (hasSpiceLevel) {
+      const [group] = await tx.insert(modifierGroups).values({
+        dishId: dish.id, name: 'Nivel de Picante', type: 'spice', required: true, multiple: false, displayOrder: 1,
+      }).returning()
+      await tx.insert(modifierOptions).values([
+        { groupId: group.id, name: 'Sin picante', displayOrder: 1 },
+        { groupId: group.id, name: 'Poco picante', displayOrder: 2 },
+        { groupId: group.id, name: 'Normal', displayOrder: 3 },
+        { groupId: group.id, name: 'Picante', displayOrder: 4 },
+        { groupId: group.id, name: 'Muy picante', displayOrder: 5 },
+      ])
+      await tx.insert(modifierGroups).values({
+        dishId: dish.id, name: 'Preferencias', type: 'preference', required: false, multiple: true, displayOrder: 2,
+      })
+    }
+    return dish
+  }))
 
   res.status(201).json(dish)
   },

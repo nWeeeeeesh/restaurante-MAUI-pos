@@ -1,14 +1,18 @@
 import { Router } from 'express'
-import { eq, and, inArray, notInArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { orderItems, billGroups } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { billGroups } from '../db/schema'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { SplitGroupsSchema, type SplitGroupsInput } from '../schemas/split'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
+import { saveSplit, deleteSplit } from '../services/split.service'
 
 const router = Router({ mergeParams: true })
+
+// Dividir la cuenta es parte del cobro: cajero, encargado y dueño (matriz v1.1).
+const canSplit = requireRole('owner', 'manager', 'cashier')
 
 // Helper: re-emite la orden completa con sus grupos
 async function emitOrder(orderId: number) {
@@ -26,115 +30,19 @@ router.get('/', requireAuth, async (req, res) => {
 
 // POST /api/orders/:id/split — crear/reemplazar grupos abiertos
 // body: { groups: [{ label, itemIds }, ...] }
-//
 // Soporta coexistencia con grupos pagados: solo opera sobre los abiertos.
-// Los grupos pagados y sus items quedan intactos. Si en el body se incluye
-// un item ya cobrado o asignado a un grupo pagado, se rechaza.
-router.post('/', requireAuth, validateBody(SplitGroupsSchema), async (req, res) => {
+router.post('/', requireAuth, canSplit, validateBody(SplitGroupsSchema), async (req, res) => {
   const orderId = Number(req.params.id)
   const { groups } = req.body as SplitGroupsInput
-
-  const existing = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-  const paidGroups = existing.filter(g => g.status === 'paid')
-  const paidGroupIds = paidGroups.map(g => g.id)
-
-  // Validación: para crear una división nueva (sin grupos pagados aún) requerimos al menos 2 grupos.
-  // Si ya hay pagados, basta 1 grupo abierto (puede ser el último).
-  const nonEmpty = groups.filter(g => g.itemIds.length > 0)
-  if (paidGroups.length === 0 && nonEmpty.length < 2) {
-    res.status(400).json({ error: 'Se requieren al menos 2 sub-cuentas' })
-    return
-  }
-
-  const orderItemsList = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-  const itemsById = new Map(orderItemsList.map(i => [i.id, i]))
-  const lockedItemIds = new Set(orderItemsList.filter(i => i.billGroupId !== null && paidGroupIds.includes(i.billGroupId!)).map(i => i.id))
-
-  // Validar items
-  const seen = new Set<number>()
-  for (const g of groups) {
-    for (const id of g.itemIds) {
-      const it = itemsById.get(id)
-      if (!it) { res.status(400).json({ error: `El item ${id} no pertenece al pedido` }); return }
-      if (it.billId)             { res.status(400).json({ error: `El item ${id} ya fue cobrado` }); return }
-      if (lockedItemIds.has(id)) { res.status(400).json({ error: `El item ${id} pertenece a una sub-cuenta ya cobrada` }); return }
-      if (seen.has(id))          { res.status(400).json({ error: `El item ${id} está asignado a más de una sub-cuenta` }); return }
-      seen.add(id)
-    }
-  }
-
-  // C6: toda la reescritura de grupos va dentro de una transacción.
-  // Antes, entre el DELETE de grupos abiertos y el INSERT de los nuevos había
-  // una ventana donde la orden podía quedar con items sin grupo (huérfanos)
-  // si el request fallaba a mitad o si otra request leía el estado.
-  let created: typeof billGroups.$inferSelect[]
-  try {
-    created = await db.transaction(async (tx) => {
-      // Limpiar billGroupId solo de items NO bloqueados (los pagados siguen vinculados a su grupo pagado)
-      if (lockedItemIds.size > 0) {
-        await tx.update(orderItems).set({ billGroupId: null })
-          .where(and(eq(orderItems.orderId, orderId), notInArray(orderItems.id, [...lockedItemIds])))
-      } else {
-        await tx.update(orderItems).set({ billGroupId: null })
-          .where(eq(orderItems.orderId, orderId))
-      }
-
-      // Borrar solo grupos abiertos (los pagados se preservan)
-      await tx.delete(billGroups).where(and(eq(billGroups.orderId, orderId), eq(billGroups.status, 'open')))
-
-      // Crear nuevos abiertos
-      const newGroups: typeof billGroups.$inferSelect[] = []
-      for (const g of groups) {
-        if (g.itemIds.length === 0) continue
-        const [grp] = await tx.insert(billGroups).values({
-          orderId,
-          label: g.label,
-          status: 'open',
-        }).returning()
-        await tx.update(orderItems)
-          .set({ billGroupId: grp.id })
-          .where(inArray(orderItems.id, g.itemIds))
-        newGroups.push(grp)
-      }
-      return newGroups
-    })
-  } catch (error: any) {
-    console.error('[split POST] Error en transacción:', error)
-    res.status(500).json({ error: 'Error interno al dividir la cuenta' })
-    return
-  }
-
-  // Post-commit: emitir orden completa
+  const created = await saveSplit(db, orderId, groups)
   const full = await emitOrder(orderId)
   res.status(201).json({ groups: created, order: full })
 })
 
 // DELETE /api/orders/:id/split — deshacer SOLO los grupos abiertos
-// Los pagados permanecen intactos (no se puede deshacer una sub-cuenta cobrada).
-router.delete('/', requireAuth, async (req, res) => {
+router.delete('/', requireAuth, canSplit, async (req, res) => {
   const orderId = Number(req.params.id)
-  const existing = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-  const paidGroupIds = existing.filter(g => g.status === 'paid').map(g => g.id)
-
-  // Limpiar billGroupId solo en items NO ligados a grupos pagados
-  if (paidGroupIds.length > 0) {
-    const lockedItems = await db.select().from(orderItems).where(and(
-      eq(orderItems.orderId, orderId),
-      inArray(orderItems.billGroupId as any, paidGroupIds),
-    ))
-    const lockedIds = lockedItems.map(i => i.id)
-    if (lockedIds.length > 0) {
-      await db.update(orderItems).set({ billGroupId: null })
-        .where(and(eq(orderItems.orderId, orderId), notInArray(orderItems.id, lockedIds)))
-    } else {
-      await db.update(orderItems).set({ billGroupId: null }).where(eq(orderItems.orderId, orderId))
-    }
-  } else {
-    await db.update(orderItems).set({ billGroupId: null }).where(eq(orderItems.orderId, orderId))
-  }
-
-  await db.delete(billGroups).where(and(eq(billGroups.orderId, orderId), eq(billGroups.status, 'open')))
-
+  await deleteSplit(db, orderId)
   const full = await emitOrder(orderId)
   res.json({ ok: true, order: full })
 })

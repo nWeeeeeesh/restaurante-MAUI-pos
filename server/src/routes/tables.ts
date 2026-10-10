@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { tables, orders, layoutItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
+import { withWriteLock } from '../db/write-lock'
 import { validateBody } from '../middleware/validate'
 import {
   CreateTableSchema,
@@ -124,26 +125,29 @@ router.post(
   async (req, res) => {
     const { positions, layoutItems: items } = req.body
 
-    for (const p of positions) {
-      const updates: Partial<typeof tables.$inferInsert> = { posX: p.posX, posY: p.posY }
-      if (p.area !== undefined) updates.area = p.area
-      await db.update(tables).set(updates).where(eq(tables.id, p.id))
-    }
-
-    if (Array.isArray(items)) {
-      await db.delete(layoutItems)
-      if (items.length > 0) {
-        await db.insert(layoutItems).values(items.map(it => ({
-          type: it.type,
-          text: it.text,
-          posX: it.posX,
-          posY: it.posY,
-          width: it.width ?? null,
-          height: it.height ?? null,
-          color: it.color ?? '#94A3B8',
-        })))
+    // Todo o nada (TD-23): antes, si fallaba a mitad, las decoraciones quedaban borradas.
+    await withWriteLock(() => db.transaction(async (tx) => {
+      for (const p of positions) {
+        const updates: Partial<typeof tables.$inferInsert> = { posX: p.posX, posY: p.posY }
+        if (p.area !== undefined) updates.area = p.area
+        await tx.update(tables).set(updates).where(eq(tables.id, p.id))
       }
-    }
+
+      if (Array.isArray(items)) {
+        await tx.delete(layoutItems)
+        if (items.length > 0) {
+          await tx.insert(layoutItems).values(items.map(it => ({
+            type: it.type,
+            text: it.text,
+            posX: it.posX,
+            posY: it.posY,
+            width: it.width ?? null,
+            height: it.height ?? null,
+            color: it.color ?? '#94A3B8',
+          })))
+        }
+      }
+    }))
 
     const all = await db.select().from(tables).orderBy(tables.number)
     const decorations = await db.select().from(layoutItems)
