@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useOrdersStore, type ActiveOrder, type ActiveOrderItem } from '../store/orders'
-import { useAuthStore } from '../store/auth'
 import { useToastStore } from '../store/toast'
 import api from '../api/client'
 import {
@@ -24,21 +23,35 @@ const unpaidItems = (order: ActiveOrder): ActiveOrderItem[] =>
 const itemSubtotal = (i: ActiveOrderItem) => i.unitPrice * i.quantity
 
 // ─── Receipt Modal ─────────────────────────────────────────────────────────────
-function ReceiptModal({ orderType, tableNumber, customerName, items, receiptNumber, payMethod, cashReceived, onClose }: {
-  orderType: ActiveOrder['type']
+// Boleta tal como quedó registrada en el servidor (TD-14): número, ítems cobrados,
+// totales y vuelto vienen de la respuesta de POST /bills, no del estado local.
+export interface ServerReceipt {
+  billId: number
+  receiptNumber: string
+  date: string
+  orderType: 'dine-in' | 'delivery'
   tableNumber: number | null
   customerName: string | null
-  items: ActiveOrderItem[]
-  receiptNumber: string
-  payMethod: PayMethod
-  cashReceived: number
-  onClose: () => void
-}) {
+  cashierName: string
+  items: Array<{
+    id: number
+    dishName: string
+    quantity: number
+    unitPrice: number
+    modifiers: Array<{ optionName?: string | null; freeText?: string | null }>
+  }>
+  paymentMethod: PayMethod
+  cashReceived: number | null
+  changeAmount: number | null
+  total: number
+}
+
+function ReceiptModal({ receipt, onClose }: { receipt: ServerReceipt; onClose: () => void }) {
   const printRef  = useRef<HTMLDivElement>(null)
-  const { user }  = useAuthStore()
-  const total     = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
-  const change    = payMethod === 'cash' ? cashReceived - total : 0
-  const date      = new Date().toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const { billId, receiptNumber, date, orderType, tableNumber, customerName, items, total } = receipt
+  const payMethod    = receipt.paymentMethod
+  const cashReceived = receipt.cashReceived ?? 0
+  const change       = receipt.changeAmount ?? 0
 
   const [printing, setPrinting]       = useState(false)
   const [printOk, setPrintOk]         = useState(false)
@@ -66,27 +79,11 @@ function ReceiptModal({ orderType, tableNumber, customerName, items, receiptNumb
     win.close()
   }
 
+  // El servidor imprime la boleta registrada; si la impresora falla, se usa la del navegador.
   const handlePrint = async () => {
     setPrinting(true)
     try {
-      await api.post('/print/receipt', {
-        receiptNumber,
-        date,
-        orderType: orderType === 'delivery' ? 'delivery' : 'dine-in',
-        tableNumber,
-        customerName,
-        cashierName: user?.name ?? 'Cajero',
-        items: items.map(i => ({
-          dishName: i.dishName,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          modifiers: i.modifiers,
-        })),
-        paymentMethod: payMethod,
-        cashReceived: payMethod === 'cash' ? cashReceived : null,
-        changeAmount: payMethod === 'cash' ? change : null,
-        total,
-      })
+      await api.post(`/print/reprint/${billId}`)
       setPrintOk(true)
     } catch {
       windowPrintFallback()
@@ -844,7 +841,6 @@ function PaymentPanel({
 export default function Cash() {
   const [searchParams]      = useSearchParams()
   const navigate            = useNavigate()
-  const { user }            = useAuthStore()
   const { orders, removeOrder, replaceOrderItems } = useOrdersStore()
 
   const pushToast = useToastStore(s => s.push)
@@ -852,16 +848,9 @@ export default function Cash() {
   const paramOrderId   = searchParams.get('orderId')
   const [selectedId, setSelectedId] = useState<number | null>(paramOrderId ? Number(paramOrderId) : null)
   const [receipt, setReceipt] = useState<{
-    number: string
-    method: PayMethod
-    cashReceived: number
-    items: ActiveOrderItem[]
+    server: ServerReceipt
     fullyPaid: boolean
-    billId: number
     orderId: number
-    orderType: ActiveOrder['type']
-    tableNumber: number | null
-    customerName: string | null
   } | null>(null)
 
   const [splitOpen, setSplitOpen]       = useState(false)
@@ -945,18 +934,7 @@ export default function Cash() {
         itemIds: items.map(i => i.id),
         billGroupId: partialBillGroupId ?? undefined,
       })
-      setReceipt({
-        number: data.receiptNumber,
-        method,
-        cashReceived,
-        items,
-        fullyPaid: !!data?.fullyPaid,
-        billId: data?.id ?? -1,
-        orderId: selectedOrder.id,
-        orderType: selectedOrder.type,
-        tableNumber: selectedOrder.tableNumber,
-        customerName: selectedOrder.customerName,
-      })
+      setReceipt({ server: data.receipt, fullyPaid: !!data?.fullyPaid, orderId: selectedOrder.id })
     } catch (e: any) {
       pushToast({
         variant: 'error',
@@ -976,7 +954,7 @@ export default function Cash() {
         removeOrder(receipt.orderId)
         navigate('/tables')
       } else {
-        replaceOrderItems(receipt.orderId, receipt.items.map(i => i.id), receipt.billId)
+        replaceOrderItems(receipt.orderId, receipt.server.items.map(i => i.id), receipt.server.billId)
       }
     }
     setReceipt(null)
@@ -984,32 +962,15 @@ export default function Cash() {
     setPartialBillGroupId(null)
   }
 
+  // La pre-cuenta la arma el servidor con lo pendiente del pedido (o de la
+  // sub-cuenta seleccionada); el cliente solo indica cuál.
   const handlePrePrint = async () => {
     if (!selectedOrder) return
-    const items = unpaidItems(selectedOrder)
-    if (items.length === 0) return
+    if (unpaidItems(selectedOrder).length === 0) return
     setPrePrinting(true)
     setPrePrintMsg(null)
     try {
-      const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
-      const date = new Date().toLocaleString('es-PE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      })
-      await api.post('/print/pre-receipt', {
-        date,
-        orderType: selectedOrder.type === 'delivery' ? 'delivery' : 'dine-in',
-        tableNumber: selectedOrder.tableNumber,
-        customerName: selectedOrder.customerName,
-        cashierName: user?.name ?? 'Cajero',
-        items: items.map(i => ({
-          dishName: i.dishName,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          modifiers: i.modifiers,
-        })),
-        total,
-      })
+      await api.post(`/print/pre-receipt/${selectedOrder.id}`, partialBillGroupId ? { billGroupId: partialBillGroupId } : {})
       setPrePrintMsg('Pre-cuenta enviada a impresora')
     } catch (e: any) {
       setPrePrintMsg(e.response?.data?.error ?? 'Error al imprimir pre-cuenta')
@@ -1018,6 +979,7 @@ export default function Cash() {
       setTimeout(() => setPrePrintMsg(null), 3500)
     }
   }
+
 
   const handleSplitCharge = (items: ActiveOrderItem[], billGroupId: number) => {
     setPartialItems(items)
@@ -1157,16 +1119,7 @@ export default function Cash() {
       {/* Receipt modal — se muestra desde el snapshot en `receipt`, no depende de
           selectedOrder (que puede desaparecer al llegar order:removed por socket). */}
       {receipt && (
-        <ReceiptModal
-          orderType={receipt.orderType}
-          tableNumber={receipt.tableNumber}
-          customerName={receipt.customerName}
-          items={receipt.items}
-          receiptNumber={receipt.number}
-          payMethod={receipt.method}
-          cashReceived={receipt.cashReceived}
-          onClose={handleDone}
-        />
+        <ReceiptModal receipt={receipt.server} onClose={handleDone} />
       )}
     </div>
   )

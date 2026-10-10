@@ -67,6 +67,8 @@ export default function BillsHistory() {
   const { user } = useAuthStore()
   const { push: toast } = useToastStore()
   const isOwner = user?.role === 'owner'
+  // Reimprimir boletas: cajero, encargado y dueño (el mozo solo consulta)
+  const canReprint = user?.role !== 'waiter'
 
   const [from, setFrom] = useState(todayISO())
   const [to, setTo]     = useState(todayISO())
@@ -307,6 +309,7 @@ export default function BillsHistory() {
                     )}
                   </div>
                 </div>
+                {canReprint && (
                 <div className="px-5 pb-5 shrink-0">
                   <button onClick={() => reprint(selected.bill.id)} disabled={reprinting}
                     className="w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-xl text-white text-sm shadow-md disabled:opacity-60"
@@ -315,6 +318,7 @@ export default function BillsHistory() {
                     {reprinting ? 'Imprimiendo…' : 'Reimprimir boleta'}
                   </button>
                 </div>
+                )}
               </>
             )}
           </div>

@@ -9,6 +9,7 @@ import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
 import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
 import { createBill } from '../services/billing.service'
+import { buildReceipt } from '../services/receipt.service'
 import { validateQuery } from '../middleware/validate'
 import { DateRangeQuerySchema } from '../schemas/bills'
 
@@ -129,7 +130,9 @@ router.post('/', requireAuth, requireRole('owner', 'manager', 'cashier'), valida
     if (full) emit('order:updated', full)
   }
 
-  res.status(201).json({ ...bill, fullyPaid })
+  // La vista previa de la boleta sale de lo registrado, no del estado del cliente (TD-14).
+  const receipt = await buildReceipt(db, bill.id)
+  res.status(201).json({ ...bill, fullyPaid, receipt })
 })
 
 export default router
