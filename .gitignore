@@ -14,6 +14,8 @@ build/
 # database (datos de producción no deben versionarse)
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite-journal
 
