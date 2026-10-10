@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 export const users = sqliteTable('users', {
@@ -85,7 +85,11 @@ export const orders = sqliteTable('orders', {
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
-})
+}, (t) => [
+  // Los índices se declaran aquí además de en migrate.ts: si solo estuvieran
+  // allí, `drizzle-kit push` los eliminaría (verificado).
+  index('idx_orders_table_status').on(t.tableId, t.status),
+])
 
 export const orderItems = sqliteTable('order_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -100,7 +104,10 @@ export const orderItems = sqliteTable('order_items', {
   kitchenPrinted: integer('kitchen_printed', { mode: 'boolean' }).default(false),
   billId: integer('bill_id'),
   billGroupId: integer('bill_group_id'),
-})
+}, (t) => [
+  index('idx_order_items_order_id').on(t.orderId),
+  index('idx_order_items_bill_id').on(t.billId),
+])
 
 export const billGroups = sqliteTable('bill_groups', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -122,7 +129,9 @@ export const bills = sqliteTable('bills', {
   receiptNumber: text('receipt_number').notNull().unique(),
   paidAt: text('paid_at').default(sql`(datetime('now'))`),
   createdBy: integer('created_by').references(() => users.id),
-})
+}, (t) => [
+  index('idx_bills_paid_at').on(t.paidAt),
+])
 
 export const expenses = sqliteTable('expenses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
