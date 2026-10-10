@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { eq, and, gte, lte, desc, sql, inArray } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, orderItems, users, tables } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
@@ -14,21 +14,6 @@ import { validateQuery } from '../middleware/validate'
 import { DateRangeQuerySchema } from '../schemas/bills'
 
 const router = Router()
-
-// C7: atómico. Antes hacía SELECT * y Math.max en JS, escalando linealmente
-// con el historial y siendo no-atómico (dos llamadas concurrentes podían
-// retornar el mismo lastNumber). Ahora una sola query SQL.
-router.get('/next-number', requireAuth, async (_req, res) => {
-  // El formato es "B001-NNNNN". Extraemos la parte después del primer '-'.
-  // INSTR retorna 0 si no encuentra '-', en cuyo caso SUBSTR desde 1 toma
-  // todo el string y CAST a integer da 0 si no es numérico. Seguro.
-  const [row] = await db
-    .select({
-      max: sql<number | null>`MAX(CAST(SUBSTR(${bills.receiptNumber}, INSTR(${bills.receiptNumber}, '-')+1) AS INTEGER))`,
-    })
-    .from(bills)
-  res.json({ lastNumber: row?.max ?? 0 })
-})
 
 // GET /api/bills — historial. Dueño y encargado eligen el rango; cajero y mozo ven solo HOY.
 router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, res) => {

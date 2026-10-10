@@ -1,20 +1,6 @@
 export type TableStatus = 'free' | 'occupied' | 'paying'
 export type OrderType = 'dine_in' | 'delivery'
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'paid' | 'cancelled'
 export type ItemStatus = 'pending' | 'preparing' | 'ready'
-export type PaymentMethod = 'cash' | 'yape' | 'plin'
-export type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
-
-export interface Table {
-  id: number
-  number: number
-  area: 'salon' | 'terraza' | 'barra'
-  capacity: number
-  status: TableStatus
-  activeOrderId?: number
-  orderTotal?: number
-  guestCount?: number
-}
 
 export interface ModifierOption {
   id: number
@@ -71,15 +57,3 @@ export interface OrderItem {
   status: ItemStatus
 }
 
-export interface Order {
-  id: number
-  tableId: number | null
-  type: OrderType
-  status: OrderStatus
-  customerName?: string
-  customerPhone?: string
-  customerAddress?: string
-  notes?: string
-  items: OrderItem[]
-  createdAt: string
-}
