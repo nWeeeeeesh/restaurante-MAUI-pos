@@ -6,7 +6,8 @@ export const users = sqliteTable('users', {
   name: text('name').notNull(),
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: text('role', { enum: ['owner', 'cashier', 'waiter'] }).notNull(),
+  // 'manager' = Encargado: el dueño delega el local (D5). La columna es texto sin CHECK.
+  role: text('role', { enum: ['owner', 'manager', 'cashier', 'waiter'] }).notNull(),
   active: integer('active', { mode: 'boolean' }).default(true),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
@@ -77,7 +78,9 @@ export const orders = sqliteTable('orders', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   tableId: integer('table_id').references(() => tables.id),
   type: text('type', { enum: ['dine_in', 'delivery'] }).notNull(),
-  status: text('status', { enum: ['pending', 'preparing', 'ready', 'paid', 'cancelled'] }).default('pending'),
+  // Activos: pending, paying ('por cobrar'). Cerrados: paid, cancelled.
+  // preparing/ready son heredados de la pantalla de cocina retirada; se tratan como pending.
+  status: text('status', { enum: ['pending', 'paying', 'preparing', 'ready', 'paid', 'cancelled'] }).default('pending'),
   customerName: text('customer_name'),
   customerPhone: text('customer_phone'),
   customerAddress: text('customer_address'),
@@ -131,6 +134,20 @@ export const bills = sqliteTable('bills', {
   createdBy: integer('created_by').references(() => users.id),
 }, (t) => [
   index('idx_bills_paid_at').on(t.paidAt),
+])
+
+// Registro de operaciones sensibles (cancelaciones, correcciones, cambios de
+// permisos o precios). Se escribe en la misma transacción que la operación.
+export const auditLog = sqliteTable('audit_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  at: text('at').default(sql`(datetime('now'))`),
+  userId: integer('user_id').references(() => users.id),
+  action: text('action').notNull(),
+  entity: text('entity').notNull(),
+  entityId: integer('entity_id'),
+  data: text('data'),
+}, (t) => [
+  index('idx_audit_log_at').on(t.at),
 ])
 
 export const expenses = sqliteTable('expenses', {

@@ -3,7 +3,7 @@ import api from '../api/client'
 import { useOrdersStore } from './orders'
 import { useOrderStore } from './order'
 
-export type Role = 'owner' | 'cashier' | 'waiter'
+export type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
 
 interface User {
   id: number

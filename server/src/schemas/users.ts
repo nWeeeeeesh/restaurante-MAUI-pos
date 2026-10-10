@@ -7,14 +7,14 @@ export const CreateUserSchema = z.object({
   username: z.string().trim().toLowerCase().min(3, 'Usuario mínimo 3 caracteres').max(40)
     .regex(/^[a-z0-9._-]+$/, 'Usuario solo puede contener letras, números, ".", "_" o "-"'),
   password: PasswordSchema,
-  role: z.enum(['owner', 'cashier', 'waiter']),
+  role: z.enum(['owner', 'manager', 'cashier', 'waiter']),
 })
 
 export const UpdateUserSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   username: z.string().trim().toLowerCase().min(3).max(40)
     .regex(/^[a-z0-9._-]+$/).optional(),
-  role: z.enum(['owner', 'cashier', 'waiter']).optional(),
+  role: z.enum(['owner', 'manager', 'cashier', 'waiter']).optional(),
   active: z.boolean().optional(),
 }).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
 

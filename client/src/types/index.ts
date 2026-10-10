@@ -3,7 +3,7 @@ export type OrderType = 'dine_in' | 'delivery'
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'paid' | 'cancelled'
 export type ItemStatus = 'pending' | 'preparing' | 'ready'
 export type PaymentMethod = 'cash' | 'yape' | 'plin'
-export type Role = 'owner' | 'cashier' | 'waiter'
+export type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
 
 export interface Table {
   id: number

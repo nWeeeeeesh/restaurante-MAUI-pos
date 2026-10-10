@@ -39,7 +39,26 @@ export async function applyStartupMigrations(existing?: Client) {
     console.warn('[migrate] layout_items failed:', e.message)
   }
 
-  // 3) Índices de rendimiento — idempotentes con IF NOT EXISTS.
+  // 3) audit_log — registro de operaciones sensibles (v1.1, T3). Aditivo: la
+  // versión anterior del código funciona igual con esta tabla presente.
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        at TEXT DEFAULT (datetime('now')),
+        user_id INTEGER REFERENCES users(id),
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL,
+        entity_id INTEGER,
+        data TEXT
+      )
+    `)
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_audit_log_at ON audit_log(at)`)
+  } catch (e: any) {
+    console.warn('[migrate] audit_log failed:', e.message)
+  }
+
+  // 4) Índices de rendimiento — idempotentes con IF NOT EXISTS.
   // También están declarados en schema.ts con los mismos nombres: si no lo
   // estuvieran, `drizzle-kit push` los borraría (verificado).
   const indexes = [

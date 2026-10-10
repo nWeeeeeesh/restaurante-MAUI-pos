@@ -5,6 +5,8 @@ import { useOrdersStore, type ActiveOrder, type ItemPayload } from '../store/ord
 import type { Category, Dish, OrderItem, SelectedModifier, TableStatus } from '../types'
 import api from '../api/client'
 import { useToastStore } from '../store/toast'
+import { useAuthStore } from '../store/auth'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   ArrowLeft, Search, Flame, Plus, Minus, X,
   Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2,
@@ -219,6 +221,13 @@ export default function POS() {
 
   const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, orders } = useOrdersStore()
   const pushToast = useToastStore(s => s.push)
+  const role = useAuthStore(s => s.user?.role)
+  // Matriz de permisos (plan v1.1 §2): el servidor es quien realmente decide.
+  const canCancel = role === 'owner' || role === 'manager' || role === 'cashier'
+  const canCharge = canCancel
+  const [cancelOpen, setCancelOpen]     = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling]     = useState(false)
 
   const [menu, setMenu]                   = useState<Category[]>([])
   const [tables, setTables]               = useState<PosTable[]>([])
@@ -282,6 +291,10 @@ export default function POS() {
   const total          = displayItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0)
   const itemsQty       = displayItems.reduce((s, i) => s + i.quantity, 0)
   const isExistingMode = !!existingOrder
+  const hasPayments    = !!existingOrder?.items.some(i => i.billId)
+  const pendingTotal   = existingOrder
+    ? existingOrder.items.filter(i => !i.billId).reduce((s, i) => s + i.unitPrice * i.quantity, 0)
+    : total
 
   const canSend = !isExistingMode && items.length > 0 && (
     orderType === 'dine_in' ? tableId !== null : customerName.trim() && customerPhone.trim() && customerAddress.trim()
@@ -342,21 +355,45 @@ export default function POS() {
     }
   }
 
-  const handleCancelOrder = async () => {
+  // Cancelar requiere motivo; el servidor decide si el rol puede (D1: con cobros,
+  // solo encargado o dueño) y lo deja registrado.
+  const confirmCancelOrder = async () => {
     if (!existingOrder) return
-    if (confirm('¿Cancelar este pedido? La mesa quedará libre.')) {
-      try {
-        await cancelOrder(existingOrder.id)
-        clearOrder()
+    setCancelling(true)
+    try {
+      await cancelOrder(existingOrder.id, cancelReason.trim())
+      setCancelOpen(false)
+      clearOrder()
+      pushToast({ variant: 'success', title: 'Pedido cancelado' })
+      navigate('/tables')
+    } catch (err: any) {
+      pushToast({
+        variant: 'error',
+        title: 'No se pudo cancelar el pedido',
+        message: err?.response?.data?.error ?? 'Intenta nuevamente.',
+        durationMs: 6000,
+      })
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  // D2: el mozo "pide la cuenta" (marca por cobrar y vuelve a Mesas); quien cobra
+  // marca y pasa directo a Caja.
+  const handleRequestBill = async () => {
+    const oid = existingOrder?.id
+    if (!oid) return
+    try {
+      await markOrderPaying(oid)
+      clearOrder()
+      if (canCharge) {
+        navigate(`/cash?orderId=${oid}`)
+      } else {
+        pushToast({ variant: 'success', title: 'Cuenta solicitada', message: 'La mesa quedó "Por cobrar".' })
         navigate('/tables')
-      } catch (err: any) {
-        pushToast({
-          variant: 'error',
-          title: 'No se pudo cancelar el pedido',
-          message: err?.response?.data?.error ?? 'Intenta nuevamente.',
-          durationMs: 5000,
-        })
       }
+    } catch (err: any) {
+      pushToast({ variant: 'error', title: 'No se pudo marcar por cobrar', message: err?.response?.data?.error ?? 'Intenta nuevamente.' })
     }
   }
 
@@ -374,8 +411,8 @@ export default function POS() {
             : 'Nuevo Pedido'
           }
         </h1>
-        {isExistingMode && (
-          <button onClick={handleCancelOrder}
+        {isExistingMode && canCancel && (
+          <button onClick={() => { setCancelReason(''); setCancelOpen(true) }}
             className="ml-auto flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-xl transition-colors">
             <Trash2 size={13}/> Cancelar pedido
           </button>
@@ -592,12 +629,9 @@ export default function POS() {
             )}
 
             {isExistingMode && (
-              <button onClick={() => {
-                const oid = existingOrder?.id
-                if (oid) { markOrderPaying(oid); clearOrder(); navigate(`/cash?orderId=${oid}`) }
-              }}
+              <button onClick={handleRequestBill}
                 className="w-full flex items-center justify-center gap-2 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-bold py-3.5 rounded-xl transition-colors text-sm">
-                <CreditCard size={15}/> Cobrar S/ {total.toFixed(2)}
+                <CreditCard size={15}/> {canCharge ? 'Cobrar' : 'Pedir cuenta'} S/ {pendingTotal.toFixed(2)}
               </button>
             )}
           </div>
@@ -606,6 +640,24 @@ export default function POS() {
 
       {showTableModal && <TableSelectorModal tables={tables} current={tableId} onSelect={setTableId} onClose={() => setShowTableModal(false)}/>}
       {selectedDish && <ModifierModal dish={selectedDish} onConfirm={addItem} onClose={() => setSelectedDish(null)}/>}
+      <ConfirmDialog
+        open={cancelOpen}
+        title="Cancelar pedido"
+        message={hasPayments
+          ? 'Este pedido ya tiene cobros. Las boletas emitidas se mantienen; lo no cobrado queda registrado como pérdida.'
+          : 'La mesa quedará libre. Esta acción queda registrada.'}
+        confirmLabel="Cancelar pedido"
+        cancelLabel="Volver"
+        loading={cancelling}
+        confirmDisabled={cancelReason.trim().length < 3}
+        onConfirm={confirmCancelOrder}
+        onCancel={() => setCancelOpen(false)}
+      >
+        <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-1.5 block">Motivo</label>
+        <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={2} maxLength={200}
+          placeholder="ej: mesa equivocada, cliente se retiró..."
+          className="w-full bg-[#EEF3F8] rounded-xl px-3 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-red-300 border border-transparent focus:border-red-300 resize-none"/>
+      </ConfirmDialog>
     </div>
   )
 }

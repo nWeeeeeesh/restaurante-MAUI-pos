@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
 export interface ConfirmDialogProps {
@@ -9,6 +9,9 @@ export interface ConfirmDialogProps {
   cancelLabel?: string
   variant?: 'danger' | 'warning' | 'info'
   loading?: boolean
+  // Contenido extra entre el mensaje y los botones (p. ej., un campo de motivo)
+  children?: ReactNode
+  confirmDisabled?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -25,6 +28,7 @@ export function ConfirmDialog({
   cancelLabel  = 'Cancelar',
   variant = 'danger',
   loading = false,
+  children, confirmDisabled = false,
   onConfirm, onCancel,
 }: ConfirmDialogProps) {
   // Cerrar con Escape
@@ -48,12 +52,13 @@ export function ConfirmDialog({
         </div>
         <h3 className="text-lg font-black text-[#0F172A] mb-2">{title}</h3>
         {message && <p className="text-[#64748B] text-sm mb-6 whitespace-pre-line">{message}</p>}
+        {children && <div className="mb-6 text-left">{children}</div>}
         <div className="flex gap-3">
           <button onClick={onCancel} disabled={loading}
             className="flex-1 font-semibold py-3 rounded-xl text-[#64748B] bg-[#EEF3F8] hover:bg-[#E2E8F0] transition-colors disabled:opacity-50">
             {cancelLabel}
           </button>
-          <button onClick={onConfirm} disabled={loading}
+          <button onClick={onConfirm} disabled={loading || confirmDisabled}
             className={`flex-1 font-bold py-3 rounded-xl text-white shadow-md transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${v.btn}`}>
             {loading && <Loader2 size={15} className="animate-spin"/>}
             {confirmLabel}

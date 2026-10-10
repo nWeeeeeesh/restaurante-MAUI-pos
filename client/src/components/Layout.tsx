@@ -10,10 +10,10 @@ import { PrinterStatusPill } from './PrinterStatus'
 import { ChangePasswordModal } from './ChangePasswordModal'
 
 const navItems = [
-  { to: '/tables',      label: 'Mesas',    icon: LayoutGrid,      roles: ['owner','cashier','waiter'] as Role[] },
-  { to: '/pos',         label: 'Pedidos',  icon: UtensilsCrossed, roles: ['owner','cashier','waiter'] as Role[] },
-  { to: '/cash',        label: 'Caja',     icon: Receipt,         roles: ['owner','cashier'] as Role[] },
-  { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','cashier','waiter'] as Role[] },
+  { to: '/tables',      label: 'Mesas',    icon: LayoutGrid,      roles: ['owner','manager','cashier','waiter'] as Role[] },
+  { to: '/pos',         label: 'Pedidos',  icon: UtensilsCrossed, roles: ['owner','manager','cashier','waiter'] as Role[] },
+  { to: '/cash',        label: 'Caja',     icon: Receipt,         roles: ['owner','manager','cashier'] as Role[] },
+  { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','manager','cashier','waiter'] as Role[] },
   { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner'] as Role[] },
   { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner'] as Role[] },
   { to: '/admin/users', label: 'Usuarios', icon: Users,           roles: ['owner'] as Role[] },
@@ -21,6 +21,7 @@ const navItems = [
 
 const ROLE_LABELS: Record<Role, string> = {
   owner: 'Dueño',
+  manager: 'Encargado',
   cashier: 'Cajero',
   waiter: 'Mozo',
 }

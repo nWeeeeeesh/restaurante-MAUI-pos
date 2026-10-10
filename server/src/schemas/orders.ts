@@ -32,8 +32,14 @@ export const AddItemsSchema = z.object({
   items: z.array(OrderItemInputSchema).min(1, 'Debes enviar al menos un item').max(200),
 })
 
+// Solo se puede marcar/desmarcar "por cobrar". 'paid' lo fija únicamente el cobro
+// y 'cancelled' requiere POST /:id/cancel con motivo (TD-02).
 export const UpdateOrderStatusSchema = z.object({
-  status: z.enum(['pending', 'preparing', 'ready', 'paid', 'cancelled', 'paying']),
+  status: z.enum(['pending', 'paying']),
+})
+
+export const CancelOrderSchema = z.object({
+  reason: z.string().trim().min(3, 'Indica el motivo (mínimo 3 caracteres)').max(200),
 })
 
 export type OrderItemInput = z.infer<typeof OrderItemInputSchema>

@@ -107,7 +107,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   })
 })
 
-router.post('/', requireAuth, requireRole('owner', 'cashier'), validateBody(CreateBillSchema), async (req, res) => {
+router.post('/', requireAuth, requireRole('owner', 'manager', 'cashier'), validateBody(CreateBillSchema), async (req, res) => {
   const { orderId, paymentMethod, cashReceived, itemIds, billGroupId } = req.body
 
   // Los BillingError (4xx) y SQLITE_BUSY (503) los traduce el manejador global.

@@ -1,18 +1,19 @@
 import { Router } from 'express'
 import { eq, and, notInArray, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { orders, orderItems, tables, billGroups } from '../db/schema'
-import { requireAuth } from '../middleware/auth'
+import { orders, orderItems, tables } from '../db/schema'
+import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import {
   CreateOrderSchema,
   AddItemsSchema,
   UpdateOrderStatusSchema,
+  CancelOrderSchema,
   type OrderItemInput,
 } from '../schemas/orders'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
-import { resolveItems } from '../services/order.service'
+import { resolveItems, addItems, setOrderStatus, cancelOrder } from '../services/order.service'
 import { printKitchenTicket } from '../utils/printer'
 
 const router = Router()
@@ -156,42 +157,14 @@ router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req,
   const orderId = Number(req.params.id)
   const { items: reqItems } = req.body as { items: OrderItemInput[] }
 
-  const resolved = await resolveItems(db, reqItems)
-  const inserted = await db.insert(orderItems).values(
-    resolved.map((item) => ({ ...item, orderId, status: 'pending' as const }))
-  ).returning({ id: orderItems.id })
+  // 404 si no existe, 409 si está pagado o cancelado (TD-07)
+  const { insertedIds } = await addItems(db, orderId, reqItems)
 
-  // Manejo de items nuevos cuando la orden tiene cuenta dividida:
-  //  - 1 grupo abierto         → auto-asignar a ese grupo
-  //  - 0 abiertos y ≥1 pagados → auto-crear un nuevo grupo abierto para que los items
-  //                              sean cobrables sin necesidad de pasar por el modal
-  //  - 2+ abiertos             → quedan sin asignar y el cajero decide en el modal
-  const groupsOnOrder = await db.select().from(billGroups).where(eq(billGroups.orderId, orderId))
-  const openGroups = groupsOnOrder.filter(g => g.status === 'open')
-  const paidGroups = groupsOnOrder.filter(g => g.status === 'paid')
-  if (openGroups.length === 1) {
-    await db.update(orderItems)
-      .set({ billGroupId: openGroups[0].id })
-      .where(inArray(orderItems.id, inserted.map(i => i.id)))
-  } else if (openGroups.length === 0 && paidGroups.length > 0) {
-    const nextLetter = String.fromCharCode(65 + groupsOnOrder.length)
-    const [newGroup] = await db.insert(billGroups).values({
-      orderId,
-      label: `Cuenta ${nextLetter}`,
-      status: 'open',
-    }).returning()
-    await db.update(orderItems)
-      .set({ billGroupId: newGroup.id })
-      .where(inArray(orderItems.id, inserted.map(i => i.id)))
-  }
-
-  await db.update(orders).set({ status: 'pending', updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
-
-  // Imprime SOLO los items nuevos en cocina
+  // Imprime SOLO los items nuevos en cocina (después del commit)
   autoPrintKitchen({
     orderId,
     isAddition: true,
-    itemIds: inserted.map(i => i.id),
+    itemIds: insertedIds,
     waiterName: req.user!.name,
   })
 
@@ -252,80 +225,28 @@ router.post('/:id/reprint-kitchen', requireAuth, async (req, res) => {
   }
 })
 
-// PATCH /api/orders/:id/status
+// PATCH /api/orders/:id/status — marcar/desmarcar 'por cobrar' (TD-08)
 router.patch('/:id/status', requireAuth, validateBody(UpdateOrderStatusSchema), async (req, res) => {
   const orderId = Number(req.params.id)
-  const { status } = req.body
-
-  // 'paying' es solo un estado de UI/sincronización con la mesa; no es status
-  // válido de la orden en BD (la BD acepta pending|preparing|ready|paid|cancelled).
-  const orderStatusForDb: 'pending' | 'preparing' | 'ready' | 'paid' | 'cancelled' =
-    status === 'paying' ? 'preparing' : status
-
-  await db.update(orders).set({ status: orderStatusForDb, updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
-
-  // Sync table status
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
-  if (order?.tableId) {
-    const tableStatus = status === 'paying' ? 'paying' : status === 'paid' || status === 'cancelled' ? 'free' : 'occupied'
-    await db.update(tables).set({ status: tableStatus }).where(eq(tables.id, order.tableId))
-  }
-
+  const { status } = req.body as { status: 'pending' | 'paying' }
+  await setOrderStatus(db, orderId, status)
   const full = await getFullOrder(db, orderId)
-  if (status === 'paid' || status === 'cancelled') {
+  emit('order:updated', full)
+  res.json(full)
+})
+
+// POST /api/orders/:id/cancel — cancelar con motivo (D1). El servicio aplica la
+// política: con cobros, solo encargado o dueño; siempre queda en audit_log.
+router.post(
+  '/:id/cancel',
+  requireAuth, requireRole('owner', 'manager', 'cashier'), validateBody(CancelOrderSchema),
+  async (req, res) => {
+    const orderId = Number(req.params.id)
+    const { reason } = req.body as { reason: string }
+    await cancelOrder(db, orderId, { id: req.user!.id, role: req.user!.role }, reason)
     emit('order:removed', orderId)
-  } else {
-    emit('order:updated', full)
-  }
-  res.json(full)
-})
-
-// PATCH /api/orders/:id/items/:itemId/toggle
-router.patch('/:id/items/:itemId/toggle', requireAuth, async (req, res) => {
-  const orderId = Number(req.params.id)
-  const itemId  = Number(req.params.itemId)
-
-  // C9: verificar que el item pertenezca a la orden (evita IDOR donde
-  // un usuario podría tocar items de cualquier orden con solo conocer el itemId).
-  const [item] = await db.select().from(orderItems)
-    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
-  if (!item) { res.status(404).json({ error: 'Item no encontrado en este pedido' }); return }
-
-  const newStatus = item.status === 'ready' ? 'preparing' : 'ready'
-  await db.update(orderItems).set({ status: newStatus })
-    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
-
-  // Check if all items are ready → update order status
-  const allItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId))
-  const allReady = allItems.every(i => (i.id === itemId ? newStatus : i.status) === 'ready')
-  const orderStatus = allReady ? 'ready' : 'preparing'
-  await db.update(orders).set({ status: orderStatus, updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
-
-  const full = await getFullOrder(db, orderId)
-  emit('order:updated', full)
-  res.json(full)
-})
-
-// PATCH /api/orders/:id/ready — mark all items ready
-router.patch('/:id/ready', requireAuth, async (req, res) => {
-  const orderId = Number(req.params.id)
-  await db.update(orderItems).set({ status: 'ready' }).where(eq(orderItems.orderId, orderId))
-  await db.update(orders).set({ status: 'ready', updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId))
-  const full = await getFullOrder(db, orderId)
-  emit('order:updated', full)
-  res.json(full)
-})
-
-// DELETE /api/orders/:id — cancel
-router.delete('/:id', requireAuth, async (req, res) => {
-  const orderId = Number(req.params.id)
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
-  if (order?.tableId) {
-    await db.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
-  }
-  await db.update(orders).set({ status: 'cancelled' }).where(eq(orders.id, orderId))
-  emit('order:removed', orderId)
-  res.status(204).send()
-})
+    res.json({ ok: true })
+  },
+)
 
 export default router

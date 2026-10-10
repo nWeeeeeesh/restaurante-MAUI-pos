@@ -693,11 +693,9 @@ export default function Tables() {
                   <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
                     <Bike size={20} className="text-[#F4792B] shrink-0" />
                     <span className={`text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                      o.status === 'ready' ? 'bg-emerald-100 text-emerald-700' :
-                      o.status === 'preparing' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-600'
+                      o.status === 'paying' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {o.status === 'ready' ? 'Listo' : o.status === 'preparing' ? 'Preparando' : 'Pendiente'}
+                      {o.status === 'paying' ? 'Por cobrar' : 'Abierto'}
                     </span>
                   </div>
                   <p className="text-sm font-bold text-[#0F172A] truncate">{o.customerName}</p>

@@ -34,7 +34,7 @@ router.get('/status', requireAuth, async (_req, res) => {
 })
 
 // POST /api/print/clear-queue — limpiar cola atorada (solo owner/cashier)
-router.post('/clear-queue', requireAuth, requireRole('owner', 'cashier'), async (_req, res) => {
+router.post('/clear-queue', requireAuth, requireRole('owner', 'manager', 'cashier'), async (_req, res) => {
   try {
     const type = process.env.PRINTER_TYPE ?? 'tcp'
     if (type !== 'windows') {

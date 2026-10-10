@@ -75,7 +75,7 @@ interface OrdersStore {
     items: ItemPayload[]
   }) => Promise<ActiveOrder>
   addItemsToOrder: (orderId: number, items: ItemPayload[]) => Promise<void>
-  cancelOrder: (orderId: number) => Promise<void>
+  cancelOrder: (orderId: number, reason: string) => Promise<void>
   markOrderPaying: (orderId: number) => Promise<void>
   removeOrder: (orderId: number) => void
   replaceOrderItems: (orderId: number, paidItemIds: number[], billId: number) => void
@@ -171,8 +171,9 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
     await api.post(`/orders/${orderId}/items`, { items })
   },
 
-  cancelOrder: async (orderId) => {
-    await api.delete(`/orders/${orderId}`)
+  // Motivo obligatorio; el servidor aplica quién puede cancelar (D1) y lo registra.
+  cancelOrder: async (orderId, reason) => {
+    await api.post(`/orders/${orderId}/cancel`, { reason })
   },
 
   removeOrder: (orderId) => {
@@ -189,11 +190,19 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
     }))
   },
 
+  // Optimista: se marca al instante y se revierte si el servidor lo rechaza.
+  // El estado ahora persiste en el servidor (TD-08) y llega a todos por socket.
   markOrderPaying: async (orderId) => {
+    const previous = get().orders.find(o => o.id === orderId)?.status
     set(s => ({
       orders: s.orders.map(o => o.id !== orderId ? o : { ...o, status: 'paying' }),
     }))
-    await api.patch(`/orders/${orderId}/status`, { status: 'paying' })
+    try {
+      await api.patch(`/orders/${orderId}/status`, { status: 'paying' })
+    } catch (err) {
+      if (previous) set(s => ({ orders: s.orders.map(o => o.id !== orderId ? o : { ...o, status: previous }) }))
+      throw err
+    }
   },
 
   saveSplit: async (orderId, groups) => {

@@ -40,7 +40,7 @@ router.get('/', requireAuth, async (_req, res) => {
 })
 
 // GET all dishes including unavailable (admin)
-router.get('/dishes', requireAuth, requireRole('owner', 'cashier'), async (_req, res) => {
+router.get('/dishes', requireAuth, requireRole('owner', 'manager', 'cashier'), async (_req, res) => {
   const cats = await db.select().from(categories).orderBy(asc(categories.displayOrder))
   const dishList = await db.select().from(dishes).orderBy(asc(dishes.id))
   res.json({ categories: cats, dishes: dishList })

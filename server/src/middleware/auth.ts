@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 export interface AuthPayload {
   id: number
   username: string
-  role: 'owner' | 'cashier' | 'waiter'
+  role: 'owner' | 'manager' | 'cashier' | 'waiter'
   name: string
 }
 

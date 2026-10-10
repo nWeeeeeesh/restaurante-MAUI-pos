@@ -1,8 +1,133 @@
-import { inArray } from 'drizzle-orm'
-import { categories, dishes, modifierGroups, modifierOptions } from '../db/schema'
-import type { Executor } from '../db'
+import { eq, inArray } from 'drizzle-orm'
+import {
+  categories, dishes, modifierGroups, modifierOptions, orders, orderItems, billGroups, tables,
+} from '../db/schema'
+import type { DB, Executor } from '../db'
+import type { AuthPayload } from '../middleware/auth'
 import { DomainError } from '../errors'
-import { roundMoney } from '../utils/math'
+import { roundMoney, sumItems } from '../utils/math'
+import { withWriteLock } from '../db/write-lock'
+import { audit } from './audit'
+
+type Role = AuthPayload['role']
+type OrderRow = typeof orders.$inferSelect
+
+// ── Ciclo de vida del pedido ──────────────────────────────────────────────────
+// Activos: pending, paying ('por cobrar'); preparing/ready son heredados y se
+// tratan como pending. Cerrados: paid (solo lo alcanza el cobro) y cancelled.
+export function isClosed(status: OrderRow['status']) {
+  return status === 'paid' || status === 'cancelled'
+}
+
+async function loadActiveOrder(tx: Executor, orderId: number): Promise<OrderRow> {
+  const [order] = await tx.select().from(orders).where(eq(orders.id, orderId))
+  if (!order) throw new DomainError('Pedido no encontrado', 404, 'ORDER_NOT_FOUND')
+  if (isClosed(order.status)) {
+    throw new DomainError('El pedido ya está cerrado (pagado o cancelado)', 409, 'ORDER_CLOSED')
+  }
+  return order
+}
+
+// Agrega ítems a un pedido activo (TD-07: antes reabría pedidos pagados o cancelados).
+export async function addItems(db: DB, orderId: number, items: OrderItemRequest[]) {
+  return withWriteLock(() => db.transaction(async (tx) => {
+    const order = await loadActiveOrder(tx, orderId)
+    const resolved = await resolveItems(tx, items)
+    const inserted = await tx.insert(orderItems)
+      .values(resolved.map(item => ({ ...item, orderId, status: 'pending' as const })))
+      .returning({ id: orderItems.id })
+    const insertedIds = inserted.map(i => i.id)
+
+    // Ítems nuevos en una cuenta dividida:
+    //  - 1 grupo abierto         → auto-asignar a ese grupo
+    //  - 0 abiertos y ≥1 pagados → crear un grupo abierto nuevo para que sean cobrables
+    //  - 2+ abiertos             → quedan sin asignar y el cajero decide en el modal
+    const groupsOnOrder = await tx.select().from(billGroups).where(eq(billGroups.orderId, orderId))
+    const openGroups = groupsOnOrder.filter(g => g.status === 'open')
+    const paidGroups = groupsOnOrder.filter(g => g.status === 'paid')
+    if (openGroups.length === 1) {
+      await tx.update(orderItems).set({ billGroupId: openGroups[0].id }).where(inArray(orderItems.id, insertedIds))
+    } else if (openGroups.length === 0 && paidGroups.length > 0) {
+      const nextLetter = String.fromCharCode(65 + groupsOnOrder.length)
+      const [newGroup] = await tx.insert(billGroups)
+        .values({ orderId, label: `Cuenta ${nextLetter}`, status: 'open' })
+        .returning()
+      await tx.update(orderItems).set({ billGroupId: newGroup.id }).where(inArray(orderItems.id, insertedIds))
+    }
+
+    // Si estaba "por cobrar", vuelve a pendiente: hay consumo nuevo.
+    await tx.update(orders)
+      .set({ status: 'pending', updatedAt: new Date().toISOString() })
+      .where(eq(orders.id, orderId))
+    if (order.tableId) {
+      await tx.update(tables).set({ status: 'occupied' }).where(eq(tables.id, order.tableId))
+    }
+    return { insertedIds }
+  }))
+}
+
+// Marca o desmarca "por cobrar" (TD-08: antes se guardaba como 'preparing' y se perdía).
+export async function setOrderStatus(db: DB, orderId: number, status: 'pending' | 'paying') {
+  return withWriteLock(() => db.transaction(async (tx) => {
+    const order = await loadActiveOrder(tx, orderId)
+    await tx.update(orders)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(orders.id, orderId))
+    if (order.tableId) {
+      await tx.update(tables)
+        .set({ status: status === 'paying' ? 'paying' : 'occupied' })
+        .where(eq(tables.id, order.tableId))
+    }
+  }))
+}
+
+// Política de cancelación (D1, D5):
+//  - sin cobros  → cajero, encargado o dueño
+//  - con cobros  → solo encargado o dueño (aceptar que parte de la cuenta no se
+//                  pague es una decisión de dinero)
+//  - pagado/cancelado → nadie (corregir un cobro requiere anular la boleta)
+// Siempre con motivo y registro en audit_log (TD-02, TD-16).
+export async function cancelOrder(db: DB, orderId: number, user: { id: number; role: Role }, reason: string) {
+  if (user.role === 'waiter') {
+    throw new DomainError('Solo el cajero, el encargado o el dueño pueden cancelar pedidos', 403, 'FORBIDDEN')
+  }
+  return withWriteLock(() => db.transaction(async (tx) => {
+    const order = await loadActiveOrder(tx, orderId)
+    const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId))
+    const billed = items.filter(i => i.billId !== null)
+    const unbilled = items.filter(i => i.billId === null)
+
+    if (billed.length > 0 && user.role !== 'owner' && user.role !== 'manager') {
+      throw new DomainError(
+        'El pedido tiene cobros: solo el encargado o el dueño pueden cancelarlo',
+        403,
+        'ORDER_HAS_PAYMENTS',
+      )
+    }
+
+    await tx.update(orders)
+      .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
+      .where(eq(orders.id, orderId))
+    if (order.tableId) {
+      await tx.update(tables).set({ status: 'free' }).where(eq(tables.id, order.tableId))
+    }
+    await audit(tx, {
+      userId: user.id,
+      action: 'order.cancel',
+      entity: 'order',
+      entityId: orderId,
+      data: {
+        reason,
+        tableId: order.tableId,
+        type: order.type,
+        billedTotal: sumItems(billed),
+        unbilledTotal: sumItems(unbilled),
+        unbilledItems: unbilled.map(i => ({ dishName: i.dishName, quantity: i.quantity, unitPrice: i.unitPrice })),
+      },
+    })
+    return order
+  }))
+}
 
 export interface OrderItemRequest {
   dishId: number

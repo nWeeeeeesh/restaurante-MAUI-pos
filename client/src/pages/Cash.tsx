@@ -1079,13 +1079,11 @@ export default function Cash() {
                             {order.type === 'delivery' ? order.customerName : `Mesa ${order.tableId}`}
                           </span>
                         </div>
+                        {/* Sin pantalla de cocina, los estados útiles son 'por cobrar' o abierto */}
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
-                          order.status === 'ready' ? 'bg-emerald-100 text-emerald-700' :
-                          order.status === 'paying' ? 'bg-orange-100 text-orange-700' :
-                          order.status === 'preparing' ? 'bg-amber-100 text-amber-700' :
-                          'bg-gray-100 text-gray-700'
+                          order.status === 'paying' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {order.status === 'ready' ? 'Listo' : order.status === 'paying' ? 'Cobrar' : order.status === 'preparing' ? 'Prepa' : 'Pend'}
+                          {order.status === 'paying' ? 'Cobrar' : 'Abierto'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">

@@ -42,7 +42,7 @@ export default function App() {
         {/* Cocina deshabilitada: el restaurante no usa pantalla en cocina, solo comanda impresa */}
         <Route path="/kitchen" element={<Navigate to="/tables" replace />} />
         <Route path="/cash" element={
-          <ProtectedRoute roles={['owner', 'cashier']}><Cash /></ProtectedRoute>
+          <ProtectedRoute roles={['owner', 'manager', 'cashier']}><Cash /></ProtectedRoute>
         } />
         <Route path="/bills" element={
           <ProtectedRoute><BillsHistory /></ProtectedRoute>

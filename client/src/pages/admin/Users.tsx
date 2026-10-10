@@ -7,7 +7,7 @@ import {
   Shield, Users as UsersIcon,
 } from 'lucide-react'
 
-type Role = 'owner' | 'cashier' | 'waiter'
+type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
 
 interface User {
   id: number
@@ -18,9 +18,10 @@ interface User {
   createdAt: string | null
 }
 
-const ROLE_LABELS: Record<Role, string> = { owner: 'Dueño', cashier: 'Cajero', waiter: 'Mozo' }
+const ROLE_LABELS: Record<Role, string> = { owner: 'Dueño', manager: 'Encargado', cashier: 'Cajero', waiter: 'Mozo' }
 const ROLE_COLORS: Record<Role, string> = {
   owner:   'bg-amber-100 text-amber-700',
+  manager: 'bg-violet-100 text-violet-700',
   cashier: 'bg-blue-100 text-blue-700',
   waiter:  'bg-emerald-100 text-emerald-700',
 }
@@ -91,6 +92,7 @@ export default function Users() {
             }`}>
               <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-black text-sm sm:text-base shrink-0 ${
                 u.role === 'owner' ? 'bg-amber-500 text-white' :
+                u.role === 'manager' ? 'bg-violet-500 text-white' :
                 u.role === 'cashier' ? 'bg-[#0077B6] text-white' :
                 'bg-emerald-500 text-white'
               }`}>
@@ -234,12 +236,13 @@ function UserFormModal({ user, onClose, onSaved }: {
           )}
           <div>
             <label className="text-xs font-bold text-[#64748B] uppercase tracking-wider mb-1.5 block">Rol</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['owner', 'cashier', 'waiter'] as Role[]).map(r => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['owner', 'manager', 'cashier', 'waiter'] as Role[]).map(r => (
                 <button key={r} onClick={() => setRole(r)} type="button"
                   className={`py-2.5 rounded-xl text-xs font-bold transition-colors border-2 ${
                     role === r
                       ? r === 'owner' ? 'bg-amber-500 border-amber-500 text-white'
+                      : r === 'manager' ? 'bg-violet-500 border-violet-500 text-white'
                       : r === 'cashier' ? 'bg-[#0077B6] border-[#0077B6] text-white'
                       : 'bg-emerald-500 border-emerald-500 text-white'
                       : 'bg-white border-[#E2E8F0] text-[#64748B] hover:border-[#0077B6]'
