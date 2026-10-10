@@ -48,10 +48,10 @@ export default function App() {
           <ProtectedRoute><BillsHistory /></ProtectedRoute>
         } />
         <Route path="/reports" element={
-          <ProtectedRoute roles={['owner']}><Reports /></ProtectedRoute>
+          <ProtectedRoute roles={['owner', 'manager']}><Reports /></ProtectedRoute>
         } />
         <Route path="/admin/menu" element={
-          <ProtectedRoute roles={['owner']}><MenuAdmin /></ProtectedRoute>
+          <ProtectedRoute roles={['owner', 'manager']}><MenuAdmin /></ProtectedRoute>
         } />
         <Route path="/admin/users" element={
           <ProtectedRoute roles={['owner']}><Users /></ProtectedRoute>

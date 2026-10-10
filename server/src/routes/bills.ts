@@ -30,13 +30,13 @@ router.get('/next-number', requireAuth, async (_req, res) => {
   res.json({ lastNumber: row?.max ?? 0 })
 })
 
-// GET /api/bills — historial. waiter/cashier ven solo HOY; owner puede pasar from/to
+// GET /api/bills — historial. Dueño y encargado eligen el rango; cajero y mozo ven solo HOY.
 router.get('/', requireAuth, validateQuery(DateRangeQuerySchema), async (req, res) => {
   const role = req.user!.role
   let from: string
   let to: string
 
-  if (role === 'owner') {
+  if (role === 'owner' || role === 'manager') {
     from = req.query.from ? parseDayBoundary(String(req.query.from), 'start') : localDayStart()
     to   = req.query.to   ? parseDayBoundary(String(req.query.to),   'end')   : localDayEnd()
   } else {
@@ -82,8 +82,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   const [bill] = await db.select().from(bills).where(eq(bills.id, id))
   if (!bill) { res.status(404).json({ error: 'Boleta no encontrada' }); return }
 
-  // waiter/cashier solo pueden ver boletas del día actual
-  if (req.user!.role !== 'owner') {
+  // cajero y mozo solo pueden ver boletas del día actual
+  if (req.user!.role !== 'owner' && req.user!.role !== 'manager') {
     if (!bill.paidAt || bill.paidAt < localDayStart() || bill.paidAt > localDayEnd()) {
       res.status(403).json({ error: 'Sin permisos para boletas anteriores' })
       return

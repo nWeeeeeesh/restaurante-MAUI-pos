@@ -62,7 +62,8 @@ export default function BillsHistory() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { push: toast } = useToastStore()
-  const isOwner = user?.role === 'owner'
+  // Dueño y encargado consultan cualquier rango; cajero y mozo, solo el día
+  const isOwner = user?.role === 'owner' || user?.role === 'manager'
   // Reimprimir boletas: cajero, encargado y dueño (el mozo solo consulta)
   const canReprint = user?.role !== 'waiter'
 

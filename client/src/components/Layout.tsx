@@ -14,8 +14,8 @@ const navItems = [
   { to: '/pos',         label: 'Pedidos',  icon: UtensilsCrossed, roles: ['owner','manager','cashier','waiter'] as Role[] },
   { to: '/cash',        label: 'Caja',     icon: Receipt,         roles: ['owner','manager','cashier'] as Role[] },
   { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','manager','cashier','waiter'] as Role[] },
-  { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner'] as Role[] },
-  { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner'] as Role[] },
+  { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner','manager'] as Role[] },
+  { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager'] as Role[] },
   { to: '/admin/users', label: 'Usuarios', icon: Users,           roles: ['owner'] as Role[] },
 ]
 

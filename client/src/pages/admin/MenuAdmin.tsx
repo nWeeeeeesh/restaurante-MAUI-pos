@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../api/client'
 import { useToastStore } from '../../store/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { useAuthStore } from '../../store/auth'
 import { Trash2, Pencil } from 'lucide-react'
 
 interface Category { id: number; name: string; displayOrder: number; active: boolean }
@@ -23,6 +24,9 @@ export default function MenuAdmin() {
   const [editAvailable, setEditAvailable] = useState(true)
 
   const [pendingDelete, setPendingDelete] = useState<Dish | null>(null)
+  // Matriz de permisos (plan v1.1): el encargado solo marca agotado/disponible
+  const isOwner = useAuthStore(st => st.user?.role) === 'owner'
+  const [togglingId, setTogglingId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
@@ -42,6 +46,19 @@ export default function MenuAdmin() {
   useEffect(() => { load() }, [])
 
   const filteredDishes = dishes.filter(d => d.categoryId === selectedCat)
+
+  const toggleAvailability = async (dish: Dish) => {
+    setTogglingId(dish.id)
+    try {
+      await api.patch(`/menu/dishes/${dish.id}/availability`, { available: !dish.available })
+      toast({ variant: 'success', title: dish.available ? `${dish.name}: agotado` : `${dish.name}: disponible` })
+      load()
+    } catch (err: any) {
+      toast({ variant: 'error', title: 'No se pudo actualizar', message: err.response?.data?.error ?? 'Error de servidor' })
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   const handleAddDish = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -161,6 +178,7 @@ export default function MenuAdmin() {
                 {dish.hasSpiceLevel && (
                   <span className="text-xs bg-orange-100 text-[#F4792B] px-1.5 py-0.5 rounded shrink-0">🌶</span>
                 )}
+                {isOwner ? (<>
                 <button
                   onClick={() => { setEditingDish(dish); setEditPrice(dish.price.toString()); setEditAvailable(dish.available) }}
                   className="text-gray-400 hover:text-[#0077B6] shrink-0 p-1.5 rounded hover:bg-blue-50 transition-colors"
@@ -175,12 +193,19 @@ export default function MenuAdmin() {
                 >
                   <Trash2 size={14}/>
                 </button>
+                </>) : (
+                  <button onClick={() => toggleAvailability(dish)} disabled={togglingId === dish.id}
+                    className={`text-xs font-bold px-2.5 py-1.5 rounded-lg shrink-0 disabled:opacity-50 ${dish.available ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                    {dish.available ? 'Marcar agotado' : 'Habilitar'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </div>
 
         {/* Add / Edit panel */}
+        {isOwner ? (
         <div className="space-y-4">
           {editingDish ? (
             <div className="bg-white rounded-xl border border-[#0077B6] p-4">
@@ -274,6 +299,12 @@ export default function MenuAdmin() {
             </div>
           )}
         </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-600 h-fit">
+            <p className="font-semibold text-[#1E1E2E] mb-1">Disponibilidad de platos</p>
+            <p>Como encargado puedes marcar un plato como agotado o volver a habilitarlo. Los precios y las altas o bajas del menú los gestiona el dueño.</p>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog

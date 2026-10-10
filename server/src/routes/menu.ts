@@ -10,7 +10,11 @@ import {
   CreateDishSchema,
   UpdateDishSchema,
   CreateModifierOptionSchema,
+  DishAvailabilitySchema,
 } from '../schemas/menu'
+import { withWriteLock } from '../db/write-lock'
+import { audit } from '../services/audit'
+import { DomainError } from '../errors'
 
 const router = Router()
 
@@ -40,7 +44,7 @@ router.get('/', requireAuth, async (_req, res) => {
 })
 
 // GET all dishes including unavailable (admin)
-router.get('/dishes', requireAuth, requireRole('owner', 'manager', 'cashier'), async (_req, res) => {
+router.get('/dishes', requireAuth, requireRole('owner', 'manager'), async (_req, res) => {
   const cats = await db.select().from(categories).orderBy(asc(categories.displayOrder))
   const dishList = await db.select().from(dishes).orderBy(asc(dishes.id))
   res.json({ categories: cats, dishes: dishList })
@@ -134,8 +138,38 @@ router.patch(
     const set: Partial<typeof dishes.$inferInsert> = { ...req.body }
     // Normalizar description vacío como null para limpieza
     if (set.description === '') set.description = null
-    const [updated] = await db.update(dishes).set(set).where(eq(dishes.id, id)).returning()
-    if (!updated) { res.status(404).json({ error: 'Plato no encontrado' }); return }
+    // Cambios de precio o disponibilidad quedan registrados (quién y desde qué valor)
+    const updated = await withWriteLock(() => db.transaction(async (tx) => {
+      const [before] = await tx.select().from(dishes).where(eq(dishes.id, id))
+      if (!before) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
+      const [after] = await tx.update(dishes).set(set).where(eq(dishes.id, id)).returning()
+      await audit(tx, {
+        userId: req.user!.id, action: 'dish.update', entity: 'dish', entityId: id,
+        data: { before: { name: before.name, price: before.price, available: before.available }, changes: req.body },
+      })
+      return after
+    }))
+    res.json(updated)
+  },
+)
+
+// PATCH /api/menu/dishes/:id/availability — marcar agotado/disponible (D5).
+// El encargado puede hacerlo durante el servicio; precios y altas siguen siendo del dueño.
+router.patch(
+  '/dishes/:id/availability',
+  requireAuth, requireRole('owner', 'manager'), validateBody(DishAvailabilitySchema),
+  async (req, res) => {
+    const id = Number(req.params.id)
+    const { available } = req.body as { available: boolean }
+    const updated = await withWriteLock(() => db.transaction(async (tx) => {
+      const [after] = await tx.update(dishes).set({ available }).where(eq(dishes.id, id)).returning()
+      if (!after) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
+      await audit(tx, {
+        userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
+        data: { name: after.name, available },
+      })
+      return after
+    }))
     res.json(updated)
   },
 )

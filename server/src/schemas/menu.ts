@@ -30,6 +30,10 @@ export const UpdateDishSchema = z.object({
   hasSpiceLevel: z.boolean().optional(),
 }).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
 
+export const DishAvailabilitySchema = z.object({
+  available: z.boolean(),
+})
+
 export const CreateModifierOptionSchema = z.object({
   name: trimmedName,
   priceAdjustment: z.number().min(-9999).max(9999).optional(),
