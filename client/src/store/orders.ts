@@ -50,12 +50,12 @@ export interface ActiveOrder {
   billGroups?: BillGroup[]
 }
 
-interface ItemPayload {
+// El servidor resuelve nombre y precio desde el catálogo (TD-01): solo se envía
+// qué plato, cuántos y qué opciones/texto se eligieron.
+export interface ItemPayload {
   dishId: number
-  dishName: string
-  unitPrice: number
   quantity: number
-  modifiers: SelectedModifier[]
+  modifiers: Array<{ groupId: number; optionId?: number; freeText?: string }>
   notes?: string
 }
 

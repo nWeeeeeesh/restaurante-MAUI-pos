@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useOrderStore } from '../store/order'
-import { useOrdersStore, type ActiveOrder } from '../store/orders'
+import { useOrderStore, draftUnitPrice } from '../store/order'
+import { useOrdersStore, type ActiveOrder, type ItemPayload } from '../store/orders'
 import type { Category, Dish, OrderItem, SelectedModifier, TableStatus } from '../types'
 import api from '../api/client'
 import { useToastStore } from '../store/toast'
@@ -110,7 +110,7 @@ function ModifierModal({ dish, onConfirm, onClose }: {
       modifiers.push({ groupId: spiceGroup.id, groupName: spiceGroup.name, optionId: spiceOption.id, optionName: spiceOption.name })
     if (prefGroup && prefText.trim())
       modifiers.push({ groupId: prefGroup.id, groupName: prefGroup.name, freeText: prefText.trim() })
-    onConfirm({ dishId: dish.id, dishName: dish.name, unitPrice: dish.price, quantity: qty, modifiers, notes })
+    onConfirm({ dishId: dish.id, dishName: dish.name, unitPrice: draftUnitPrice(dish, modifiers), quantity: qty, modifiers, notes })
     onClose()
   }
 
@@ -214,7 +214,8 @@ export default function POS() {
   const navigate = useNavigate()
 
   const { orderType, tableId, items, customerName, customerPhone, customerAddress,
-    setOrderType, setTableId, setCustomer, addItem, removeItem, changeQty, clearOrder } = useOrderStore()
+    setOrderType, setTableId, setCustomer, addItem, removeItem, removeDishes, changeQty, clearOrder,
+    syncWithMenu } = useOrderStore()
 
   const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, orders } = useOrdersStore()
   const pushToast = useToastStore(s => s.push)
@@ -238,13 +239,20 @@ export default function POS() {
     api.get<Category[]>('/menu').then(({ data }) => {
       setMenu(data)
       if (data.length > 0) setActiveCat(data[0].id)
+      // El borrador puede venir de horas atrás (localStorage): alinear con el menú vigente.
+      const { removed, repriced } = syncWithMenu(data)
+      if (removed.length > 0) {
+        pushToast({ variant: 'warning', title: 'Se quitaron platos no disponibles', message: removed.join(', '), durationMs: 6000 })
+      } else if (repriced) {
+        pushToast({ variant: 'info', title: 'Precios del pedido actualizados' })
+      }
     }).catch(() => {
       pushToast({ variant: 'error', title: 'No se pudo cargar el menú', message: 'Recarga la página o verifica la conexión.' })
     })
     api.get<PosTable[]>('/tables').then(({ data }) => setTables(data)).catch(() => {
       pushToast({ variant: 'error', title: 'No se pudieron cargar las mesas', message: 'Recarga la página.' })
     })
-  }, [pushToast])
+  }, [pushToast, syncWithMenu])
 
   // Apply URL params on mount
   useEffect(() => {
@@ -280,6 +288,32 @@ export default function POS() {
   )
   const canAddToExisting = isExistingMode && items.length > 0
 
+  // Solo se envía qué plato, cuántos y qué opciones: el servidor pone nombre y precio.
+  const toPayload = (list: OrderItem[]): ItemPayload[] => list.map(i => ({
+    dishId: i.dishId,
+    quantity: i.quantity,
+    modifiers: i.modifiers.map(m => ({ groupId: m.groupId, optionId: m.optionId, freeText: m.freeText })),
+    notes: i.notes || undefined,
+  }))
+
+  const handleSendError = (err: any, title: string) => {
+    const data = err?.response?.data
+    if (data?.code === 'DISH_UNAVAILABLE') {
+      // Se agotó algo entre que se armó el pedido y se envió: se quita del borrador
+      // y el mozo revisa antes de reenviar.
+      const dishes: Array<{ dishId: number; name: string }> = data.details?.dishes ?? []
+      removeDishes(dishes.map(d => d.dishId))
+      pushToast({
+        variant: 'warning',
+        title: 'Platos no disponibles',
+        message: `Se quitaron del pedido: ${dishes.map(d => d.name).join(', ')}. Revisa y vuelve a enviar.`,
+        durationMs: 7000,
+      })
+      return
+    }
+    pushToast({ variant: 'error', title, message: data?.error ?? 'Intenta nuevamente.', durationMs: 5000 })
+  }
+
   const handleSend = async () => {
     try {
       await createOrder({
@@ -288,41 +322,23 @@ export default function POS() {
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
         customerAddress: customerAddress || undefined,
-        items: items.map(i => ({
-          dishId: i.dishId, dishName: i.dishName,
-          unitPrice: i.unitPrice, quantity: i.quantity,
-          modifiers: i.modifiers, notes: i.notes || undefined,
-        })),
+        items: toPayload(items),
       })
       clearOrder()
       navigate('/tables')
     } catch (err: any) {
-      pushToast({
-        variant: 'error',
-        title: 'No se pudo enviar el pedido',
-        message: err?.response?.data?.error ?? 'Intenta nuevamente.',
-        durationMs: 5000,
-      })
+      handleSendError(err, 'No se pudo enviar el pedido')
     }
   }
 
   const handleAddToExisting = async () => {
     if (!existingOrder) return
     try {
-      await addItemsToOrder(existingOrder.id, items.map(i => ({
-        dishId: i.dishId, dishName: i.dishName,
-        unitPrice: i.unitPrice, quantity: i.quantity,
-        modifiers: i.modifiers, notes: i.notes || undefined,
-      })))
+      await addItemsToOrder(existingOrder.id, toPayload(items))
       clearOrder()
       navigate('/tables')
     } catch (err: any) {
-      pushToast({
-        variant: 'error',
-        title: 'No se pudieron agregar los items',
-        message: err?.response?.data?.error ?? 'Intenta nuevamente.',
-        durationMs: 5000,
-      })
+      handleSendError(err, 'No se pudieron agregar los items')
     }
   }
 

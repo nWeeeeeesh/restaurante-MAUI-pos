@@ -1,16 +1,18 @@
 import { z } from 'zod'
 
-// Modificadores que llegan desde el cliente: option seleccionada de un grupo
-// (optionName) o texto libre del mozo (freeText). Ambos opcionales por item.
+// Modificadores que llegan desde el cliente: opción elegida de un grupo (optionId)
+// o texto libre del mozo (freeText). Nombres y precios los resuelve el servidor
+// desde el catálogo; cualquier otro campo (groupName, optionName...) se descarta.
 const ModifierInputSchema = z.object({
-  optionName: z.string().trim().max(120).nullable().optional(),
+  groupId: z.number().int().positive(),
+  optionId: z.number().int().positive().nullable().optional(),
   freeText: z.string().trim().max(200).nullable().optional(),
-}).passthrough() // permite campos extra (groupId, etc.) sin romper
+})
 
+// TD-01: el cliente ya no define unitPrice ni dishName. Si un cliente viejo los
+// envía, Zod los descarta y el servidor usa los del catálogo.
 const OrderItemInputSchema = z.object({
   dishId: z.number().int().positive(),
-  dishName: z.string().trim().min(1).max(200),
-  unitPrice: z.number().positive().max(99999),
   quantity: z.number().int().positive().max(999),
   modifiers: z.array(ModifierInputSchema).max(50).optional(),
   notes: z.string().trim().max(500).nullable().optional(),

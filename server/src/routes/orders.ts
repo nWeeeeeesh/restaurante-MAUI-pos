@@ -12,6 +12,7 @@ import {
 } from '../schemas/orders'
 import { emit } from '../realtime'
 import { getFullOrder } from '../services/order.serializer'
+import { resolveItems } from '../services/order.service'
 import { printKitchenTicket } from '../utils/printer'
 
 const router = Router()
@@ -110,6 +111,9 @@ router.post('/', requireAuth, validateBody(CreateOrderSchema), async (req, res) 
     }
   }
 
+  // Precios y nombres desde el catálogo (TD-01). Si un plato está agotado → 409.
+  const resolved = reqItems?.length ? await resolveItems(db, reqItems) : []
+
   const [order] = await db.insert(orders).values({
     tableId: tableId ?? null,
     type,
@@ -122,18 +126,9 @@ router.post('/', requireAuth, validateBody(CreateOrderSchema), async (req, res) 
   }).returning()
 
   let insertedIds: number[] = []
-  if (reqItems?.length) {
+  if (resolved.length) {
     const inserted = await db.insert(orderItems).values(
-      (reqItems as OrderItemInput[]).map((item) => ({
-        orderId: order.id,
-        dishId: item.dishId,
-        dishName: item.dishName,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        modifiers: JSON.stringify(item.modifiers ?? []),
-        notes: item.notes ?? null,
-        status: 'pending' as const,
-      }))
+      resolved.map((item) => ({ ...item, orderId: order.id, status: 'pending' as const }))
     ).returning({ id: orderItems.id })
     insertedIds = inserted.map(i => i.id)
   }
@@ -161,17 +156,9 @@ router.post('/:id/items', requireAuth, validateBody(AddItemsSchema), async (req,
   const orderId = Number(req.params.id)
   const { items: reqItems } = req.body as { items: OrderItemInput[] }
 
+  const resolved = await resolveItems(db, reqItems)
   const inserted = await db.insert(orderItems).values(
-    reqItems.map((item) => ({
-      orderId,
-      dishId: item.dishId,
-      dishName: item.dishName,
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      modifiers: JSON.stringify(item.modifiers ?? []),
-      notes: item.notes ?? null,
-      status: 'pending' as const,
-    }))
+    resolved.map((item) => ({ ...item, orderId, status: 'pending' as const }))
   ).returning({ id: orderItems.id })
 
   // Manejo de items nuevos cuando la orden tiene cuenta dividida:
