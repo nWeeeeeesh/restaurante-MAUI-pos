@@ -24,18 +24,30 @@ interface BillRecord {
 const PAY_LABEL = { cash: 'Efectivo', yape: 'Yape', plin: 'Plin' }
 const PERIOD_LABEL: Record<Period, string> = { today: 'Hoy', week: 'Última semana', month: 'Este mes' }
 
+// TD-05: el reporte se escribe con document.write en una ventana del mismo origen;
+// cualquier texto cargado por usuarios (plato, cliente, gasto) debe escaparse o un
+// mozo podría inyectar un script que lea el token del dueño desde localStorage.
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function fmt(n: number) { return `S/ ${Number(n).toFixed(2)}` }
 
 function barRow(label: string, value: number, max: number, sub: string, color = '#0077B6'): string {
   const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 4
   return `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <span style="width:160px;font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</span>
+      <span style="width:160px;font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</span>
       <div style="flex:1;background:#f1f5f9;border-radius:4px;height:20px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .3s"></div>
       </div>
       <span style="font-size:12px;font-weight:800;color:#F4792B;width:80px;text-align:right">${fmt(value)}</span>
-      <span style="font-size:11px;color:#94a3b8;width:60px;text-align:right">${sub}</span>
+      <span style="font-size:11px;color:#94a3b8;width:60px;text-align:right">${escapeHtml(sub)}</span>
     </div>`
 }
 
@@ -103,9 +115,9 @@ export function generateReportHTML(
         </tr></thead>
         <tbody>${expenses.map(e => `
           <tr style="border-bottom:1px solid #f1f5f9">
-            <td style="padding:9px 20px;font-size:12px;color:#64748b">${e.date}</td>
-            <td style="padding:9px 12px;font-size:12px;color:#64748b;text-transform:capitalize">${e.category}</td>
-            <td style="padding:9px 12px;font-size:12px;font-weight:600;color:#0f172a">${e.description}</td>
+            <td style="padding:9px 20px;font-size:12px;color:#64748b">${escapeHtml(e.date)}</td>
+            <td style="padding:9px 12px;font-size:12px;color:#64748b;text-transform:capitalize">${escapeHtml(e.category)}</td>
+            <td style="padding:9px 12px;font-size:12px;font-weight:600;color:#0f172a">${escapeHtml(e.description)}</td>
             <td style="padding:9px 20px;font-size:12px;font-weight:800;color:#ef4444;text-align:right">${fmt(e.amount)}</td>
           </tr>`).join('')}
         </tbody>
@@ -127,11 +139,11 @@ export function generateReportHTML(
         </tr></thead>
         <tbody>${billHistory.map(b => `
           <tr style="border-bottom:1px solid #f1f5f9">
-            <td style="padding:9px 20px;font-size:11px;font-family:monospace;color:#0077B6;font-weight:700">${b.receiptNumber}</td>
+            <td style="padding:9px 20px;font-size:11px;font-family:monospace;color:#0077B6;font-weight:700">${escapeHtml(b.receiptNumber)}</td>
             <td style="padding:9px 12px;font-size:12px;color:#64748b">${formatDate(b.paidAt ?? '')}</td>
             <td style="padding:9px 12px;font-size:12px;font-weight:600;color:#0f172a">
               ${b.orderType === 'delivery'
-                ? `<span style="background:#fff7ed;color:#9a3412;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">Delivery</span> ${b.customerName ?? ''}`
+                ? `<span style="background:#fff7ed;color:#9a3412;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">Delivery</span> ${escapeHtml(b.customerName)}`
                 : `Mesa ${b.tableNumber ?? '?'}`}
             </td>
             <td style="padding:9px 12px">${badge(b.paymentMethod)}</td>
