@@ -67,6 +67,7 @@ interface OrdersStore {
 
   reset: () => void
   init: () => Promise<void>
+  refresh: () => Promise<void>
   createOrder: (payload: {
     tableId: number | null
     type: 'dine_in' | 'delivery'
@@ -92,12 +93,26 @@ interface OrdersStore {
   getUnpaidTotal: (tableId: number) => number
 }
 
+// Resincronización (TD-12): los eventos que se emiten mientras el socket está caído
+// se pierden; al reconectar (o al volver la app al frente) se vuelve a pedir el
+// estado completo. Handlers con nombre para poder quitarlos sin tocar los de
+// api/socket.ts (que alimentan el banner de conexión).
+let hasConnectedOnce = false
+let lastRefreshAt = 0
+let onSocketConnect: (() => void) | null = null
+let onVisibility: (() => void) | null = null
+
 export const useOrdersStore = create<OrdersStore>((set, get) => ({
   orders: [],
   initialized: false,
 
   reset: () => {
     socket.disconnect()
+    if (onSocketConnect) socket.off('connect', onSocketConnect)
+    if (onVisibility) document.removeEventListener('visibilitychange', onVisibility)
+    onSocketConnect = null
+    onVisibility = null
+    hasConnectedOnce = false
     socket.off('order:new')
     socket.off('order:updated')
     socket.off('order:removed')
@@ -110,8 +125,7 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
     set({ initialized: true })
 
     try {
-      const { data } = await api.get<ActiveOrder[]>('/orders/active')
-      set({ orders: data })
+      await get().refresh()
     } catch {
       // Sin pedidos activos visibles: el mozo/cajero ve la lista vacía. Aviso explícito
       // para que sepa que no es un estado real sino una falla de carga.
@@ -122,6 +136,20 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
         durationMs: 6000,
       })
     }
+
+    onSocketConnect = () => {
+      if (hasConnectedOnce) {
+        get().refresh().catch(() => {})
+      }
+      hasConnectedOnce = true
+    }
+    socket.on('connect', onSocketConnect)
+    onVisibility = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastRefreshAt > 30_000) {
+        get().refresh().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
 
     socket.connect()
 
@@ -163,6 +191,12 @@ export const useOrdersStore = create<OrdersStore>((set, get) => ({
         })
       }
     })
+  },
+
+  refresh: async () => {
+    const { data } = await api.get<ActiveOrder[]>('/orders/active')
+    lastRefreshAt = Date.now()
+    set({ orders: data })
   },
 
   createOrder: async (payload) => {
