@@ -5,6 +5,8 @@ import { db } from '../db'
 import { users } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { disconnectUser } from '../realtime'
+import { withWriteLock } from '../db/write-lock'
+import { audit } from '../services/audit'
 import { validateBody } from '../middleware/validate'
 import {
   CreateUserSchema,
@@ -100,8 +102,16 @@ router.patch(
 
     const [before] = await db.select().from(users).where(eq(users.id, id))
     if (!before) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
-    await db.update(users).set(updates).where(eq(users.id, id))
-    const [u] = await db.select().from(users).where(eq(users.id, id))
+    // Cambios de rol, estado o identidad quedan registrados (TD-16)
+    const u = await withWriteLock(() => db.transaction(async (tx) => {
+      await tx.update(users).set(updates).where(eq(users.id, id))
+      const [after] = await tx.select().from(users).where(eq(users.id, id))
+      await audit(tx, {
+        userId: req.user!.id, action: 'user.update', entity: 'user', entityId: id,
+        data: { before: publicShape(before), after: publicShape(after) },
+      })
+      return after
+    }))
     // Al inhabilitar o cambiar el rol, se cortan sus sockets abiertos: el próximo
     // request HTTP ya usa el estado nuevo (requireAuth consulta la BD).
     if (u.active === false || u.role !== before.role) disconnectUser(id)
@@ -119,7 +129,10 @@ router.post(
     const [u] = await db.select().from(users).where(eq(users.id, id))
     if (!u) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
     const passwordHash = await bcrypt.hash(password, 10)
-    await db.update(users).set({ passwordHash }).where(eq(users.id, id))
+    await withWriteLock(() => db.transaction(async (tx) => {
+      await tx.update(users).set({ passwordHash }).where(eq(users.id, id))
+      await audit(tx, { userId: req.user!.id, action: 'user.password_reset', entity: 'user', entityId: id, data: { username: u.username } })
+    }))
     res.json({ ok: true })
   },
 )

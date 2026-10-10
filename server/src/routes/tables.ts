@@ -4,6 +4,7 @@ import { db } from '../db'
 import { tables, orders, layoutItems } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { withWriteLock } from '../db/write-lock'
+import { audit } from '../services/audit'
 import { validateBody } from '../middleware/validate'
 import {
   CreateTableSchema,
@@ -35,8 +36,19 @@ router.patch(
       }
     }
 
-    await db.update(tables).set(updates).where(eq(tables.id, id))
-    const [updated] = await db.select().from(tables).where(eq(tables.id, id))
+    const updated = await withWriteLock(() => db.transaction(async (tx) => {
+      const [before] = await tx.select().from(tables).where(eq(tables.id, id))
+      await tx.update(tables).set(updates).where(eq(tables.id, id))
+      const [after] = await tx.select().from(tables).where(eq(tables.id, id))
+      // Solo se auditan cambios de identidad o habilitación (las posiciones no)
+      if (before && (updates.number !== undefined || updates.active !== undefined)) {
+        await audit(tx, {
+          userId: req.user!.id, action: 'table.update', entity: 'table', entityId: id,
+          data: { before: { number: before.number, active: before.active }, changes: req.body },
+        })
+      }
+      return after
+    }))
     res.json(updated)
   },
 )
@@ -91,16 +103,25 @@ router.delete('/:id', requireAuth, requireRole('owner'), async (req, res) => {
     return
   }
 
+  const [target] = await db.select().from(tables).where(eq(tables.id, id))
+  if (!target) { res.status(404).json({ error: 'Mesa no encontrada' }); return }
+
   if (allOrders.length > 0) {
     // Tiene historial — soft disable para preservar reportes
-    await db.update(tables).set({ active: false, status: 'free' }).where(eq(tables.id, id))
+    await withWriteLock(() => db.transaction(async (tx) => {
+      await tx.update(tables).set({ active: false, status: 'free' }).where(eq(tables.id, id))
+      await audit(tx, { userId: req.user!.id, action: 'table.disable', entity: 'table', entityId: id, data: { number: target.number } })
+    }))
     const [t] = await db.select().from(tables).where(eq(tables.id, id))
     res.json({ ok: true, disabled: true, table: t })
     return
   }
 
   try {
-    await db.delete(tables).where(eq(tables.id, id))
+    await withWriteLock(() => db.transaction(async (tx) => {
+      await tx.delete(tables).where(eq(tables.id, id))
+      await audit(tx, { userId: req.user!.id, action: 'table.delete', entity: 'table', entityId: id, data: { number: target.number } })
+    }))
     res.json({ ok: true, deleted: true })
   } catch (err: any) {
     // Fallback defensivo: si la FK aún bloquea (cambio de schema futuro), inhabilitamos
