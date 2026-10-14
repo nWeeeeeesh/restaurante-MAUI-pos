@@ -1,14 +1,14 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { db, type Executor } from '../db'
-import { auditLog, dishes, lostSales, supplies, supplyCounts, supplyPurchases, supplyWaste, users } from '../db/schema'
+import { dishes, lostSales, supplies, supplyCounts, supplyPurchases, supplyWaste, users } from '../db/schema'
 import { withWriteLock } from '../db/write-lock'
 import { DomainError } from '../errors'
 import { audit } from './audit'
-import { localDateString, parseDayBoundary, sqliteLocalOffset } from '../utils/dates'
-import { toCsv } from '../utils/csv'
+import { localDateString, parseDayBoundary } from '../utils/dates'
+import { supplyCodeFrom, uniqueCode } from '../utils/codes'
 import type {
   CreateLostSaleInput, CreatePurchaseInput, CreateSupplyInput, CreateWasteInput,
-  ExportTable, SaveCountsInput, UpdatePurchaseInput, UpdateSupplyInput, UpdateWasteInput,
+  SaveCountsInput, UpdatePurchaseInput, UpdateSupplyInput, UpdateWasteInput,
 } from '../schemas/inventory'
 
 // Fase 0 de la tesis: solo REGISTRO (compras, merma, conteos, ventas perdidas).
@@ -43,19 +43,24 @@ async function assertNameFree(tx: Executor, name: string, exceptId?: number) {
 // ── Insumos ──────────────────────────────────────────────────────────────────
 export async function listSupplies(includeInactive: boolean) {
   const q = db.select().from(supplies)
-  const rows = includeInactive ? await q.orderBy(asc(supplies.name)) : await q.where(eq(supplies.active, true)).orderBy(asc(supplies.name))
-  // Los críticos primero: son los que se cuentan cada noche
+  const order = [asc(supplies.sortOrder), asc(supplies.name)]
+  const rows = includeInactive ? await q.orderBy(...order) : await q.where(eq(supplies.active, true)).orderBy(...order)
+  // Los críticos primero: son los de la «Compra del día»
   return rows.sort((a, b) => Number(b.critical) - Number(a.critical))
 }
 
 export function createSupply(input: CreateSupplyInput) {
   return withWriteLock(() => db.transaction(async (tx) => {
     await assertNameFree(tx, input.name)
+    const taken = new Set((await tx.select({ code: supplies.code }).from(supplies)).map(r => r.code).filter((c): c is string => !!c))
+    if (input.code && taken.has(input.code)) throw new DomainError(`Ya existe el código ${input.code}`, 409, 'SUPPLY_CODE_EXISTS')
     const [row] = await tx.insert(supplies).values({
       name: input.name,
       unit: input.unit,
       perishable: input.perishable ?? true,
       critical: input.critical ?? false,
+      code: input.code ?? uniqueCode(supplyCodeFrom(input.name), taken),
+      sortOrder: input.sortOrder ?? 0,
     }).returning()
     return row
   }))
@@ -82,6 +87,8 @@ const purchaseColumns = {
   totalCost: supplyPurchases.totalCost,
   purchasedAt: supplyPurchases.purchasedAt,
   notes: supplyPurchases.notes,
+  supplier: supplyPurchases.supplier,
+  source: supplyPurchases.source,
   createdByName: users.name,
   createdAt: supplyPurchases.createdAt,
 }
@@ -103,6 +110,7 @@ export function createPurchase(input: CreatePurchaseInput, userId: number) {
       totalCost: input.totalCost,
       purchasedAt: input.purchasedAt ?? localDateString(),
       notes: input.notes ?? null,
+      supplier: input.supplier || null,
       createdBy: userId,
     }).returning()
     return row
@@ -189,8 +197,8 @@ export function deleteWaste(id: number, reason: string, userId: number) {
   }))
 }
 
-// ── Conteo de cierre ─────────────────────────────────────────────────────────
-export function listCounts(date: string) {
+// ── Conteos sueltos (la apertura la registra la «Compra del día») ────────────
+export function listCounts(date: string, moment?: 'apertura' | 'cierre') {
   return db.select({
     id: supplyCounts.id,
     supplyId: supplyCounts.supplyId,
@@ -198,12 +206,13 @@ export function listCounts(date: string) {
     unit: supplies.unit,
     quantity: supplyCounts.quantity,
     countedOn: supplyCounts.countedOn,
+    moment: supplyCounts.moment,
     createdByName: users.name,
     createdAt: supplyCounts.createdAt,
   }).from(supplyCounts)
     .innerJoin(supplies, eq(supplyCounts.supplyId, supplies.id))
     .leftJoin(users, eq(supplyCounts.createdBy, users.id))
-    .where(eq(supplyCounts.countedOn, date))
+    .where(moment ? and(eq(supplyCounts.countedOn, date), eq(supplyCounts.moment, moment)) : eq(supplyCounts.countedOn, date))
     .orderBy(asc(supplies.name))
 }
 
@@ -211,23 +220,24 @@ export function listCounts(date: string) {
 // mismo día corrige el conteo (queda en audit_log con el valor anterior).
 export async function saveCounts(date: string, input: SaveCountsInput, userId: number) {
   if (date > localDateString()) throw new DomainError('No se puede contar un día futuro', 400, 'FUTURE_DATE')
+  const moment = input.moment ?? 'cierre'
   await withWriteLock(() => db.transaction(async (tx) => {
     for (const item of input.items) {
       const supply = await requireSupply(tx, item.supplyId)
       const [existing] = await tx.select().from(supplyCounts)
-        .where(and(eq(supplyCounts.supplyId, item.supplyId), eq(supplyCounts.countedOn, date)))
+        .where(and(eq(supplyCounts.supplyId, item.supplyId), eq(supplyCounts.countedOn, date), eq(supplyCounts.moment, moment)))
       if (!existing) {
-        await tx.insert(supplyCounts).values({ supplyId: item.supplyId, quantity: item.quantity, countedOn: date, createdBy: userId })
+        await tx.insert(supplyCounts).values({ supplyId: item.supplyId, quantity: item.quantity, countedOn: date, moment, createdBy: userId })
       } else if (existing.quantity !== item.quantity) {
         await tx.update(supplyCounts).set({ quantity: item.quantity, createdBy: userId }).where(eq(supplyCounts.id, existing.id))
         await audit(tx, {
           userId, action: 'count.update', entity: 'supply_count', entityId: existing.id,
-          data: { supplyId: item.supplyId, name: supply.name, date, before: existing.quantity, after: item.quantity },
+          data: { supplyId: item.supplyId, name: supply.name, date, moment, before: existing.quantity, after: item.quantity },
         })
       }
     }
   }))
-  return listCounts(date)
+  return listCounts(date, moment)
 }
 
 // ── Ventas perdidas ──────────────────────────────────────────────────────────
@@ -271,74 +281,4 @@ export function listLostSales(range: DateRange) {
       lte(lostSales.occurredAt, parseDayBoundary(range.to, 'end')),
     ))
     .orderBy(desc(lostSales.occurredAt))
-}
-
-// ── Export para el análisis de la tesis ──────────────────────────────────────
-// Una tabla por llamada, con fechas en hora local y nombres resueltos para que
-// el CSV se pueda analizar sin cruzar ids.
-export async function exportCsv(table: ExportTable, range: DateRange): Promise<string> {
-  const local = sqliteLocalOffset()
-  const utcFrom = parseDayBoundary(range.from, 'start')
-  const utcTo = parseDayBoundary(range.to, 'end')
-
-  switch (table) {
-    case 'supplies': {
-      const rows = await db.select().from(supplies).orderBy(asc(supplies.id))
-      return toCsv(['id', 'nombre', 'unidad', 'perecible', 'critico', 'activo'],
-        rows.map(r => [r.id, r.name, r.unit, r.perishable ? 1 : 0, r.critical ? 1 : 0, r.active ? 1 : 0]))
-    }
-    case 'purchases': {
-      const rows = await listPurchases(range)
-      return toCsv(['id', 'fecha', 'insumo_id', 'insumo', 'unidad', 'cantidad', 'costo_total', 'costo_unitario', 'notas', 'registrado_por'],
-        rows.reverse().map(r => [r.id, r.purchasedAt, r.supplyId, r.supplyName, r.unit, r.quantity, r.totalCost,
-          r.quantity > 0 ? Math.round((r.totalCost / r.quantity) * 100) / 100 : '', r.notes, r.createdByName]))
-    }
-    case 'waste': {
-      const rows = await listWaste(range)
-      return toCsv(['id', 'fecha', 'insumo_id', 'insumo', 'unidad', 'cantidad', 'motivo', 'notas', 'registrado_por'],
-        rows.reverse().map(r => [r.id, r.wastedAt, r.supplyId, r.supplyName, r.unit, r.quantity, r.reason, r.notes, r.createdByName]))
-    }
-    case 'counts': {
-      const rows = await db.select({
-        countedOn: supplyCounts.countedOn, supplyId: supplyCounts.supplyId, name: supplies.name,
-        unit: supplies.unit, quantity: supplyCounts.quantity,
-      }).from(supplyCounts)
-        .innerJoin(supplies, eq(supplyCounts.supplyId, supplies.id))
-        .where(and(gte(supplyCounts.countedOn, range.from), lte(supplyCounts.countedOn, range.to)))
-        .orderBy(asc(supplyCounts.countedOn), asc(supplies.name))
-      return toCsv(['fecha', 'insumo_id', 'insumo', 'unidad', 'cantidad'],
-        rows.map(r => [r.countedOn, r.supplyId, r.name, r.unit, r.quantity]))
-    }
-    case 'lost_sales': {
-      const rows = await db.select({
-        id: lostSales.id,
-        localAt: sql<string>`datetime(${lostSales.occurredAt}, ${local})`,
-        dishId: lostSales.dishId, dishName: dishes.name,
-        supplyId: lostSales.supplyId, supplyName: supplies.name,
-        quantity: lostSales.quantity, userName: users.name,
-      }).from(lostSales)
-        .leftJoin(dishes, eq(lostSales.dishId, dishes.id))
-        .leftJoin(supplies, eq(lostSales.supplyId, supplies.id))
-        .leftJoin(users, eq(lostSales.createdBy, users.id))
-        .where(and(gte(lostSales.occurredAt, utcFrom), lte(lostSales.occurredAt, utcTo)))
-        .orderBy(asc(lostSales.occurredAt))
-      return toCsv(['id', 'fecha', 'hora', 'plato_id', 'plato', 'insumo_id', 'insumo', 'porciones', 'registrado_por'],
-        rows.map(r => [r.id, r.localAt.slice(0, 10), r.localAt.slice(11, 16), r.dishId, r.dishName, r.supplyId, r.supplyName, r.quantity, r.userName]))
-    }
-    case 'stockouts': {
-      // Quiebres: cada vez que un plato se marcó agotado o se volvió a habilitar (TD-31)
-      const rows = await db.select({
-        localAt: sql<string>`datetime(${auditLog.at}, ${local})`,
-        dishId: auditLog.entityId, data: auditLog.data, userName: users.name,
-      }).from(auditLog)
-        .leftJoin(users, eq(auditLog.userId, users.id))
-        .where(and(eq(auditLog.action, 'dish.availability'), gte(auditLog.at, utcFrom), lte(auditLog.at, utcTo)))
-        .orderBy(asc(auditLog.at))
-      return toCsv(['fecha', 'hora', 'plato_id', 'plato', 'evento', 'registrado_por'],
-        rows.map(r => {
-          const d = r.data ? JSON.parse(r.data) as { name?: string; available?: boolean } : {}
-          return [r.localAt.slice(0, 10), r.localAt.slice(11, 16), r.dishId, d.name, d.available ? 'habilitado' : 'agotado', r.userName]
-        }))
-    }
-  }
 }

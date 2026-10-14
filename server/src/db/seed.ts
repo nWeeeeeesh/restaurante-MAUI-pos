@@ -9,15 +9,15 @@ async function seedSupplies() {
   const existing = await db.select({ id: supplies.id }).from(supplies).limit(1)
   if (existing.length > 0) return
   await db.insert(supplies).values([
-    { name: 'Pescado', unit: 'kg', critical: true },
-    { name: 'Calamar', unit: 'kg', critical: true },
-    { name: 'Langostino', unit: 'kg', critical: true },
-    { name: 'Pulpo', unit: 'kg', critical: true },
-    { name: 'Conchas', unit: 'unit', critical: true },
-    { name: 'Limón', unit: 'kg' },
-    { name: 'Cebolla', unit: 'kg' },
-    { name: 'Camote', unit: 'kg' },
-    { name: 'Choclo', unit: 'kg' },
+    { code: 'PESCADO', name: 'Pescado', unit: 'kg', critical: true, sortOrder: 1 },
+    { code: 'CALAMAR', name: 'Calamar', unit: 'kg', critical: true, sortOrder: 2 },
+    { code: 'PULPO', name: 'Pulpo', unit: 'kg', critical: true, sortOrder: 3 },
+    { code: 'LANGOSTINO', name: 'Langostino', unit: 'kg', critical: true, sortOrder: 4 },
+    { code: 'CONCHAS', name: 'Conchas', unit: 'unit', critical: true, sortOrder: 5 },
+    { code: 'LIMON', name: 'Limón', unit: 'kg', sortOrder: 6 },
+    { code: 'CEBOLLA', name: 'Cebolla', unit: 'kg', sortOrder: 7 },
+    { code: 'CAMOTE', name: 'Camote', unit: 'kg', sortOrder: 8 },
+    { code: 'CHOCLO', name: 'Choclo', unit: 'kg', sortOrder: 9 },
   ])
   console.log('Supplies seeded.')
 }

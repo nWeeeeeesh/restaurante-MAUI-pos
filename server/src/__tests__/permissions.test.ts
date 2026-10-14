@@ -62,9 +62,14 @@ describe('matriz de permisos', () => {
     expectMatrix(only('owner', 'manager'), a =>
       request(ctx.app).post('/api/reports/expenses').set('Authorization', a).send({ description: 'Limones', amount: 45 })))
 
-  it('marcar plato agotado: encargado y dueño', () =>
-    expectMatrix(only('owner', 'manager'), a =>
-      request(ctx.app).patch(`/api/menu/dishes/${dishId}/availability`).set('Authorization', a).send({ available: true })))
+  // Plan inventario v2 §2.4: el cajero también marca agotado (es quien se entera
+  // primero en el salón); precios y altas siguen siendo del dueño
+  it('marcar plato agotado: cajero, encargado y dueño', async () => {
+    await expectMatrix(only('owner', 'manager', 'cashier'), a =>
+      request(ctx.app).patch(`/api/menu/dishes/${dishId}/availability`).set('Authorization', a).send({ available: true }))
+    await expectMatrix(only('owner', 'manager', 'cashier'), a =>
+      request(ctx.app).get('/api/menu/dishes').set('Authorization', a))
+  })
 
   it('cambiar precios, administrar mesas y usuarios: solo el dueño', async () => {
     await expectMatrix(only('owner'), a =>
@@ -77,6 +82,9 @@ describe('matriz de permisos', () => {
 
   it('inventario: compras, merma, conteos, listados y export para encargado y dueño', async () => {
     const managers = only('owner', 'manager')
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/daily').set('Authorization', a))
+    await expectMatrix(managers, a => request(ctx.app).post('/api/inventory/daily').set('Authorization', a).send({ items: [] }))
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/daily/pending').set('Authorization', a))
     await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/purchases').set('Authorization', a))
     await expectMatrix(managers, a => request(ctx.app).post('/api/inventory/purchases').set('Authorization', a).send({ supplyId: 99999, quantity: 1, totalCost: 1 }))
     await expectMatrix(managers, a => request(ctx.app).patch('/api/inventory/purchases/99999').set('Authorization', a).send({ quantity: 1, reason: 'prueba' }))

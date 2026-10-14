@@ -197,9 +197,10 @@ describe('export CSV', () => {
     expect(res.headers['content-type']).toContain('text/csv')
     expect(res.headers['content-disposition']).toContain('maui-lost_sales-2026-03-01_2026-03-01.csv')
     const lines = res.text.replace(/^﻿/, '').trim().split('\r\n')
-    expect(lines).toHaveLength(2)
-    expect(lines[1]).toContain('2026-03-01,23:59')
-    expect(lines[1]).toContain(',3,')
+    // Línea de versión, encabezado y una sola fila
+    expect(lines).toHaveLength(3)
+    expect(lines[2]).toContain(',2026-03-01,23:59,')
+    expect(lines[2]).toMatch(/,3,[^,]*$/)
   })
 
   it('compras con costo unitario y notas escapadas (comas y fórmulas)', async () => {
@@ -208,17 +209,17 @@ describe('export CSV', () => {
     })
     const res = await request(ctx.app).get('/api/inventory/export?table=purchases&from=2026-03-05&to=2026-03-05').set('Authorization', owner)
     const lines = res.text.replace(/^﻿/, '').trim().split('\r\n')
-    expect(lines[0]).toBe('id,fecha,insumo_id,insumo,unidad,cantidad,costo_total,costo_unitario,notas,registrado_por')
-    expect(lines).toHaveLength(2)
-    expect(lines[1]).toContain('2026-03-05')
-    expect(lines[1]).toContain(',4,50,12.5,')
-    expect(lines[1]).toContain(`"'=HYPERLINK(""x""), proveedor"`)
+    expect(lines).toHaveLength(3)
+    expect(lines[2]).toContain('2026-03-05')
+    expect(lines[2]).toContain(',4,50,12.5,')
+    expect(lines[2]).toContain(`"'=HYPERLINK(""x""), proveedor"`)
   })
 
   it('quiebres desde audit_log (dish.availability) y validación de tabla y rango', async () => {
     await request(ctx.app).patch(`/api/menu/dishes/${dishId}/availability`).set('Authorization', manager).send({ available: false })
     const res = await request(ctx.app).get(`/api/inventory/export?table=stockouts&from=${today}&to=${today}`).set('Authorization', manager)
-    expect(res.text).toContain('Chicharrón de calamar,agotado')
+    // Intervalo abierto: el plato sigue agotado (fin y duración vacíos)
+    expect(res.text).toMatch(/,Chicharrón de calamar,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},,,/)
 
     expect((await request(ctx.app).get('/api/inventory/export?table=users').set('Authorization', owner)).status).toBe(400)
     expect((await request(ctx.app).get('/api/inventory/export?table=waste&from=2026-03-10&to=2026-03-01').set('Authorization', owner)).status).toBe(400)

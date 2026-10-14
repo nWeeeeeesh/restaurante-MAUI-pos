@@ -45,8 +45,8 @@ router.get('/', requireAuth, async (_req, res) => {
   res.json(menu)
 })
 
-// GET all dishes including unavailable (admin)
-router.get('/dishes', requireAuth, requireRole('owner', 'manager'), async (_req, res) => {
+// GET all dishes including unavailable (admin). El cajero lo usa para marcar agotados.
+router.get('/dishes', requireAuth, requireRole('owner', 'manager', 'cashier'), async (_req, res) => {
   const cats = await db.select().from(categories).orderBy(asc(categories.displayOrder))
   const dishList = await db.select().from(dishes).orderBy(asc(dishes.id))
   res.json({ categories: cats, dishes: dishList })
@@ -168,10 +168,11 @@ router.patch(
 )
 
 // PATCH /api/menu/dishes/:id/availability — marcar agotado/disponible (D5).
-// El encargado puede hacerlo durante el servicio; precios y altas siguen siendo del dueño.
+// Encargado y cajero pueden hacerlo durante el servicio (el cajero se entera primero
+// en el salón; plan inventario v2 §2.4). Precios y altas siguen siendo del dueño.
 router.patch(
   '/dishes/:id/availability',
-  requireAuth, requireRole('owner', 'manager'), validateBody(DishAvailabilitySchema),
+  requireAuth, requireRole('owner', 'manager', 'cashier'), validateBody(DishAvailabilitySchema),
   async (req, res) => {
     const id = Number(req.params.id)
     const { available } = req.body as { available: boolean }

@@ -63,3 +63,10 @@ export function localDateString(base: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
+
+// Suma días a una fecha local 'YYYY-MM-DD' (negativo para restar)
+export function addDays(date: string, days: number): string {
+  const d = new Date(date + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return localDateString(d)
+}

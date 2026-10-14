@@ -170,6 +170,13 @@ export const expenses = sqliteTable('expenses', {
 // ── Inventario de insumos (Fase 0 de la tesis: solo registro, sin alertas) ──
 // Las fechas de compra, merma y conteo son días LOCALES 'YYYY-MM-DD' (como
 // expenses.date); lost_sales.occurred_at es UTC como el resto de timestamps.
+// Definiciones y formato del export: docs/diccionario-datos-tesis.md (instrumento
+// congelado de la tesis). local_id es siempre 1: existe para no mapear datos si
+// algún día hay más sucursales; no se muestra en la UI.
+
+// Origen de compras y merma: 'daily' = lo creó la «Compra del día» (que reemplaza
+// solo lo suyo al corregir); 'manual' = pestañas de detalle.
+const SOURCES = ['manual', 'daily'] as const
 
 export const supplies = sqliteTable('supplies', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -179,6 +186,10 @@ export const supplies = sqliteTable('supplies', {
   // Insumos que entran al estudio (pescado, calamar, mariscos)
   critical: integer('critical', { mode: 'boolean' }).default(false),
   active: integer('active', { mode: 'boolean' }).default(true),
+  // Identificador estable para el análisis (CALAMAR): no cambia aunque cambie el nombre
+  code: text('code').unique(),
+  // Orden en la «Compra del día»
+  sortOrder: integer('sort_order').default(0),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
 
@@ -190,6 +201,11 @@ export const supplyPurchases = sqliteTable('supply_purchases', {
   totalCost: real('total_cost').notNull(),
   purchasedAt: text('purchased_at').notNull(),
   notes: text('notes'),
+  supplier: text('supplier'),
+  source: text('source', { enum: SOURCES }).notNull().default('manual'),
+  // Fecha de la «Compra del día» que creó la fila (solo source='daily')
+  sourceDate: text('source_date'),
+  localId: integer('local_id').notNull().default(1),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
@@ -203,6 +219,11 @@ export const supplyWaste = sqliteTable('supply_waste', {
   reason: text('reason', { enum: ['deterioro', 'sobra_comensal', 'preparacion', 'otro'] }).notNull(),
   wastedAt: text('wasted_at').notNull(),
   notes: text('notes'),
+  source: text('source', { enum: SOURCES }).notNull().default('manual'),
+  // La merma de la «Compra del día» se imputa al día operativo anterior: sourceDate
+  // guarda el día en que se registró, para poder reemplazarla al corregir
+  sourceDate: text('source_date'),
+  localId: integer('local_id').notNull().default(1),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
@@ -214,11 +235,14 @@ export const supplyCounts = sqliteTable('supply_counts', {
   supplyId: integer('supply_id').notNull().references(() => supplies.id),
   quantity: real('quantity').notNull(),
   countedOn: text('counted_on').notNull(),
+  // 'apertura' = antes de comprar (instrumento v1); 'cierre' = conteos de prueba de la v1
+  moment: text('moment', { enum: ['apertura', 'cierre'] }).notNull().default('apertura'),
+  localId: integer('local_id').notNull().default(1),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
-  // Un conteo por insumo y día: volver a registrarlo lo corrige
-  uniqueIndex('uq_supply_counts_supply_day').on(t.supplyId, t.countedOn),
+  // Un conteo por insumo, día y momento: volver a registrarlo lo corrige
+  uniqueIndex('uq_supply_counts_day_moment').on(t.supplyId, t.countedOn, t.moment),
 ])
 
 export const lostSales = sqliteTable('lost_sales', {
@@ -228,6 +252,21 @@ export const lostSales = sqliteTable('lost_sales', {
   quantity: integer('quantity').default(1),
   occurredAt: text('occurred_at').default(sql`(datetime('now'))`),
   createdBy: integer('created_by').references(() => users.id),
+  localId: integer('local_id').notNull().default(1),
 }, (t) => [
   index('idx_lost_sales_occurred_at').on(t.occurredAt),
+])
+
+// Variables de control de la tesis (feriado, evento, cambio de proveedor…).
+// Se escriben desde la «Compra del día»; varias por día.
+export const dayNotes = sqliteTable('day_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  kind: text('kind', { enum: ['feriado', 'cerrado', 'evento', 'proveedor', 'otro'] }).notNull(),
+  text: text('text'),
+  localId: integer('local_id').notNull().default(1),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  index('idx_day_notes_date').on(t.date),
 ])

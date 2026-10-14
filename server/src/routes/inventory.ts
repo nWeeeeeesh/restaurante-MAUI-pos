@@ -7,11 +7,13 @@ import {
   CreatePurchaseSchema,
   CreateSupplySchema,
   CreateWasteSchema,
+  DailyQuerySchema,
   DeleteWithReasonSchema,
   ExportQuerySchema,
   LocalDateSchema,
   RangeQuerySchema,
   SaveCountsSchema,
+  SaveDailySchema,
   SuppliesQuerySchema,
   UpdatePurchaseSchema,
   UpdateSupplySchema,
@@ -21,11 +23,14 @@ import {
   type CreateSupplyInput,
   type CreateWasteInput,
   type SaveCountsInput,
+  type SaveDailyInput,
   type UpdatePurchaseInput,
   type UpdateSupplyInput,
   type UpdateWasteInput,
 } from '../schemas/inventory'
 import * as inventory from '../services/inventory.service'
+import { dailyPending, getDaily, saveDaily } from '../services/inventory-daily.service'
+import { exportCsv } from '../services/inventory-export.service'
 import { localDateString } from '../utils/dates'
 import { DomainError } from '../errors'
 
@@ -93,10 +98,24 @@ router.delete('/waste/:id', requireAuth, managers, validateBody(DeleteWithReason
   res.json({ ok: true })
 })
 
-// ── Conteo de cierre ─────────────────────────────────────────────────────────
+// ── «Compra del día» (la rutina diaria de la tesis) ──────────────────────────
+router.get('/daily', requireAuth, managers, validateQuery(DailyQuerySchema), async (req, res) => {
+  const { date } = DailyQuerySchema.parse(req.query)
+  res.json(await getDaily(date ?? localDateString()))
+})
+
+router.post('/daily', requireAuth, managers, validateBody(SaveDailySchema), async (req, res) => {
+  res.json(await saveDaily(req.body as SaveDailyInput, req.user!.id))
+})
+
+router.get('/daily/pending', requireAuth, managers, async (_req, res) => {
+  res.json(await dailyPending())
+})
+
+// ── Conteos sueltos (cierre); la apertura va por /daily ─────────────────────
 router.get('/counts', requireAuth, managers, validateQuery(CountsQuerySchema), async (req, res) => {
-  const { date } = CountsQuerySchema.parse(req.query)
-  res.json(await inventory.listCounts(date ?? localDateString()))
+  const { date, moment } = CountsQuerySchema.parse(req.query)
+  res.json(await inventory.listCounts(date ?? localDateString(), moment))
 })
 
 router.put('/counts/:date', requireAuth, managers, validateBody(SaveCountsSchema), async (req, res) => {
@@ -118,7 +137,7 @@ router.get('/lost-sales', requireAuth, managers, validateQuery(RangeQuerySchema)
 router.get('/export', requireAuth, managers, validateQuery(ExportQuerySchema), async (req, res) => {
   const q = ExportQuerySchema.parse(req.query)
   const range = inventory.resolveRange(q)
-  const csv = await inventory.exportCsv(q.table, range)
+  const csv = await exportCsv(q.table, range)
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename="maui-${q.table}-${range.from}_${range.to}.csv"`)
   res.send(csv)

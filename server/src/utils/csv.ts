@@ -12,7 +12,10 @@ export function csvCell(v: Cell): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-export function toCsv(header: string[], rows: Cell[][]): string {
+// `preamble` va como primera línea tal cual (p. ej. el comentario de versión del
+// dataset de la tesis), antes del encabezado
+export function toCsv(header: string[], rows: Cell[][], preamble?: string): string {
   const lines = [header, ...rows].map(r => r.map(csvCell).join(','))
+  if (preamble) lines.unshift(preamble)
   return '﻿' + lines.join('\r\n') + '\r\n'
 }

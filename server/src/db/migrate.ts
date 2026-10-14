@@ -1,5 +1,6 @@
 import { createClient, type Client } from '@libsql/client'
 import * as dotenv from 'dotenv'
+import { supplyCodeFrom, uniqueCode } from '../utils/codes'
 dotenv.config()
 
 // Pequeñas migraciones idempotentes que se aplican al arranque del servidor.
@@ -55,8 +56,10 @@ export async function applyStartupMigrations(existing?: Client) {
       console.log('[migrate] dishes.archived column added')
     }
 
-    // 5) Inventario de insumos (Fase 0). Mismo DDL que genera drizzle-kit para
-    // schema.ts; el índice único de conteos es requerido porque el upsert depende de él.
+    // 5) Inventario de insumos (Fase 0, v1 del plan). Mismo DDL que genera drizzle-kit
+    // para la v1 de schema.ts; el paso 6 lo lleva a la v2. El índice único de conteos
+    // se crea en el paso 6 (con `moment`): si se creara aquí el de la v1, volvería a
+    // aparecer en cada arranque e impediría apertura y cierre el mismo día.
     const inventoryDdl = [
       `CREATE TABLE IF NOT EXISTS \`supplies\` (
         \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -102,7 +105,6 @@ export async function applyStartupMigrations(existing?: Client) {
         FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
         FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
       )`,
-      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_supply_counts_supply_day` ON `supply_counts` (`supply_id`,`counted_on`)',
       `CREATE TABLE IF NOT EXISTS \`lost_sales\` (
         \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         \`dish_id\` integer,
@@ -117,13 +119,57 @@ export async function applyStartupMigrations(existing?: Client) {
     ]
     for (const ddl of inventoryDdl) await client.execute(ddl)
 
+    // 6) Inventario v2 del plan (instrumento congelado de la tesis): código estable y
+    // orden de insumos, proveedor, origen de compras y merma, momento del conteo,
+    // local_id y notas del día. Todo aditivo salvo el índice único de conteos, que
+    // pasa de (insumo, día) a (insumo, día, momento).
+    await addColumn(client, 'supplies', 'code', 'text')
+    await addColumn(client, 'supplies', 'sort_order', 'integer DEFAULT 0')
+    await fillSupplyCodes(client)
+    await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS `supplies_code_unique` ON `supplies` (`code`)')
+
+    await addColumn(client, 'supply_purchases', 'supplier', 'text')
+    for (const table of ['supply_purchases', 'supply_waste']) {
+      await addColumn(client, table, 'source', "text DEFAULT 'manual' NOT NULL")
+      await addColumn(client, table, 'source_date', 'text')
+    }
+    for (const table of ['supply_purchases', 'supply_waste', 'supply_counts', 'lost_sales']) {
+      await addColumn(client, table, 'local_id', 'integer DEFAULT 1 NOT NULL')
+    }
+
+    // Los conteos previos a la v2 fueron pruebas de cierre: se marcan 'cierre' en la
+    // misma transacción que agrega la columna, para que un corte a mitad no los deje
+    // como 'apertura' (al reintentar, la columna ya existiría y no se marcarían).
+    if (!(await hasColumn(client, 'supply_counts', 'moment'))) {
+      await client.batch([
+        "ALTER TABLE `supply_counts` ADD `moment` text DEFAULT 'apertura' NOT NULL",
+        "UPDATE `supply_counts` SET `moment` = 'cierre'",
+      ], 'write')
+      console.log('[migrate] supply_counts.moment column added (previous counts → cierre)')
+    }
+    await client.execute('DROP INDEX IF EXISTS `uq_supply_counts_supply_day`')
+    await client.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_supply_counts_day_moment` ON `supply_counts` (`supply_id`,`counted_on`,`moment`)',
+    )
+
+    await client.execute(`CREATE TABLE IF NOT EXISTS \`day_notes\` (
+      \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+      \`date\` text NOT NULL,
+      \`kind\` text NOT NULL,
+      \`text\` text,
+      \`local_id\` integer DEFAULT 1 NOT NULL,
+      \`created_by\` integer,
+      \`created_at\` text DEFAULT (datetime('now')),
+      FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+    )`)
+
     // ── Opcionales ────────────────────────────────────────────────────────────
-    // 6) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
+    // 7) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
     // esperan al escritor. Es persistente en el archivo; `sqlite3 .backup` lo soporta.
     await optional('journal_mode=WAL', () => client.execute('PRAGMA journal_mode=WAL'))
 
-    // 7) Índices — también declarados en schema.ts con los mismos nombres: si no lo
+    // 8) Índices — también declarados en schema.ts con los mismos nombres: si no lo
     // estuvieran, `drizzle-kit push` los borraría (verificado).
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
@@ -134,10 +180,11 @@ export async function applyStartupMigrations(existing?: Client) {
       'CREATE INDEX IF NOT EXISTS `idx_supply_purchases_purchased_at` ON `supply_purchases` (`purchased_at`)',
       'CREATE INDEX IF NOT EXISTS `idx_supply_waste_wasted_at` ON `supply_waste` (`wasted_at`)',
       'CREATE INDEX IF NOT EXISTS `idx_lost_sales_occurred_at` ON `lost_sales` (`occurred_at`)',
+      'CREATE INDEX IF NOT EXISTS `idx_day_notes_date` ON `day_notes` (`date`)',
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 
-    // 8) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
+    // 9) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
     // pedidos activos, el índice no se puede crear: se avisa con los ids y se sigue,
     // porque la creación de pedidos ya está serializada en la app.
     await optional('uq_orders_active_table', async () => {
@@ -158,6 +205,29 @@ export async function applyStartupMigrations(existing?: Client) {
     })
   } finally {
     if (!existing) client.close()
+  }
+}
+
+async function hasColumn(client: Client, table: string, column: string) {
+  const cols = await client.execute(`PRAGMA table_info(${table})`)
+  return cols.rows.some(r => String(r.name) === column)
+}
+
+async function addColumn(client: Client, table: string, column: string, ddl: string) {
+  if (await hasColumn(client, table, column)) return
+  await client.execute(`ALTER TABLE \`${table}\` ADD \`${column}\` ${ddl}`)
+  console.log(`[migrate] ${table}.${column} column added`)
+}
+
+// Genera el código de los insumos que no lo tienen (los creados con la v1)
+async function fillSupplyCodes(client: Client) {
+  const rows = await client.execute('SELECT id, name, code FROM supplies ORDER BY id')
+  const taken = new Set(rows.rows.map(r => r.code).filter((c): c is string => typeof c === 'string'))
+  for (const r of rows.rows) {
+    if (r.code !== null) continue
+    const code = uniqueCode(supplyCodeFrom(String(r.name)), taken)
+    taken.add(code)
+    await client.execute({ sql: 'UPDATE supplies SET code = ? WHERE id = ?', args: [code, Number(r.id)] })
   }
 }
 
