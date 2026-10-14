@@ -261,6 +261,8 @@ Estos datos permiten un cuadre manual del efectivo, pero sin registro del monto 
 
 **No existen** (GAP-05). Ni la venta ni el cobro tocan stock, y no hay ajustes, entradas, salidas ni kardex. La única noción de disponibilidad es el flag manual `dishes.available` (que además el servidor no valida al crear pedidos, TD-01). Propuesta condicional: [REC-18](recommendations.md#rec-18--inventario-condicional).
 
+> **Desde 2026-10 (posterior al snapshot):** existe el **registro** de inventario de insumos de la tesis (Fase 0): compras, merma, conteo de cierre y ventas perdidas ("No había" desde el POS), con correcciones auditadas. La venta sigue sin descontar stock; eso es la Capa 2 del [plan](../plan-inventario-tesis.md). Endpoints en [api.md §6](api.md#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis), tablas en [data-model.md §9](data-model.md#9-inventario-de-insumos-2026-10-fase-0-de-la-tesis).
+
 ---
 
 ## 11. Consistencia y transacciones de las operaciones críticas

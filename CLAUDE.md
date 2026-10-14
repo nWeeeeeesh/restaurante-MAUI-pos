@@ -4,6 +4,8 @@ POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, si
 
 **Estado del proyecto:** MAUI v1.1 está en **modo mantenimiento** (solo correcciones). Las funcionalidades nuevas van al producto POS que nace de la etiqueta `maui-v1.1`. Plan y decisiones: [docs/plan-maui-v1.1.md](docs/plan-maui-v1.1.md). Arquitectura: [docs/architecture/README.md](docs/architecture/README.md).
 
+**Excepción: inventario de la tesis.** El módulo de inventario de insumos perecibles se desarrolla aquí porque se mide en el local (diseño preprueba/posprueba). Plan: [docs/plan-inventario-tesis.md](docs/plan-inventario-tesis.md). Hecho: Capa 0 y Capa 1 (Fase 0, solo registro). La Capa 2 (recetas, stock teórico, alertas, costeo) **no se implementa** hasta que el plan lo indique.
+
 ## Stack
 
 - **Server**: Node.js (≥ 22; producción con 24 LTS) + Express 5 + TypeScript + Drizzle ORM + `@libsql/client` (SQLite local) + Socket.io 4 + Zod
@@ -48,8 +50,9 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el ser
 Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
 - Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
 - Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**.
-- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, marcar platos agotados.
-- Dueño: todo, incluidos precios, menú, mesas/plano y usuarios.
+- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, marcar platos agotados, inventario (compras, merma, cierre, export).
+- Dueño: todo, incluidos precios, menú, mesas/plano, usuarios y el catálogo de insumos.
+- "No había" (`POST /inventory/lost-sales`) lo registra cualquier rol desde el POS.
 
 ## Estructura
 
@@ -64,7 +67,7 @@ server/src/
     auth.ts          requireAuth (JWT + usuario activo en BD), requireRole
     validate.ts      validateBody / validateQuery (Zod)
     error.ts         errores → JSON (DomainError, SQLITE_BUSY → 503, JSON inválido → 400)
-  routes/            controladores delgados (auth, menu, orders, bills, split, tables, reports, print, users)
+  routes/            controladores delgados (auth, menu, orders, bills, split, tables, reports, print, users, inventory)
   services/
     order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
     billing.service.ts   cobro atómico (lecturas dentro de la tx, guardia bill_id IS NULL)
@@ -73,6 +76,7 @@ server/src/
     receipt.service.ts   boleta armada desde la BD
     order.serializer.ts  forma única del pedido (incluye tableNumber)
     audit.ts             audit(tx, …) — registro en audit_log
+    inventory.service.ts insumos, compras, merma, conteos, ventas perdidas y export CSV
   schemas/           Schemas Zod por recurso
   db/
     schema.ts        tablas drizzle (incluye índices declarados)
@@ -84,11 +88,15 @@ server/src/
   utils/
     printer.ts       ESC/POS: TCP (cross-platform) y Windows (dev only)
     tickets.ts       etiqueta de pedido, datos de comanda, selección de reimpresión
-    dates.ts / math.ts
+    dates.ts / math.ts / csv.ts
   __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol)
 
+server/scripts/
+  restore-backup.sh  restaura un backup en otra ruta sin pisar nada (ver DEPLOYMENT.md)
+
 client/src/
-  pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users}
+  pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
+                     inventory/{Inventory, PurchasesTab, WasteTab, CountsTab, SuppliesTab, model, ui}
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
   api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
@@ -121,7 +129,14 @@ client/src/
 - El número de boleta se genera con `MAX+1` dentro de la transacción; el `UNIQUE` + reintento ×3 cubre colisiones.
 
 ### Auditoría
-- Operaciones sensibles escriben en `audit_log` con `audit(tx, …)` **en la misma transacción**: cancelaciones, correcciones/borrados de gastos (con motivo), precios y disponibilidad de platos, cambios de usuarios y mesas. El dueño lo ve en Reportes → "Cancelaciones y correcciones".
+- Operaciones sensibles escriben en `audit_log` con `audit(tx, …)` **en la misma transacción**: cancelaciones, correcciones/borrados de gastos (con motivo), precios, disponibilidad y bajas de platos, cambios de usuarios y mesas, y en el inventario correcciones/borrados de compras y merma, correcciones de conteos y cambios del catálogo de insumos. El dueño lo ve en Reportes → "Cancelaciones y correcciones".
+
+### Inventario (Fase 0 de la tesis)
+- Solo **registro**: compras, merma, conteo de cierre (insumos `critical`) y ventas perdidas. Sin stock teórico ni alertas: la Capa 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
+- Fechas de compra, merma y conteo: **día local** `YYYY-MM-DD` (no futuro). `lost_sales.occurred_at`: UTC como el resto; los rangos se convierten con `parseDayBoundary`.
+- Corregir o borrar exige motivo y audita el registro anterior (como los gastos). En la merma, `reason` es la causa y el motivo de la corrección va en `correctionReason`.
+- `available=false` es solo "agotado"; la baja de un plato con historial es `archived=true`. `dish.availability` en `audit_log` (la medida de quiebres) se escribe solo en transiciones reales, desde `/availability` o desde la edición del dueño. No romper esto: es un indicador de la tesis.
+- `GET /api/menu` devuelve los agotados (el POS los muestra con "No había") y excluye los archivados.
 
 ### Socket
 - Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`. Se emiten con `emit()` de `realtime.ts`, después del commit.
@@ -169,4 +184,17 @@ Ver [server/.env.example](server/.env.example) — variables documentadas una po
 
 ## Deploy
 
-Guía paso a paso en [DEPLOYMENT.md](DEPLOYMENT.md): Raspberry Pi 5 + SSD + systemd, impresora POS-D Basic 200 por Ethernet, Tailscale para acceso remoto del dueño, backup diario fuera del local y procedimiento de actualización con rollback.
+Guía paso a paso en [DEPLOYMENT.md](DEPLOYMENT.md): Raspberry Pi 5 + SSD + systemd, impresora POS-D Basic 200 por Ethernet, Tailscale para acceso remoto del dueño, backup diario fuera del local, restauración con `server/scripts/restore-backup.sh` y procedimiento de actualización con rollback.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Vault de navegación por módulos: `graphify-out/obsidian/`. Para ubicar un módulo, archivo, endpoint, tabla o evento, lee primero `00 Inicio.md` y la nota del módulo en `Módulos/`; cada archivo tiene su nota en `Código/<ruta>.md` con símbolos y líneas. Referencias: `Referencia/API.md`, `Base de datos.md`, `Permisos.md`, `Índice de símbolos.md`.
+- Tras modificar código: `graphify update .` y luego `python scripts/vault/build_vault.py`. Si agregas un archivo, asígnalo a su módulo en `MODULES` de ese script.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.

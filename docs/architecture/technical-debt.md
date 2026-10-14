@@ -52,7 +52,7 @@ El registro de abajo describe el snapshot analizado (`85664bb`). Esta tabla indi
 | TD-28 | Resuelto | `CLAUDE.md` y `DEPLOYMENT.md` actualizados (O6) | este commit |
 | TD-29 | Producto | Montos siguen como `REAL` (sumas redondeadas en reportes) | — |
 | TD-30 | Resuelto | `jimp` en devDependencies; `@dnd-kit/*` eliminado | `6875723` |
-| TD-31 | Parcial | `priceAdjustment` se aplica. **Producto:** modificadores genéricos, separar "agotado" de "eliminado" | `d3aa557` |
+| TD-31 | Parcial | `priceAdjustment` se aplica; "agotado" (`available`) y "dado de baja" (`archived`) ya están separados (inventario, 2026-10). **Producto:** modificadores genéricos | `d3aa557`, rama `feat/inventario-fase0` |
 | TD-32 | Producto | Broadcast global | — |
 | TD-33 | Producto | N+1 en pedidos activos | — |
 | TD-34 | Resuelto | `engines >=22`; guía con Node 24 LTS | `4aecfa3` |

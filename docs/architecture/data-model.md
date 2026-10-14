@@ -2,6 +2,7 @@
 
 > Parte de la [documentación de arquitectura](README.md). Snapshot `main` @ `85664bb` (2026-09-23).
 > Fuente: `server/src/db/schema.ts`, `server/src/db/migrate.ts` y el DDL que `drizzle-kit push` generó sobre una BD vacía durante el análisis.
+> **Posterior al snapshot:** las tablas de inventario y `dishes.archived` (2026-10) están en la [§9](#9-inventario-de-insumos-2026-10-fase-0-de-la-tesis).
 
 ## 1. Motor y acceso
 
@@ -189,7 +190,7 @@ No hay columnas de estado ni de anulación (GAP-02).
 | Tabla | Propósito | Notas |
 |---|---|---|
 | `categories` (`schema.ts:14-19`) | Categorías del menú | `active` filtra el menú del POS. Borrado físico si no tiene platos (`menu.ts:75-87`) |
-| `dishes` (`schema.ts:21-30`) | Platos | `price` REAL. `available=false` sirve tanto para "agotado" como para "eliminado con historial" (TD-31). No hay SKU ni código de barras |
+| `dishes` (`schema.ts:21-30`) | Platos | `price` REAL. `available=false` sirve tanto para "agotado" como para "eliminado con historial" (TD-31). *Desde 2026-10: `archived` separa la baja del agotado (§9)*. No hay SKU ni código de barras |
 | `modifier_groups` (`schema.ts:32-40`) | Grupos por plato: `spice` (obligatorio, único) y `preference` (texto libre) | Se crean automáticamente al dar de alta un plato con `hasSpiceLevel` (`menu.ts:109-123`) |
 | `modifier_options` (`schema.ts:42-48`) | Opciones (5 niveles de picante) | `price_adjustment` existe pero **nunca se suma al precio** (TD-31) |
 
@@ -224,7 +225,7 @@ No hay columnas de estado ni de anulación (GAP-02).
 |---|---|---|
 | users | Lógico (`active`) | `users.ts:71-105` |
 | tables | Lógico si tiene pedidos; físico si no tiene | `tables.ts:83-110` |
-| dishes | Lógico (`available=false`) si aparece en pedidos; físico (incluidos sus modificadores) si no | `menu.ts:143-160` |
+| dishes | Lógico (`available=false`) si aparece en pedidos; físico (incluidos sus modificadores) si no. *Desde 2026-10: lógico con `archived=true` (§9)* | `menu.ts:143-160` |
 | categories | Físico (bloqueado si tiene platos) | `menu.ts:75-87` |
 | orders | Lógico (`status='cancelled'`) | `orders.ts:346-355` |
 | bill_groups abiertos | Físico al rehacer o deshacer la división | `split.ts:91`, `144` |
@@ -272,3 +273,38 @@ No hay columnas de estado ni de anulación (GAP-02).
 - **Migraciones al arrancar** (`migrate.ts`): agrega `tables.active`, crea `layout_items` si falta y crea 4 índices. Son idempotentes. Si fallan, `index.ts:124-127` **arranca el servidor igual** ("WITHOUT migrations").
 - **Seed** (`seed.ts`): solo si `categories` está vacía. Crea 3 usuarios con contraseñas conocidas (`admin123`, `cajero123`, `mozo123`), 5 categorías, 12 platos con modificadores y 15 mesas (ids 1–15 = números 1–15).
 - **Tests:** usan su propio DDL (`__tests__/helpers/db.ts`), que no incluye FK ni las tablas de menú y plano (TD-26).
+
+## 9. Inventario de insumos (2026-10, Fase 0 de la tesis)
+
+Plan: [docs/plan-inventario-tesis.md](../plan-inventario-tesis.md). Fase 0 = solo **registro**: no hay stock teórico, recetas ni alertas. La Capa 2 los calculará a partir de estas mismas tablas, sin cambiar cómo se registran.
+
+```mermaid
+erDiagram
+    supplies ||--o{ supply_purchases : "supply_id"
+    supplies ||--o{ supply_waste : "supply_id"
+    supplies ||--o{ supply_counts : "supply_id"
+    supplies |o--o{ lost_sales : "supply_id (opcional)"
+    dishes |o--o{ lost_sales : "dish_id (opcional)"
+    users ||--o{ supply_purchases : "created_by"
+    users ||--o{ supply_waste : "created_by"
+    users ||--o{ supply_counts : "created_by"
+    users ||--o{ lost_sales : "created_by"
+```
+
+| Tabla | Propósito | Notas |
+|---|---|---|
+| `supplies` | Catálogo de insumos | `name` UNIQUE (y único sin distinguir mayúsculas en el servicio). `unit` `kg`/`unit`/`l`. `critical` = entra al conteo de cierre y al estudio. `active=false` lo oculta sin perder historial (no se borra) |
+| `supply_purchases` | Compras | `quantity` en la unidad del insumo; `total_cost` = lo pagado (precio unitario = total / cantidad). `purchased_at` es **día local** `YYYY-MM-DD` |
+| `supply_waste` | Merma | `reason` = causa (`deterioro`, `sobra_comensal`, `preparacion`, `otro`). `wasted_at` día local |
+| `supply_counts` | Conteo físico al cierre | Índice único `uq_supply_counts_supply_day (supply_id, counted_on)`: un conteo por insumo y día; volver a guardarlo lo corrige. `counted_on` día local. Admite 0 |
+| `lost_sales` | "Pidieron X y no había" | `dish_id` y/o `supply_id` (al menos uno, validado en el schema). `occurred_at` en **UTC** como el resto de timestamps |
+| `dishes.archived` | Baja de un plato con historial | `available=false` queda solo para "agotado": así `audit_log` con `action='dish.availability'` mide quiebres sin mezclar bajas (TD-31) |
+
+**Índices** (declarados también en `schema.ts`): `idx_supply_purchases_purchased_at`, `idx_supply_waste_wasted_at`, `idx_lost_sales_occurred_at`, `uq_supply_counts_supply_day`, `supplies_name_unique`. Todas las FK con `ON DELETE NO ACTION`.
+
+**Auditoría:** correcciones y borrados de compras y merma (`purchase.update/delete`, `waste.update/delete`, con motivo y el registro anterior), correcciones de conteos (`count.update`, solo si cambia el valor), cambios del catálogo (`supply.update`) y bajas de platos (`dish.archive`). `dish.availability` se escribe solo en transiciones reales del estado "agotado".
+
+**Indicadores que habilita** (para la línea base de la tesis): compras y su costo por insumo y día, merma por causa, existencia física al cierre, ventas perdidas por plato y quiebres por plato. Exportables como CSV con `GET /api/inventory/export` ([api.md §6](api.md#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis)).
+
+**Migración:** pasos **requeridos** de `migrate.ts` (`dishes.archived` y las cinco tablas con el mismo DDL que genera drizzle-kit, más el índice único de conteos); los índices por fecha son opcionales. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
+

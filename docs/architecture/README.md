@@ -100,7 +100,7 @@ Detalle en [architecture.md](architecture.md); mapa completo del sistema en [arc
 | Ventas (pedidos + cobro) | Parcial | Reportes | Parcial |
 | Productos (menú) | Parcial | Mesas y plano | Completo |
 | Usuarios | Completo (brechas de seguridad) | Impresión | Completo (brechas) |
-| Inventario | **No existe** | Clientes | **No existe** |
+| Inventario | **No existe** (*desde 2026-10: registro de insumos, Fase 0; ver [api.md §6](api.md#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis)*) | Clientes | **No existe** |
 | Caja (sesiones, arqueo) | **No existe** | Configuración | **No existe** |
 
 Módulos técnicos: 16 en el servidor (bootstrap, auth, validación, menú, pedidos, división, cobro, reportes, impresión, mesas, usuarios, persistencia, utilidades, tiempo real, tests, scripts) y 17 en el cliente. Inventario completo, dependencias y elementos sin uso en [modules.md](modules.md).

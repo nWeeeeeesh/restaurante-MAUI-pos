@@ -2,6 +2,7 @@
 
 > Parte de la [documentación de arquitectura](README.md). Snapshot `main` @ `85664bb` (2026-09-23).
 > Fuente: `server/src/index.ts:91-101` (montaje de routers), `server/src/routes/*.ts`, `server/src/schemas/*.ts`. La columna "UI" indica si `client/src` llama al endpoint.
+> **Posterior al snapshot:** el inventario de insumos (2026-10) y sus cambios en el menú están en la [§6](#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis).
 
 ## 1. Convenciones
 
@@ -31,14 +32,14 @@
 ### Menú (`routes/menu.ts`)
 | Método | Endpoint | Módulo | Autenticación | Descripción | UI |
 |---|---|---|---|---|---|
-| GET | `/api/menu` | menú | JWT | Categorías activas → platos disponibles → grupos → opciones | ✓ |
+| GET | `/api/menu` | menú | JWT | Categorías activas → platos disponibles → grupos → opciones. *Desde 2026-10: incluye los agotados y excluye los archivados (§6)* | ✓ |
 | GET | `/api/menu/dishes` | menú | JWT + owner/cashier | Todas las categorías y platos (incluye no disponibles) | ✓ |
 | POST | `/api/menu/categories` | menú | JWT + owner | Crea categoría | — |
 | PATCH | `/api/menu/categories/:id` | menú | JWT + owner | Edita nombre, orden o `active` | — |
 | DELETE | `/api/menu/categories/:id` | menú | JWT + owner | Borrado físico; 409 si tiene platos | — |
 | POST | `/api/menu/dishes` | menú | JWT + owner | Crea plato y, con `hasSpiceLevel`, sus modificadores (sin transacción) | ✓ |
 | PATCH | `/api/menu/dishes/:id` | menú | JWT + owner | Edita campos del plato (la UI solo envía precio y disponibilidad) | ✓ |
-| DELETE | `/api/menu/dishes/:id` | menú | JWT + owner | Físico si no tiene pedidos; si tiene, `available=false` y `{deactivated:true}` | ✓ |
+| DELETE | `/api/menu/dishes/:id` | menú | JWT + owner | Físico si no tiene pedidos; si tiene, `available=false` y `{deactivated:true}`. *Desde 2026-10: `archived=true` y `{archived:true}` (§6)* | ✓ |
 | GET | `/api/menu/dishes/:id/modifiers` | menú | JWT | Grupos y opciones de un plato | — |
 | POST | `/api/menu/modifier-groups/:groupId/options` | menú | JWT + owner | Crea una opción (no verifica que el grupo exista) | — |
 | DELETE | `/api/menu/modifier-options/:id` | menú | JWT + owner | Borra una opción | — |
@@ -150,3 +151,35 @@ No hay números de versión ni resincronización al reconectar (TD-12).
 8. **El cliente define contenido que el servidor debería derivar:** precios (TD-01) y contenido de lo impreso (TD-14).
 9. **Permisos UI ≠ servidor:** el cajero tiene acceso a `/api/reports/*` en el servidor, pero la ruta `/reports` de la UI es solo para `owner` (`App.tsx:50-52`). El mozo ve el botón "Cobrar", pero `/cash` lo redirige (`App.tsx:44-46`).
 10. **La división de cuenta es un router aparte** montado bajo `/api/orders/:id/split`, con su propia copia de la serialización del pedido (`split.ts:13-26`).
+
+## 6. Inventario de insumos (2026-10, Fase 0 de la tesis)
+
+Plan: [docs/plan-inventario-tesis.md](../plan-inventario-tesis.md). Fase 0 = **solo registro** (compras, merma, conteos de cierre, ventas perdidas), sin stock teórico ni alertas. Router `server/src/routes/inventory.ts`, servicio `services/inventory.service.ts`, schemas `schemas/inventory.ts`, montado en `/api/inventory` (`app.ts`).
+
+Reglas comunes: escrituras con `withWriteLock` + transacción; fechas de compra, merma y conteo en **día local** `YYYY-MM-DD`, válidas y no futuras; cantidades > 0 (el conteo admite 0); costo ≥ 0. Corregir o borrar exige motivo (≥ 3 caracteres) y escribe `audit_log` en la misma transacción, igual que los gastos. Errores de negocio con `DomainError`: `SUPPLY_NOT_FOUND` (404), `SUPPLY_INACTIVE` (409), `SUPPLY_EXISTS` (409), `INVALID_RANGE` (400), `FUTURE_DATE` (400). Rango por defecto de los listados: últimos 7 días locales.
+
+| Método | Endpoint | Roles | Descripción | Auditoría |
+|---|---|---|---|---|
+| GET | `/api/inventory/supplies[?all=true]` | todos | Insumos activos, críticos primero. `all=true` (solo el dueño) incluye los desactivados | — |
+| POST | `/api/inventory/supplies` | owner | Alta (`name` único sin distinguir mayúsculas, `unit` `kg`/`unit`/`l`, `critical`, `perishable`) | — |
+| PATCH | `/api/inventory/supplies/:id` | owner | Edita nombre, unidad, `critical`, `perishable` o `active` | `supply.update` |
+| GET | `/api/inventory/purchases?from&to` | owner, manager | Compras del rango con nombre del insumo y de quien registró | — |
+| POST | `/api/inventory/purchases` | owner, manager | `supplyId`, `quantity`, `totalCost`, `purchasedAt` (hoy por defecto), `notes` | — |
+| PATCH | `/api/inventory/purchases/:id` | owner, manager | Corrige campos; `reason` obligatorio | `purchase.update` (antes/después) |
+| DELETE | `/api/inventory/purchases/:id` | owner, manager | Body `{reason}`; la compra completa queda en el registro | `purchase.delete` |
+| GET | `/api/inventory/waste?from&to` | owner, manager | Merma del rango | — |
+| POST | `/api/inventory/waste` | owner, manager | `supplyId`, `quantity`, `reason` (`deterioro`, `sobra_comensal`, `preparacion`, `otro`), `wastedAt`, `notes` | — |
+| PATCH | `/api/inventory/waste/:id` | owner, manager | Corrige campos; el motivo de la corrección va en `correctionReason` porque `reason` es la causa de la merma | `waste.update` |
+| DELETE | `/api/inventory/waste/:id` | owner, manager | Body `{reason}` | `waste.delete` |
+| GET | `/api/inventory/counts?date` | owner, manager | Conteos del día (hoy por defecto) | — |
+| PUT | `/api/inventory/counts/:date` | owner, manager | `{items:[{supplyId, quantity}]}`; upsert de todos en una transacción. Un conteo por insumo y día: volver a guardarlo lo corrige | `count.update` (solo si cambia el valor) |
+| POST | `/api/inventory/lost-sales` | todos | "No había" desde el POS: `dishId` y/o `supplyId`, `quantity` (1 por defecto) | — |
+| GET | `/api/inventory/lost-sales?from&to` | owner, manager | Ventas perdidas del rango (límites del día local convertidos a UTC) | — |
+| GET | `/api/inventory/export?table&from&to` | owner, manager | CSV (UTF-8 con BOM, CRLF) de una tabla: `supplies`, `purchases`, `waste`, `counts`, `lost_sales` o `stockouts` (quiebres desde `audit_log`). Fechas y horas locales; textos que empiezan con `= + - @` se escapan para que la hoja no los ejecute | — |
+
+**Cambios en el menú (Capa 0, TD-31):**
+- `DELETE /api/menu/dishes/:id` con historial pone `archived=true` (no toca `available`), responde `{archived:true}` y audita `dish.archive`. Sin historial sigue siendo borrado físico (ahora en una transacción).
+- `GET /api/menu` excluye los archivados e **incluye los agotados** (`available=false`): el POS los muestra deshabilitados con el botón "No había". `resolveItems` rechaza archivados y agotados con 409 `DISH_UNAVAILABLE`.
+- `PATCH /api/menu/dishes/:id` acepta `{archived:false}` para restaurar (archivar es solo `DELETE`).
+- **Quiebres:** `dish.availability` en `audit_log` se escribe solo en transiciones reales (marcar agotado dos veces cuenta como un solo quiebre), venga de `PATCH /dishes/:id/availability` o de la edición del dueño (`PATCH /dishes/:id` con `available`).
+

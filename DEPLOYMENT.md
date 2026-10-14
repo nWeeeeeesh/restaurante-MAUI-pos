@@ -186,7 +186,7 @@ Guardar con `Ctrl+O`, salir con `Ctrl+X`.
 ```bash
 cd /home/mauidesk/MAUI/server
 npm run db:push    # crea tablas — SOLO en la primera instalación
-npm run db:seed    # inserta usuarios y menú demo
+npm run db:seed    # inserta usuarios, menú demo e insumos iniciales
 npm run db:migrate # aplica las migraciones de arranque (índices, auditoría, WAL)
 ```
 
@@ -318,9 +318,48 @@ Luego al final del `backup.sh` agregar:
 rclone copy "$DEST.gz" gdrive:MauiDeskBackups/
 ```
 
-**Probar la restauración** (al menos una vez y después de cada cambio de equipo): bajar un backup a otra máquina, restaurarlo como se indica en *Troubleshooting* y verificar que el Historial y los Reportes muestran los mismos totales que el local. Un backup nunca restaurado no está probado.
-
 > La base usa modo WAL desde v1.1: además de `mauidisk.db` existen `mauidisk.db-wal` y `mauidisk.db-shm`. `sqlite3 .backup` los consolida en un único archivo, por eso el script no cambia.
+
+### Restaurar un backup
+
+El script `server/scripts/restore-backup.sh` restaura un backup (`.db.gz` del backup diario o `.db` como `pre-update.db`) en la ruta que le indiques. **Nunca sobrescribe**: si el destino (o un `-wal`/`-shm` con ese nombre) ya existe, aborta. Antes de dejar el archivo en su lugar verifica el gzip, corre `PRAGMA integrity_check` y muestra un resumen (boletas, total cobrado, última boleta, pedidos) para compararlo con el local.
+
+```bash
+chmod +x /home/mauidesk/MAUI/server/scripts/restore-backup.sh   # una vez
+```
+
+**A. Probar un backup sin tocar la base activa** (hacerlo al menos una vez al mes y después de cada cambio de equipo; un backup nunca restaurado no está probado):
+
+```bash
+cd /home/mauidesk/MAUI/server
+./scripts/restore-backup.sh /home/mauidesk/backups/mauidisk-<fecha>.db.gz /tmp/prueba.db
+# Opcional: ver los reportes de esa copia con una segunda instancia en otro puerto
+# (aplica las migraciones a la COPIA; no imprimir nada desde ella)
+DATABASE_URL=file:/tmp/prueba.db PORT=3002 node dist/index.js
+# → abrir http://192.168.1.50:3002, revisar Historial y Reportes, luego Ctrl+C
+rm /tmp/prueba.db
+```
+
+Para probarlo en otra máquina: bajar el `.gz` desde la copia externa (`rclone copy gdrive:MauiDeskBackups/mauidisk-<fecha>.db.gz .`) y correr el mismo script allí.
+
+**B. Reemplazar la base activa** (base dañada, equipo nuevo o datos perdidos). La base actual no se borra: se aparta con sus archivos de WAL, por si hace falta rescatar algo de ella.
+
+```bash
+sudo systemctl stop mauidesk
+cd /home/mauidesk/MAUI/server
+# 1. Apartar la base actual completa (la .db y sus auxiliares van juntos)
+APARTE=/home/mauidesk/backups/danada-$(date +%Y%m%d-%H%M)
+mkdir -p "$APARTE"
+mv mauidisk.db mauidisk.db-wal mauidisk.db-shm "$APARTE"/ 2>/dev/null || true
+# 2. Restaurar el backup elegido en la ruta de DATABASE_URL (ahora libre)
+./scripts/restore-backup.sh /home/mauidesk/backups/mauidisk-<fecha>.db.gz /home/mauidesk/MAUI/server/mauidisk.db
+# 3. Migrar (por si el backup es de una versión anterior) y arrancar
+npm run db:migrate          # debe terminar en "[migrate] OK"
+sudo systemctl start mauidesk
+journalctl -u mauidesk -n 50 --no-pager
+```
+
+Después: entrar como dueño y revisar que el Historial y los Reportes muestran lo esperado. Lo vendido entre la hora del backup y la falla **no está** en la base restaurada: anotarlo a partir de las boletas impresas.
 
 ## Fase 12 — Mantenimiento
 
@@ -352,6 +391,9 @@ cd ../client && npm ci && npm run build
 
 # 4. Aplicar y validar el esquema (NO usar db:push)
 cd ../server && npm run db:migrate      # debe terminar en "[migrate] OK"
+# Solo al actualizar a la versión con inventario: carga los insumos iniciales si
+# aún no hay ninguno; con menú ya cargado no toca menú, mesas ni usuarios
+npm run db:seed
 
 # 5. Arrancar y revisar el log
 sudo systemctl start mauidesk
@@ -372,7 +414,7 @@ Después: prueba de humo con un dispositivo por rol (pedido → comanda con el n
 - [ ] Las contraseñas seed (admin123, cajero123, mozo123) fueron cambiadas
 - [ ] El dueño accede desde fuera vía Tailscale
 - [ ] Hay un backup en `/home/mauidesk/backups/` con fecha de hoy **y su copia fuera del local**
-- [ ] Se probó restaurar un backup en otro equipo y los totales coinciden
+- [ ] Se probó restaurar un backup con `restore-backup.sh` en otro equipo y los totales coinciden
 - [ ] El sistema corre desde el SSD (no desde la microSD)
 - [ ] El log de arranque no muestra avisos `[startup] ATENCIÓN`
 - [ ] Si tenés UPS, probar apagón y verificar que el sistema vuelve solo
@@ -391,15 +433,7 @@ Después: prueba de humo con un dispositivo por rol (pedido → comanda con el n
 
 **El celular no conecta**: debe estar en la **misma WiFi** que el Pi. Verificar `ping 192.168.1.50` desde otro dispositivo conectado a la misma red.
 
-**Después de un corte de luz la DB se corrompió**: por eso usamos `.backup` (atómico) en el script de backup, no `cp`. Restaurar el último backup:
-```bash
-sudo systemctl stop mauidesk
-# En modo WAL hay que borrar los archivos auxiliares de la base anterior:
-# si quedan, SQLite intentaría aplicarlos sobre el backup restaurado
-rm -f /home/mauidesk/MAUI/server/mauidisk.db-wal /home/mauidesk/MAUI/server/mauidisk.db-shm
-gunzip -c /home/mauidesk/backups/mauidisk-<fecha>.db.gz > /home/mauidesk/MAUI/server/mauidisk.db
-sudo systemctl start mauidesk
-```
+**Después de un corte de luz la DB se corrompió**: por eso usamos `.backup` (atómico) en el script de backup, no `cp`. Restaurar el último backup como se indica en *Fase 11 → Restaurar un backup, caso B* (apartar la base dañada con su `-wal` y `-shm`, restaurar con el script, migrar y arrancar). No borrar el `-wal` a mano: puede contener las últimas ventas confirmadas.
 
 **Logs llenan el SSD**: journalctl rota solo, pero podés limitarlo: `sudo journalctl --vacuum-time=30d`.
 
