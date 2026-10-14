@@ -13,3 +13,21 @@ export function formatDbDateTime(
   if (!value) return ''
   return parseDbUtc(value).toLocaleString('es-PE', opts)
 }
+
+// Día local 'YYYY-MM-DD': el formato de las fechas de compras, merma y conteos
+// (el servidor las guarda tal cual, sin pasar por UTC).
+export function localDateString(base: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}`
+}
+
+export function addDays(date: string, days: number): string {
+  const d = new Date(date + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return localDateString(d)
+}
+
+// 'YYYY-MM-DD' → "mar. 14 oct." (mediodía para no cruzar de día por la zona)
+export function formatLocalDate(date: string): string {
+  return new Date(date + 'T12:00:00').toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short' })
+}

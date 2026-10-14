@@ -26,6 +26,7 @@ export interface Dish {
   name: string
   description: string | null
   price: number
+  // false = agotado: el POS lo muestra deshabilitado con "No había"
   available: boolean
   hasSpiceLevel: boolean
   modifierGroups?: ModifierGroup[]

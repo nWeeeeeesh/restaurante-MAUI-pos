@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   ArrowLeft, Search, Flame, Plus, Minus, X,
-  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2, Loader2, Printer,
+  Send, CreditCard, Bike, LayoutGrid, ChevronDown, Trash2, Loader2, Printer, Ban,
 } from 'lucide-react'
 
 // ─── Table definitions (ahora vienen del API; el TABLE_DEFS hardcodeado quedó obsoleto) ─
@@ -91,8 +91,10 @@ function TableSelectorModal({ tables, current, onSelect, onClose }: {
 }
 
 // ─── Modifier Modal ───────────────────────────────────────────────────────────
-function ModifierModal({ dish, onConfirm, onClose }: {
+function ModifierModal({ dish, onConfirm, onClose, onLostSale }: {
   dish: Dish; onConfirm: (item: Omit<OrderItem, 'id' | 'status'>) => void; onClose: () => void
+  // Cocina avisa que se acabó aunque el plato figure disponible
+  onLostSale: () => void
 }) {
   const [qty, setQty] = useState(1)
   const [spiceOption, setSpiceOption] = useState<{ id: number; name: string } | null>(null)
@@ -125,6 +127,10 @@ function ModifierModal({ dish, onConfirm, onClose }: {
             <div>
               <h3 className="text-lg font-black text-[#0F172A]">{dish.name}</h3>
               {dish.description && <p className="text-sm text-[#64748B] mt-0.5">{dish.description}</p>}
+              <button onClick={onLostSale}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#F4792B] bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                <Ban size={12}/> No había
+              </button>
             </div>
             <p className="text-2xl font-black text-[#F4792B] shrink-0">S/ {dish.price.toFixed(2)}</p>
           </div>
@@ -221,6 +227,22 @@ export default function POS() {
 
   const { createOrder, addItemsToOrder, cancelOrder, markOrderPaying, reprintKitchen, orders } = useOrdersStore()
   const pushToast = useToastStore(s => s.push)
+  const [lostSending, setLostSending] = useState<number | null>(null)
+
+  // "Pidieron X y no había": un toque desde el plato agotado o el detalle del
+  // plato; alimenta la medición de ventas perdidas del inventario.
+  const reportLostSale = async (dish: Dish) => {
+    setLostSending(dish.id)
+    try {
+      await api.post('/inventory/lost-sales', { dishId: dish.id })
+      pushToast({ variant: 'success', title: 'Anotado: no había', message: dish.name })
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      pushToast({ variant: 'error', title: 'No se pudo anotar', message: message ?? 'Intenta nuevamente.' })
+    } finally {
+      setLostSending(null)
+    }
+  }
   const role = useAuthStore(s => s.user?.role)
   // Matriz de permisos (plan v1.1 §2): el servidor es quien realmente decide.
   const canCancel = role === 'owner' || role === 'manager' || role === 'cashier'
@@ -478,9 +500,20 @@ export default function POS() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
-              {filteredDishes.map(dish => (
-                <button key={dish.id} onClick={() => setSelectedDish(dish)} disabled={!dish.available}
-                  className="bg-white border-2 border-transparent hover:border-[#0077B6] rounded-2xl p-4 text-left transition-all shadow-sm hover:shadow-md disabled:opacity-40 active:scale-95">
+              {filteredDishes.map(dish => !dish.available ? (
+                <div key={dish.id} className="bg-white/60 border-2 border-dashed border-[#E2E8F0] rounded-2xl p-4 flex flex-col">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-sm font-bold text-[#94A3B8] leading-snug">{dish.name}</p>
+                    <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Agotado</span>
+                  </div>
+                  <button onClick={() => reportLostSale(dish)} disabled={lostSending === dish.id}
+                    className="mt-auto w-full flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-xl bg-orange-50 text-[#F4792B] hover:bg-orange-100 disabled:opacity-50 active:scale-95 transition-all">
+                    {lostSending === dish.id ? <Loader2 size={13} className="animate-spin"/> : <Ban size={13}/>} No había
+                  </button>
+                </div>
+              ) : (
+                <button key={dish.id} onClick={() => setSelectedDish(dish)}
+                  className="bg-white border-2 border-transparent hover:border-[#0077B6] rounded-2xl p-4 text-left transition-all shadow-sm hover:shadow-md active:scale-95">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="text-sm font-bold text-[#0F172A] leading-snug">{dish.name}</p>
                     {dish.hasSpiceLevel && <span className="shrink-0 w-6 h-6 rounded-lg bg-orange-50 flex items-center justify-center"><Flame size={13} className="text-[#F4792B]"/></span>}
@@ -691,7 +724,8 @@ export default function POS() {
       </div>
 
       {showTableModal && <TableSelectorModal tables={tables} current={tableId} onSelect={setTableId} onClose={() => setShowTableModal(false)}/>}
-      {selectedDish && <ModifierModal dish={selectedDish} onConfirm={addItem} onClose={() => setSelectedDish(null)}/>}
+      {selectedDish && <ModifierModal dish={selectedDish} onConfirm={addItem} onClose={() => setSelectedDish(null)}
+        onLostSale={() => { reportLostSale(selectedDish); setSelectedDish(null) }}/>}
       <ConfirmDialog
         open={cancelOpen}
         title="Cancelar pedido"

@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
 import {
   LayoutGrid, UtensilsCrossed, Receipt,
-  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X,
+  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X, Package,
 } from 'lucide-react'
 import type { Role } from '../store/auth'
 import { PrinterStatusPill } from './PrinterStatus'
@@ -15,6 +15,7 @@ const navItems = [
   { to: '/cash',        label: 'Caja',     icon: Receipt,         roles: ['owner','manager','cashier'] as Role[] },
   { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','manager','cashier','waiter'] as Role[] },
   { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner','manager'] as Role[] },
+  { to: '/inventory',   label: 'Inventario', icon: Package,       roles: ['owner','manager'] as Role[] },
   { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager'] as Role[] },
   { to: '/admin/users', label: 'Usuarios', icon: Users,           roles: ['owner'] as Role[] },
 ]

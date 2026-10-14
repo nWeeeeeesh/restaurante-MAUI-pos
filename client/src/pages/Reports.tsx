@@ -90,6 +90,13 @@ const AUDIT_LABELS: Record<string, string> = {
   'table.update': 'Mesa modificada',
   'table.disable': 'Mesa inhabilitada',
   'table.delete': 'Mesa eliminada',
+  'dish.archive': 'Plato archivado',
+  'supply.update': 'Insumo modificado',
+  'purchase.update': 'Compra corregida',
+  'purchase.delete': 'Compra eliminada',
+  'waste.update': 'Merma corregida',
+  'waste.delete': 'Merma eliminada',
+  'count.update': 'Conteo de cierre corregido',
 }
 
 function auditLabel(e: AuditEntry): string {
@@ -110,6 +117,25 @@ function auditDetail(e: AuditEntry): string {
       return (d.before?.description ?? '') + ' (' + money(d.before?.amount) + ') · "' + (d.reason ?? '') + '"'
     case 'dish.update':
       return (d.before?.name ?? '') + (d.changes?.price !== undefined ? ': ' + money(d.before?.price) + ' → ' + money(d.changes.price) : '')
+        + (d.changes?.archived === false ? ' · restaurado' : '')
+    case 'dish.archive':
+      return d.name ?? ''
+    case 'supply.update':
+      return (d.before?.name ?? '')
+        + (d.changes?.name !== undefined && d.changes.name !== d.before?.name ? ' → ' + d.changes.name : '')
+        + (d.changes?.active === false ? ' · desactivado' : d.changes?.active === true ? ' · reactivado' : '')
+        + (d.changes?.critical !== undefined ? (d.changes.critical ? ' · crítico' : ' · no crítico') : '')
+    case 'purchase.update':
+      return 'Compra #' + e.entityId + ': ' + d.before?.quantity + ' → ' + d.after?.quantity
+        + ' · ' + money(d.before?.totalCost) + ' → ' + money(d.after?.totalCost) + ' · "' + (d.reason ?? '') + '"'
+    case 'purchase.delete':
+      return 'Compra #' + e.entityId + ' (' + d.before?.quantity + ' · ' + money(d.before?.totalCost) + ', ' + (d.before?.purchasedAt ?? '') + ') · "' + (d.reason ?? '') + '"'
+    case 'waste.update':
+      return 'Merma #' + e.entityId + ': ' + d.before?.quantity + ' → ' + d.after?.quantity + ' · "' + (d.reason ?? '') + '"'
+    case 'waste.delete':
+      return 'Merma #' + e.entityId + ' (' + d.before?.quantity + ', ' + (d.before?.wastedAt ?? '') + ') · "' + (d.reason ?? '') + '"'
+    case 'count.update':
+      return (d.name ?? 'Insumo #' + d.supplyId) + ' del ' + (d.date ?? '') + ': ' + d.before + ' → ' + d.after
     case 'dish.availability':
       return (d.name ?? '') + ': ' + (d.available ? 'disponible' : 'agotado')
     case 'user.update':
