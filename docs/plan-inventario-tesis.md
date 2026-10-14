@@ -1,8 +1,9 @@
-# Plan: Inventario de insumos perecibles (tesis de rentabilidad) — v2
+# Plan: Inventario de insumos perecibles (tesis de rentabilidad) — v2.1
 
 > Encargo para Claude Code. Léelo completo junto con `CLAUDE.md` antes de tocar código.
 > Navegación: `graphify-out/obsidian/00 Inicio.md` y `Módulos/`.
 > La v1 de este plan (capas 0 y 1) ya está implementada: commits `feee721`, `25028c9`, `8489a45`, `13b2b09`. Esta v2 **ajusta** lo construido; no lo reescribe.
+> **v2.1** (§2.9): ajustes de diseño para que sea intuitivo y viable para dueño y cajero, decididos tras revisar la v2 en uso.
 
 ## 1. Contexto
 
@@ -57,7 +58,7 @@ Nueva pestaña **por defecto** en `/inventory` (owner, manager). Una lista con *
 |---|---|---|
 | **Quedaba** | Stock físico **antes de comprar** (después de botar lo que no sirve) | Vacío la primera vez; luego el stock teórico si existe (fase 2), si no vacío |
 | **Botaste** | Merma por deterioro descubierta al revisar | `0` |
-| **Compraste** | Cantidad comprada hoy | Lo comprado el **mismo día de la semana anterior**; si no hay, la última compra. En fase 2: la sugerencia del sistema |
+| **Compraste** | Cantidad comprada hoy | **Vacío** (v2.1). Al lado se ofrece lo comprado el **mismo día de la semana anterior** (si no hay, la última compra) con un botón **[Usar]**: un toque, pero la compra la confirma el usuario. En fase 2: la sugerencia del sistema, con el mismo botón |
 
 Más, por insumo comprado: **precio por kg/unidad**, prellenado con el último precio de ese insumo; el total se calcula solo (cantidad × precio) y es editable. Proveedor: un campo opcional plegado («+ proveedor»), que recuerda el último usado.
 
@@ -77,7 +78,7 @@ Requisitos de UX:
 - Sin recordatorios insistentes: como máximo un indicador discreto en el `Layout` del dueño/encargado si **ayer** no tiene «Compra del día». Nada de toasts repetidos.
 
 ### 2.3 Lo que pasa a segundo plano
-- Pestañas **Compras**, **Merma**, **Insumos** se mantienen como *detalle/corrección* (para compras de no críticos, otros motivos de merma, editar con motivo). No son parte de la rutina.
+- Pestañas **Compras**, **Merma**, **Insumos** se mantienen como *detalle/corrección* (para compras de no críticos, otros motivos de merma, editar con motivo). No son parte de la rutina. *(v2.1: Compras y Merma se unen en **Historial**, ver §2.9.)*
 - Pestaña **Cierre**: se quita de la navegación (el endpoint puede quedar; `moment='cierre'` sigue siendo válido).
 - **«No había»** en el POS: se mantiene, explícitamente opcional (texto de ayuda breve). No agregar más pasos al mozo.
 
@@ -106,6 +107,23 @@ Insumos iniciales con `code` y `sort_order`: PESCADO, CALAMAR, PULPO, LANGOSTINO
 - Prueba manual en celular: «Compra del día» de 5 insumos en ≤ 60 s; corregir el mismo día no duplica.
 - `CLAUDE.md`, `docs/architecture/api.md` y `data-model.md` actualizados; archivos nuevos asignados en `scripts/vault/build_vault.py` (módulo **Inventario**); `graphify update .` + `python scripts/vault/build_vault.py`.
 - Desplegado en la Pi **antes** de iniciar la línea base (anotar la fecha de inicio en `day_notes`).
+
+### 2.9 Ajustes de diseño v2.1 (implementados)
+
+Revisión de la v2 en uso: el dueño registraba cada día sin recibir nada a cambio, el prellenado de compras podía guardar compras que no ocurrieron y marcar agotado quedaba lejos de quien se entera primero.
+
+**Regla para la línea base:** en la fase 0 el sistema solo **refleja lo registrado**. Nada de alertas, colores de stock bajo, sugerencias, totales o tendencias de merma ni costeo: eso es la intervención (§3) y mostrarlo antes mezcla el "antes" con el "después".
+
+| Cambio | Detalle | ¿Cambia el dataset v1? |
+|---|---|---|
+| **A. «Hoy empezaste con»** | Tarjeta en la pestaña Hoy, una vez guardada la compra del día: por insumo crítico, quedaba + compraste. Rotulada «no descuenta lo vendido» | No (es la suma de lo registrado) |
+| **B. «Compraste» vacío + [Usar]** | La cantidad no se prellena; la compra de referencia se muestra con su fecha y un botón [Usar]. Precio y proveedor sí vienen prellenados (solo se usan si hay compra) | No; los datos quedan más limpios |
+| **C. Agotado desde el POS** | Cajero, encargado y dueño marcan «Se agotó» en el detalle del plato y «Habilitar» en la tarjeta agotada. Evento `menu:availability`: los demás POS se actualizan sin recargar y el plato agotado sale de los borradores | No (sigue siendo `dish.availability`) |
+| **D. Historial** | Compras y Merma se unen en una lista por día con filtros, «Otra compra» / «Otra merma» plegados y corrección con motivo. Sin totales | No (solo UI) |
+
+Pestañas de `/inventory`: **Hoy** (por defecto) · **Historial** · **Insumos** (dueño).
+
+**Para la fase 2 (no ahora):** «Ahora te queda ~N» en vivo (requiere recetas), aviso al mozo y existencias para el cajero. La carga de recetas puede hacerse en paralelo con la línea base porque el personal no la ve.
 
 ## 3. Fase 2 — referencia (NO implementar aún)
 

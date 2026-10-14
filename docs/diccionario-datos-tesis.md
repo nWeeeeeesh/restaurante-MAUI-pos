@@ -13,7 +13,7 @@
 | **Cierre** (`moment='cierre'`) | Conteo al cerrar. **No forma parte del instrumento v1**: los registros `cierre` previos a la v2 fueron pruebas | — |
 | **Merma por deterioro** | Lo descartado al revisar en la mañana. Se imputa al **día operativo anterior** a la fecha de la «Compra del día» (si no hay ninguno, al día calendario anterior) | Campo «Botaste» (`supply_waste`, `reason='deterioro'`, `source='daily'`) |
 | **Merma (otras causas)** | `sobra_comensal`, `preparacion`, `otro` y deterioros registrados fuera de la rutina | Pestaña Merma (`source='manual'`) |
-| **Compra** | Insumo adquirido en una fecha, con su costo total | «Compraste» (`source='daily'`) o pestaña Compras (`source='manual'`) |
+| **Compra** | Insumo adquirido en una fecha, con su costo total. En la «Compra del día» la cantidad **nunca se prellena**: cada compra la confirmó el usuario (escribiéndola o con [Usar]) | «Compraste» (`source='daily'`) o Historial → Otra compra (`source='manual'`) |
 | **Consumo real del día d** | apertura(d) + compras(d) − merma(d) − apertura(d+1) | Calculado en el análisis |
 | **Precio unitario** | `costo_total / cantidad` de cada compra. Para costeo: promedio ponderado de la semana | Calculado (columna `costo_unitario`) |
 | **Quiebre** | Intervalo en que un plato estuvo agotado (`available=false`) | `audit_log`, acción `dish.availability`, solo transiciones reales |

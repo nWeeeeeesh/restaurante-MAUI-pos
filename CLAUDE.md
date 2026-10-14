@@ -49,7 +49,7 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el ser
 
 Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
 - Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
-- Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**, marcar platos agotados.
+- Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**, marcar platos agotados (desde el POS o Menú).
 - Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, inventario («Compra del día», compras, merma, export).
 - Dueño: todo, incluidos precios, menú, mesas/plano, usuarios y el catálogo de insumos.
 - "No había" (`POST /inventory/lost-sales`) lo registra cualquier rol desde el POS.
@@ -98,7 +98,7 @@ server/scripts/
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
-                     inventory/{Inventory, DailyTab, PurchasesTab, WasteTab, SuppliesTab, model, ui}
+                     inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, model, ui}
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
   api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
@@ -136,7 +136,8 @@ client/src/
 ### Inventario (Fase 0 de la tesis)
 - **El instrumento está congelado** ([diccionario](docs/diccionario-datos-tesis.md) v1): no cambiar columnas, orden ni semántica del export ni de lo que registra la «Compra del día». `inventory.export.test.ts` fija los encabezados y falla a propósito; un cambio exige versión nueva del diccionario y de `DATASET_VERSION`.
 - La única rutina es la **«Compra del día»** (`POST /inventory/daily`, dueño/encargado): una transacción por fecha con apertura (`supply_counts.moment='apertura'`), merma por deterioro (imputada al **día operativo anterior** = último día con boletas), compras y notas del día. Es idempotente: reemplaza solo lo que creó (`source='daily'`, `source_date`) y audita `daily.update` si cambia algo. Hasta 7 días atrás.
-- El mozo y el cajero no hacen nada obligatorio; «No había» es opcional. Sin stock teórico ni alertas: la fase 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
+- El mozo y el cajero no hacen nada obligatorio; «No había» es opcional. Cajero, encargado y dueño marcan agotado desde el POS («Se agotó» / «Habilitar»).
+- **En la línea base la UI solo refleja lo registrado** (plan §2.9): sin alertas, stock bajo, sugerencias, totales de merma ni costeo. «Compraste» nunca se prellena: la compra de referencia se ofrece con [Usar]. Sin stock teórico ni alertas: la fase 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
 - `supplies.code` es el identificador estable del insumo (no editable); `local_id` existe en las tablas de hechos (siempre 1) y no se muestra en la UI.
 - Fechas de compra, merma y conteo: **día local** `YYYY-MM-DD` (no futuro). `lost_sales.occurred_at`: UTC como el resto; los rangos se convierten con `parseDayBoundary`.
 - Corregir o borrar exige motivo y audita el registro anterior (como los gastos). En la merma, `reason` es la causa y el motivo de la corrección va en `correctionReason`.
@@ -144,7 +145,7 @@ client/src/
 - `GET /api/menu` devuelve los agotados (el POS los muestra con "No había") y excluye los archivados.
 
 ### Socket
-- Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`. Se emiten con `emit()` de `realtime.ts`, después del commit.
+- Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`, `menu:availability` (`{dishId, available}`, solo en transiciones reales; el POS actualiza el menú y quita el plato agotado del borrador). Se emiten con `emit()` de `realtime.ts`, después del commit.
 - El cliente vuelve a pedir `/orders/active` al reconectar y al volver la app al frente (más de 30 s).
 - Estado de conexión en `client/src/store/connection.ts`; banner en [ReconnectBanner.tsx](client/src/components/ReconnectBanner.tsx).
 - Todos los eventos van a todos los sockets autenticados (segmentar por rol queda para el producto).

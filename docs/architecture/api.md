@@ -185,5 +185,7 @@ Reglas comunes: escrituras con `withWriteLock` + transacción; fechas de compra,
 - `GET /api/menu` excluye los archivados e **incluye los agotados** (`available=false`): el POS los muestra deshabilitados con el botón "No había". `resolveItems` rechaza archivados y agotados con 409 `DISH_UNAVAILABLE`.
 - `PATCH /api/menu/dishes/:id` acepta `{archived:false}` para restaurar (archivar es solo `DELETE`).
 - Desde la v2 del plan, el **cajero** también puede marcar agotado (`PATCH /dishes/:id/availability`, `GET /dishes`).
+- **Evento Socket.io `menu:availability`** (`{dishId, available}`, v2.1): se emite después del commit en cada transición real de disponibilidad, desde `/availability` o desde `PATCH /dishes/:id`. El POS actualiza el menú sin recargar y quita el plato agotado de los borradores.
+- `GET /api/inventory/daily`: `suggestion.fromDate` indica de qué compra sale la cantidad de referencia; la pantalla la ofrece con [Usar] y no la prellena (plan §2.9).
 - **Quiebres:** `dish.availability` en `audit_log` se escribe solo en transiciones reales (marcar agotado dos veces cuenta como un solo quiebre), venga de `PATCH /dishes/:id/availability` o de la edición del dueño (`PATCH /dishes/:id` con `available`).
 
