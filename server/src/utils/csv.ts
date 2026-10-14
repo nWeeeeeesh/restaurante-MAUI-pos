@@ -1,0 +1,18 @@
+type Cell = string | number | boolean | null | undefined
+
+// CSV para abrir en Excel/LibreOffice: separador coma, CRLF y BOM para que
+// las tildes se lean bien. Un texto que empieza con = + - @ se antepone con '
+// para que la hoja no lo ejecute como fórmula (las notas son texto libre).
+export function csvCell(v: Cell): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : ''
+  if (typeof v === 'boolean') return v ? '1' : '0'
+  let s = v
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+export function toCsv(header: string[], rows: Cell[][]): string {
+  const lines = [header, ...rows].map(r => r.map(csvCell).join(','))
+  return '﻿' + lines.join('\r\n') + '\r\n'
+}

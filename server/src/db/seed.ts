@@ -1,9 +1,30 @@
 import { db } from './index'
-import { users, categories, dishes, modifierGroups, modifierOptions, tables } from './schema'
+import { users, categories, dishes, modifierGroups, modifierOptions, tables, supplies } from './schema'
 import bcrypt from 'bcryptjs'
+
+// Insumos iniciales del inventario (plan-inventario-tesis §3.4). Va aparte del
+// resto del seed para poder sembrarlos en una BD que ya tiene menú (la del local);
+// solo corre si la tabla está vacía y el dueño los ajusta luego.
+async function seedSupplies() {
+  const existing = await db.select({ id: supplies.id }).from(supplies).limit(1)
+  if (existing.length > 0) return
+  await db.insert(supplies).values([
+    { name: 'Pescado', unit: 'kg', critical: true },
+    { name: 'Calamar', unit: 'kg', critical: true },
+    { name: 'Langostino', unit: 'kg', critical: true },
+    { name: 'Pulpo', unit: 'kg', critical: true },
+    { name: 'Conchas', unit: 'unit', critical: true },
+    { name: 'Limón', unit: 'kg' },
+    { name: 'Cebolla', unit: 'kg' },
+    { name: 'Camote', unit: 'kg' },
+    { name: 'Choclo', unit: 'kg' },
+  ])
+  console.log('Supplies seeded.')
+}
 
 async function seed() {
   console.log('Seeding database...')
+  await seedSupplies()
 
   // Guard: skip if already seeded
   const existing = await db.select().from(categories)

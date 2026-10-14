@@ -75,6 +75,29 @@ describe('matriz de permisos', () => {
       request(ctx.app).get('/api/users').set('Authorization', a))
   })
 
+  it('inventario: compras, merma, conteos, listados y export para encargado y dueño', async () => {
+    const managers = only('owner', 'manager')
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/purchases').set('Authorization', a))
+    await expectMatrix(managers, a => request(ctx.app).post('/api/inventory/purchases').set('Authorization', a).send({ supplyId: 99999, quantity: 1, totalCost: 1 }))
+    await expectMatrix(managers, a => request(ctx.app).patch('/api/inventory/purchases/99999').set('Authorization', a).send({ quantity: 1, reason: 'prueba' }))
+    await expectMatrix(managers, a => request(ctx.app).delete('/api/inventory/purchases/99999').set('Authorization', a).send({ reason: 'prueba' }))
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/waste').set('Authorization', a))
+    await expectMatrix(managers, a => request(ctx.app).post('/api/inventory/waste').set('Authorization', a).send({ supplyId: 99999, quantity: 1, reason: 'otro' }))
+    await expectMatrix(managers, a => request(ctx.app).patch('/api/inventory/waste/99999').set('Authorization', a).send({ quantity: 1, correctionReason: 'prueba' }))
+    await expectMatrix(managers, a => request(ctx.app).delete('/api/inventory/waste/99999').set('Authorization', a).send({ reason: 'prueba' }))
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/counts').set('Authorization', a))
+    await expectMatrix(managers, a => request(ctx.app).put('/api/inventory/counts/2026-01-01').set('Authorization', a).send({ items: [{ supplyId: 99999, quantity: 1 }] }))
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/lost-sales').set('Authorization', a))
+    await expectMatrix(managers, a => request(ctx.app).get('/api/inventory/export?table=supplies').set('Authorization', a))
+  })
+
+  it('inventario: catálogo de insumos solo el dueño; verlo y registrar "No había", todos', async () => {
+    await expectMatrix(only('owner'), a => request(ctx.app).post('/api/inventory/supplies').set('Authorization', a).send({ name: '', unit: 'kg' }))
+    await expectMatrix(only('owner'), a => request(ctx.app).patch('/api/inventory/supplies/99999').set('Authorization', a).send({ critical: true }))
+    await expectMatrix(only(...ROLES), a => request(ctx.app).get('/api/inventory/supplies').set('Authorization', a))
+    await expectMatrix(only(...ROLES), a => request(ctx.app).post('/api/inventory/lost-sales').set('Authorization', a).send({ dishId }))
+  })
+
   it('historial: encargado y dueño eligen el rango; cajero y mozo solo ven hoy', async () => {
     for (const role of ROLES) {
       const res = await request(ctx.app).get('/api/bills?from=2020-01-01&to=2020-01-31').set('Authorization', auth[role])

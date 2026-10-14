@@ -241,11 +241,11 @@ export async function resolveItems(db: Executor, items: OrderItemRequest[]): Pro
   const groupById = new Map(groupRows.map(g => [g.id, g]))
   const optionById = new Map(optionRows.map(o => [o.id, o]))
 
-  // Un plato agotado o de una categoría inactiva no se puede vender (D3: se rechaza
+  // Un plato agotado, archivado o de una categoría inactiva no se puede vender (D3: se rechaza
   // el envío completo y se informa cuáles, para que el POS los quite del borrador).
   const unavailable = dishIds
     .map(id => ({ id, dish: dishById.get(id) }))
-    .filter(({ dish }) => !dish || dish.available === false || (dish.categoryId !== null && inactiveCats.has(dish.categoryId)))
+    .filter(({ dish }) => !dish || dish.available === false || dish.archived === true || (dish.categoryId !== null && inactiveCats.has(dish.categoryId)))
     .map(({ id, dish }) => ({ dishId: id, name: dish?.name ?? `Plato #${id}` }))
   if (unavailable.length > 0) {
     throw new DomainError(

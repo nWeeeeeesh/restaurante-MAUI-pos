@@ -48,13 +48,82 @@ export async function applyStartupMigrations(existing?: Client) {
       )
     `)
 
+    // 4) dishes.archived — baja de un plato con historial, distinta de "agotado" (TD-31).
+    const dishCols = await client.execute(`PRAGMA table_info(dishes)`)
+    if (!dishCols.rows.some(r => String(r.name) === 'archived')) {
+      await client.execute(`ALTER TABLE dishes ADD COLUMN archived INTEGER DEFAULT false`)
+      console.log('[migrate] dishes.archived column added')
+    }
+
+    // 5) Inventario de insumos (Fase 0). Mismo DDL que genera drizzle-kit para
+    // schema.ts; el índice único de conteos es requerido porque el upsert depende de él.
+    const inventoryDdl = [
+      `CREATE TABLE IF NOT EXISTS \`supplies\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`name\` text NOT NULL,
+        \`unit\` text NOT NULL,
+        \`perishable\` integer DEFAULT true,
+        \`critical\` integer DEFAULT false,
+        \`active\` integer DEFAULT true,
+        \`created_at\` text DEFAULT (datetime('now'))
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS `supplies_name_unique` ON `supplies` (`name`)',
+      `CREATE TABLE IF NOT EXISTS \`supply_purchases\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`quantity\` real NOT NULL,
+        \`total_cost\` real NOT NULL,
+        \`purchased_at\` text NOT NULL,
+        \`notes\` text,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`supply_waste\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`quantity\` real NOT NULL,
+        \`reason\` text NOT NULL,
+        \`wasted_at\` text NOT NULL,
+        \`notes\` text,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`supply_counts\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`quantity\` real NOT NULL,
+        \`counted_on\` text NOT NULL,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_supply_counts_supply_day` ON `supply_counts` (`supply_id`,`counted_on`)',
+      `CREATE TABLE IF NOT EXISTS \`lost_sales\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`dish_id\` integer,
+        \`supply_id\` integer,
+        \`quantity\` integer DEFAULT 1,
+        \`occurred_at\` text DEFAULT (datetime('now')),
+        \`created_by\` integer,
+        FOREIGN KEY (\`dish_id\`) REFERENCES \`dishes\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+    ]
+    for (const ddl of inventoryDdl) await client.execute(ddl)
+
     // ── Opcionales ────────────────────────────────────────────────────────────
-    // 4) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
+    // 6) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
     // esperan al escritor. Es persistente en el archivo; `sqlite3 .backup` lo soporta.
     await optional('journal_mode=WAL', () => client.execute('PRAGMA journal_mode=WAL'))
 
-    // 5) Índices — también declarados en schema.ts con los mismos nombres: si no lo
+    // 7) Índices — también declarados en schema.ts con los mismos nombres: si no lo
     // estuvieran, `drizzle-kit push` los borraría (verificado).
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
@@ -62,10 +131,13 @@ export async function applyStartupMigrations(existing?: Client) {
       `CREATE INDEX IF NOT EXISTS idx_bills_paid_at         ON bills(paid_at)`,
       `CREATE INDEX IF NOT EXISTS idx_orders_table_status   ON orders(table_id, status)`,
       `CREATE INDEX IF NOT EXISTS idx_audit_log_at          ON audit_log(at)`,
+      'CREATE INDEX IF NOT EXISTS `idx_supply_purchases_purchased_at` ON `supply_purchases` (`purchased_at`)',
+      'CREATE INDEX IF NOT EXISTS `idx_supply_waste_wasted_at` ON `supply_waste` (`wasted_at`)',
+      'CREATE INDEX IF NOT EXISTS `idx_lost_sales_occurred_at` ON `lost_sales` (`occurred_at`)',
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 
-    // 6) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
+    // 8) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
     // pedidos activos, el índice no se puede crear: se avisa con los ids y se sigue,
     // porque la creación de pedidos ya está serializada en la app.
     await optional('uq_orders_active_table', async () => {

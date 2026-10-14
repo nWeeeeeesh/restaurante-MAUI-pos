@@ -27,6 +27,8 @@ export const UpdateDishSchema = z.object({
   description: z.union([z.string().trim().max(500), z.null()]).optional(),
   price: z.number().positive().max(99999).optional(),
   available: z.boolean().optional(),
+  // Solo para restaurar un plato archivado; archivar es DELETE
+  archived: z.literal(false).optional(),
   hasSpiceLevel: z.boolean().optional(),
 }).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
 

@@ -19,9 +19,11 @@ import { DomainError } from '../errors'
 const router = Router()
 
 // GET full menu (público dentro de la app)
+// Incluye los agotados (el POS los muestra deshabilitados con "No había");
+// los archivados no aparecen.
 router.get('/', requireAuth, async (_req, res) => {
   const cats = await db.select().from(categories).where(eq(categories.active, true)).orderBy(asc(categories.displayOrder))
-  const dishList = await db.select().from(dishes).where(eq(dishes.available, true))
+  const dishList = await db.select().from(dishes).where(eq(dishes.archived, false))
   const groups = await db.select().from(modifierGroups).orderBy(asc(modifierGroups.displayOrder))
   const options = await db.select().from(modifierOptions).orderBy(asc(modifierOptions.displayOrder))
 
@@ -149,8 +151,16 @@ router.patch(
       const [after] = await tx.update(dishes).set(set).where(eq(dishes.id, id)).returning()
       await audit(tx, {
         userId: req.user!.id, action: 'dish.update', entity: 'dish', entityId: id,
-        data: { before: { name: before.name, price: before.price, available: before.available }, changes: req.body },
+        data: { before: { name: before.name, price: before.price, available: before.available, archived: before.archived }, changes: req.body },
       })
+      // Un quiebre se mide con dish.availability venga de donde venga (aquí o
+      // desde /availability): es el indicador de la tesis.
+      if (set.available !== undefined && set.available !== before.available) {
+        await audit(tx, {
+          userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
+          data: { name: after.name, available: set.available },
+        })
+      }
       return after
     }))
     res.json(updated)
@@ -166,8 +176,11 @@ router.patch(
     const id = Number(req.params.id)
     const { available } = req.body as { available: boolean }
     const updated = await withWriteLock(() => db.transaction(async (tx) => {
+      const [before] = await tx.select().from(dishes).where(eq(dishes.id, id))
+      if (!before) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
+      // Solo las transiciones reales: marcar agotado dos veces es un solo quiebre
+      if (before.available === available) return before
       const [after] = await tx.update(dishes).set({ available }).where(eq(dishes.id, id)).returning()
-      if (!after) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
       await audit(tx, {
         userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
         data: { name: after.name, available },
@@ -180,20 +193,29 @@ router.patch(
 
 router.delete('/dishes/:id', requireAuth, requireRole('owner'), async (req, res) => {
   const id = Number(req.params.id)
-  // Si está usado en algún pedido lo marcamos como no disponible (preserva integridad)
-  const used = await db.select().from(orderItems).where(eq(orderItems.dishId, id))
-  if (used.length > 0) {
-    await db.update(dishes).set({ available: false }).where(eq(dishes.id, id))
-    res.json({ deactivated: true, message: 'El plato tiene pedidos históricos, se marcó como no disponible.' })
+  const result = await withWriteLock(() => db.transaction(async (tx) => {
+    const [dish] = await tx.select().from(dishes).where(eq(dishes.id, id))
+    if (!dish) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
+    // Con pedidos históricos se archiva: `available` queda intacto para que
+    // dish.availability en audit_log mida solo quiebres reales (TD-31).
+    const [used] = await tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.dishId, id)).limit(1)
+    if (used) {
+      await tx.update(dishes).set({ archived: true }).where(eq(dishes.id, id))
+      await audit(tx, { userId: req.user!.id, action: 'dish.archive', entity: 'dish', entityId: id, data: { name: dish.name } })
+      return 'archived' as const
+    }
+    const groups = await tx.select().from(modifierGroups).where(eq(modifierGroups.dishId, id))
+    for (const g of groups) {
+      await tx.delete(modifierOptions).where(eq(modifierOptions.groupId, g.id))
+    }
+    await tx.delete(modifierGroups).where(eq(modifierGroups.dishId, id))
+    await tx.delete(dishes).where(eq(dishes.id, id))
+    return 'deleted' as const
+  }))
+  if (result === 'archived') {
+    res.json({ archived: true, message: 'El plato tiene pedidos históricos: se archivó y ya no aparece en el menú.' })
     return
   }
-  // Borrar modificadores asociados primero
-  const groups = await db.select().from(modifierGroups).where(eq(modifierGroups.dishId, id))
-  for (const g of groups) {
-    await db.delete(modifierOptions).where(eq(modifierOptions.groupId, g.id))
-  }
-  await db.delete(modifierGroups).where(eq(modifierGroups.dishId, id))
-  await db.delete(dishes).where(eq(dishes.id, id))
   res.status(204).send()
 })
 

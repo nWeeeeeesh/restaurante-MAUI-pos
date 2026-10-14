@@ -25,7 +25,10 @@ export const dishes = sqliteTable('dishes', {
   name: text('name').notNull(),
   description: text('description'),
   price: real('price').notNull(),
+  // available=false es solo "agotado" (lo registra audit_log como dish.availability);
+  // archived=true es un plato dado de baja que conserva su historial (TD-31).
   available: integer('available', { mode: 'boolean' }).default(true),
+  archived: integer('archived', { mode: 'boolean' }).default(false),
   hasSpiceLevel: integer('has_spice_level', { mode: 'boolean' }).default(true),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
@@ -163,3 +166,68 @@ export const expenses = sqliteTable('expenses', {
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
+
+// ── Inventario de insumos (Fase 0 de la tesis: solo registro, sin alertas) ──
+// Las fechas de compra, merma y conteo son días LOCALES 'YYYY-MM-DD' (como
+// expenses.date); lost_sales.occurred_at es UTC como el resto de timestamps.
+
+export const supplies = sqliteTable('supplies', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  unit: text('unit', { enum: ['kg', 'unit', 'l'] }).notNull(),
+  perishable: integer('perishable', { mode: 'boolean' }).default(true),
+  // Insumos que entran al estudio (pescado, calamar, mariscos)
+  critical: integer('critical', { mode: 'boolean' }).default(false),
+  active: integer('active', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+})
+
+export const supplyPurchases = sqliteTable('supply_purchases', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  quantity: real('quantity').notNull(),
+  // Lo pagado en total; el precio unitario se deriva (total / cantidad)
+  totalCost: real('total_cost').notNull(),
+  purchasedAt: text('purchased_at').notNull(),
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  index('idx_supply_purchases_purchased_at').on(t.purchasedAt),
+])
+
+export const supplyWaste = sqliteTable('supply_waste', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  quantity: real('quantity').notNull(),
+  reason: text('reason', { enum: ['deterioro', 'sobra_comensal', 'preparacion', 'otro'] }).notNull(),
+  wastedAt: text('wasted_at').notNull(),
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  index('idx_supply_waste_wasted_at').on(t.wastedAt),
+])
+
+export const supplyCounts = sqliteTable('supply_counts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  quantity: real('quantity').notNull(),
+  countedOn: text('counted_on').notNull(),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  // Un conteo por insumo y día: volver a registrarlo lo corrige
+  uniqueIndex('uq_supply_counts_supply_day').on(t.supplyId, t.countedOn),
+])
+
+export const lostSales = sqliteTable('lost_sales', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dishId: integer('dish_id').references(() => dishes.id),
+  supplyId: integer('supply_id').references(() => supplies.id),
+  quantity: integer('quantity').default(1),
+  occurredAt: text('occurred_at').default(sql`(datetime('now'))`),
+  createdBy: integer('created_by').references(() => users.id),
+}, (t) => [
+  index('idx_lost_sales_occurred_at').on(t.occurredAt),
+])
