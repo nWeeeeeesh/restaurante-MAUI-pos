@@ -41,6 +41,7 @@ export interface WasteRecord {
   reason: WasteReason
   wastedAt: string
   notes: string | null
+  source: 'manual' | 'daily'
   createdByName: string | null
 }
 
@@ -56,8 +57,9 @@ export interface DailyItem {
   unitPrice: number | null
   totalCost: number | null
   supplier: string | null
-  // Prellenado: compra del mismo día de la semana anterior (o la última), último precio y proveedor
-  suggestion: { purchased: number | null; unitPrice: number | null; supplier: string | null }
+  // Compra de referencia (mismo día de la semana anterior o la última; se ofrece con
+  // [Usar], no se prellena), último precio y último proveedor
+  suggestion: { purchased: number | null; fromDate: string | null; unitPrice: number | null; supplier: string | null }
 }
 
 export interface DailyDay {

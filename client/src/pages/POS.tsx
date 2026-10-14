@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useOrderStore, draftUnitPrice } from '../store/order'
 import { useOrdersStore, type ActiveOrder, type ItemPayload } from '../store/orders'
 import type { Category, Dish, OrderItem, SelectedModifier, TableStatus } from '../types'
 import api from '../api/client'
+import { socket } from '../api/socket'
 import { useToastStore } from '../store/toast'
 import { useAuthStore } from '../store/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -91,10 +92,12 @@ function TableSelectorModal({ tables, current, onSelect, onClose }: {
 }
 
 // ─── Modifier Modal ───────────────────────────────────────────────────────────
-function ModifierModal({ dish, onConfirm, onClose, onLostSale }: {
+function ModifierModal({ dish, onConfirm, onClose, onLostSale, onSoldOut }: {
   dish: Dish; onConfirm: (item: Omit<OrderItem, 'id' | 'status'>) => void; onClose: () => void
   // Cocina avisa que se acabó aunque el plato figure disponible
   onLostSale: () => void
+  // Solo cajero, encargado y dueño: marcar agotado desde aquí, sin ir a Menú
+  onSoldOut?: () => void
 }) {
   const [qty, setQty] = useState(1)
   const [spiceOption, setSpiceOption] = useState<{ id: number; name: string } | null>(null)
@@ -128,10 +131,18 @@ function ModifierModal({ dish, onConfirm, onClose, onLostSale }: {
               <h3 className="text-lg font-black text-[#0F172A]">{dish.name}</h3>
               {dish.description && <p className="text-sm text-[#64748B] mt-0.5">{dish.description}</p>}
               {/* Opcional: el plan v2 no agrega pasos obligatorios al mozo */}
-              <button onClick={onLostSale} title="Opcional: anota que lo pidieron y no había"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#F4792B] bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-lg transition-colors">
-                <Ban size={12}/> No había <span className="font-medium text-[#F4792B]/70">(opcional)</span>
-              </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={onLostSale} title="Opcional: anota que lo pidieron y no había"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F4792B] bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Ban size={12}/> No había <span className="font-medium text-[#F4792B]/70">(opcional)</span>
+                </button>
+                {onSoldOut && (
+                  <button onClick={onSoldOut}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                    Se agotó
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-2xl font-black text-[#F4792B] shrink-0">S/ {dish.price.toFixed(2)}</p>
           </div>
@@ -248,6 +259,9 @@ export default function POS() {
   // Matriz de permisos (plan v1.1 §2): el servidor es quien realmente decide.
   const canCancel = role === 'owner' || role === 'manager' || role === 'cashier'
   const canCharge = canCancel
+  // Plan inventario v2.1: quien se entera primero en el salón marca agotado desde el POS
+  const canMarkSoldOut = canCancel
+  const [availabilitySending, setAvailabilitySending] = useState<number | null>(null)
   const [cancelOpen, setCancelOpen]     = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling]     = useState(false)
@@ -287,6 +301,42 @@ export default function POS() {
       pushToast({ variant: 'error', title: 'No se pudieron cargar las mesas', message: 'Recarga la página.' })
     })
   }, [pushToast, syncWithMenu])
+
+  // Disponibilidad en vivo: cuando alguien marca agotado o habilita un plato, todos los
+  // POS se actualizan sin recargar. Si el plato estaba en el borrador se quita, igual
+  // que al cargar el menú (el servidor lo rechazaría al enviar).
+  const menuRef = useRef<Category[]>([])
+  useEffect(() => { menuRef.current = menu }, [menu])
+  const applyAvailability = useCallback((dishId: number, available: boolean) => {
+    const next = menuRef.current.map(c => ({ ...c, dishes: c.dishes.map(d => (d.id === dishId ? { ...d, available } : d)) }))
+    menuRef.current = next
+    setMenu(next)
+    if (!available) {
+      const { removed } = syncWithMenu(next)
+      if (removed.length > 0) {
+        pushToast({ variant: 'warning', title: 'Se agotó y se quitó del pedido', message: removed.join(', '), durationMs: 6000 })
+      }
+    }
+  }, [syncWithMenu, pushToast])
+  useEffect(() => {
+    const onAvailability = ({ dishId, available }: { dishId: number; available: boolean }) => applyAvailability(dishId, available)
+    socket.on('menu:availability', onAvailability)
+    return () => { socket.off('menu:availability', onAvailability) }
+  }, [applyAvailability])
+
+  const setDishAvailability = async (dish: Dish, available: boolean) => {
+    setAvailabilitySending(dish.id)
+    try {
+      await api.patch(`/menu/dishes/${dish.id}/availability`, { available })
+      applyAvailability(dish.id, available)
+      pushToast({ variant: 'success', title: available ? `${dish.name}: disponible` : `${dish.name}: agotado` })
+    } catch (err) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      pushToast({ variant: 'error', title: 'No se pudo actualizar', message: message ?? 'Intenta nuevamente.' })
+    } finally {
+      setAvailabilitySending(null)
+    }
+  }
 
   // Apply URL params on mount
   useEffect(() => {
@@ -512,6 +562,12 @@ export default function POS() {
                     {lostSending === dish.id ? <Loader2 size={13} className="animate-spin"/> : <Ban size={13}/>} No había
                   </button>
                   <p className="mt-1 text-[10px] text-center text-[#94A3B8]">Opcional · si alguien lo pidió</p>
+                  {canMarkSoldOut && (
+                    <button onClick={() => setDishAvailability(dish, true)} disabled={availabilitySending === dish.id}
+                      className="mt-2 w-full text-xs font-bold py-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50">
+                      {availabilitySending === dish.id ? 'Habilitando…' : 'Habilitar'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <button key={dish.id} onClick={() => setSelectedDish(dish)}
@@ -727,7 +783,8 @@ export default function POS() {
 
       {showTableModal && <TableSelectorModal tables={tables} current={tableId} onSelect={setTableId} onClose={() => setShowTableModal(false)}/>}
       {selectedDish && <ModifierModal dish={selectedDish} onConfirm={addItem} onClose={() => setSelectedDish(null)}
-        onLostSale={() => { reportLostSale(selectedDish); setSelectedDish(null) }}/>}
+        onLostSale={() => { reportLostSale(selectedDish); setSelectedDish(null) }}
+        onSoldOut={canMarkSoldOut ? () => { setDishAvailability(selectedDish, false); setSelectedDish(null) } : undefined}/>}
       <ConfirmDialog
         open={cancelOpen}
         title="Cancelar pedido"

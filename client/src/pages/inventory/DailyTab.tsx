@@ -8,9 +8,10 @@ import {
   type DailyDay, type DailyItem, type DayNoteKind,
 } from './model'
 
-// «Compra del día» (plan v2 §2.2): la única rutina obligatoria de la tesis. El dueño
-// la llena al volver de comprar; todo viene prellenado y solo corrige lo que cambió.
-// Meta: 5 insumos en ≤ 60 s desde el celular.
+// «Compra del día» (plan v2 §2.2 y v2.1): la única rutina obligatoria de la tesis. El
+// dueño la llena al volver de comprar. «Compraste» empieza vacío y la compra de
+// referencia se ofrece con [Usar]: un toque, pero cada compra registrada es una que el
+// dueño confirmó. Meta: 5 insumos en ≤ 60 s desde el celular.
 
 interface Row {
   opening: string
@@ -25,6 +26,8 @@ interface Row {
 }
 
 const num = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n))
+// Mostrar con punto, como el resto del sistema; al escribir se acepta coma o punto
+const qty = (n: number) => String(Number(n.toFixed(2)))
 const money = (n: number) => n.toFixed(2)
 
 function rowFrom(item: DailyItem, saved: boolean): Row {
@@ -34,7 +37,7 @@ function rowFrom(item: DailyItem, saved: boolean): Row {
     return {
       opening: num(item.opening),
       wasted: item.wasted > 0 ? num(item.wasted) : '0',
-      purchased: item.purchased > 0 ? num(item.purchased) : '0',
+      purchased: item.purchased > 0 ? num(item.purchased) : '',
       price: num(price),
       total: num(item.totalCost),
       totalEdited: item.totalCost !== null && item.totalCost !== auto,
@@ -45,7 +48,7 @@ function rowFrom(item: DailyItem, saved: boolean): Row {
   return {
     opening: '',
     wasted: '0',
-    purchased: num(item.suggestion.purchased),
+    purchased: '',
     price: num(price),
     total: '',
     totalEdited: false,
@@ -192,6 +195,8 @@ export default function DailyTab() {
         )}
       </div>
 
+      {!loading && day?.saved && <StartedWith day={day} />}
+
       {loading || !day ? (
         <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#0077B6]" /></div>
       ) : day.items.length === 0 ? (
@@ -215,6 +220,17 @@ export default function DailyTab() {
                   <NumberCell label="Compraste" unit={unit} value={r.purchased} highlight
                     onChange={v => update(item.supplyId, { purchased: v })} />
                 </div>
+                {!bought && item.suggestion.purchased !== null && item.suggestion.purchased > 0 && (
+                  <button onClick={() => update(item.supplyId, { purchased: num(item.suggestion.purchased) })}
+                    className="w-full flex items-center justify-between gap-2 rounded-xl bg-[#EEF3F8] px-3 py-2 text-xs text-[#64748B]">
+                    <span className="truncate">
+                      {item.suggestion.fromDate ? `El ${formatLocalDate(item.suggestion.fromDate)}` : 'La última vez'} compraste{' '}
+                      <b className="text-[#0F172A]">{qty(item.suggestion.purchased)} {unit}</b>
+                      {item.suggestion.unitPrice !== null ? ` a S/ ${money(item.suggestion.unitPrice)}` : ''}
+                    </span>
+                    <span className="shrink-0 font-bold text-[#0077B6]">Usar</span>
+                  </button>
+                )}
                 {bought && (
                   <div className="grid grid-cols-2 gap-2">
                     <NumberCell label={`Precio por ${unit}`} unit="S/" value={r.price}
@@ -281,6 +297,39 @@ export default function DailyTab() {
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+// Lo que había al abrir, con lo ya guardado: quedaba (contado después de botar lo
+// malogrado) + compraste. En la fase 0 no descuenta ventas: eso requiere recetas y
+// es la intervención de la fase 2. Solo refleja lo que el dueño registró.
+function StartedWith({ day }: { day: DailyDay }) {
+  const rows = day.items.map(i => ({
+    id: i.supplyId,
+    name: i.name,
+    unit: UNIT_LABEL[i.unit],
+    total: i.opening === null && i.purchased === 0 ? null : (i.opening ?? 0) + i.purchased,
+    uncounted: i.opening === null && i.purchased > 0,
+  }))
+  const anyUncounted = rows.some(r => r.uncounted)
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4">
+      <h3 className="font-black text-[#0F172A]">Hoy empezaste con</h3>
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {rows.map(r => (
+          <div key={r.id} className="flex items-baseline justify-between gap-2 text-sm">
+            <span className="text-[#64748B] truncate">{r.name}</span>
+            <span className="font-bold text-[#0F172A] shrink-0">
+              {r.total === null ? '—' : `${qty(r.total)} ${r.unit}${r.uncounted ? '*' : ''}`}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-[#94A3B8]">
+        Quedaba + compraste. No descuenta lo vendido durante el día.
+        {anyUncounted ? ' * Sin contar lo que quedaba.' : ''}
+      </p>
     </div>
   )
 }

@@ -1,25 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ClipboardList, Download, Loader2, Package, ShoppingCart, Trash2, X } from 'lucide-react'
+import { ClipboardList, Download, History, Loader2, Package, X } from 'lucide-react'
 import api from '../../api/client'
 import { useAuthStore } from '../../store/auth'
 import { useToastStore } from '../../store/toast'
 import { addDays, localDateString } from '../../utils/dates'
 import { errorMessage, inputCls, type Supply } from './model'
 import { Field } from './ui'
-import PurchasesTab from './PurchasesTab'
-import WasteTab from './WasteTab'
+import HistoryTab from './HistoryTab'
 import DailyTab from './DailyTab'
 import SuppliesTab from './SuppliesTab'
 
-type Tab = 'daily' | 'purchases' | 'waste' | 'supplies'
+type Tab = 'daily' | 'history' | 'supplies'
 
-// «Compra del día» es la rutina y abre siempre primero; las demás pestañas son
-// detalle y corrección (compras de no críticos, otras mermas, editar con motivo).
+// «Hoy» (la Compra del día) es la rutina y abre siempre primero. Historial reúne lo
+// registrado para revisar y corregir; Insumos es la configuración del dueño (v2.1).
 const TABS: { key: Tab; label: string; icon: typeof Package; ownerOnly?: boolean }[] = [
-  { key: 'daily',     label: 'Del día',  icon: ClipboardList },
-  { key: 'purchases', label: 'Compras',  icon: ShoppingCart },
-  { key: 'waste',     label: 'Merma',    icon: Trash2 },
-  { key: 'supplies',  label: 'Insumos',  icon: Package, ownerOnly: true },
+  { key: 'daily',    label: 'Hoy',       icon: ClipboardList },
+  { key: 'history',  label: 'Historial', icon: History },
+  { key: 'supplies', label: 'Insumos',   icon: Package, ownerOnly: true },
 ]
 
 // Dataset de la tesis (docs/diccionario-datos-tesis.md)
@@ -125,7 +123,7 @@ export default function Inventory() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-black text-[#0F172A]">Inventario</h1>
-            <p className="text-xs text-[#64748B]">Insumos perecibles: compra del día, compras y merma</p>
+            <p className="text-xs text-[#64748B]">Insumos perecibles: compra del día e historial</p>
           </div>
           <button onClick={() => setShowExport(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#E2E8F0] text-sm font-semibold text-[#0077B6] hover:border-[#0077B6]">
@@ -145,8 +143,7 @@ export default function Inventory() {
         </div>
 
         {current === 'daily' && <DailyTab />}
-        {current === 'purchases' && <PurchasesTab supplies={supplies} />}
-        {current === 'waste' && <WasteTab supplies={supplies} />}
+        {current === 'history' && <HistoryTab supplies={supplies} />}
         {current === 'supplies' && isOwner && <SuppliesTab onChanged={loadSupplies} />}
       </div>
 
