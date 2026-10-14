@@ -1,0 +1,2 @@
+# Los scripts de shell corren en la Pi: siempre LF, aunque se copien desde Windows (scp)
+*.sh text eol=lf
