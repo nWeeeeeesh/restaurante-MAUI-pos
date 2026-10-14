@@ -171,15 +171,19 @@ Reglas comunes: escrituras con `withWriteLock` + transacción; fechas de compra,
 | POST | `/api/inventory/waste` | owner, manager | `supplyId`, `quantity`, `reason` (`deterioro`, `sobra_comensal`, `preparacion`, `otro`), `wastedAt`, `notes` | — |
 | PATCH | `/api/inventory/waste/:id` | owner, manager | Corrige campos; el motivo de la corrección va en `correctionReason` porque `reason` es la causa de la merma | `waste.update` |
 | DELETE | `/api/inventory/waste/:id` | owner, manager | Body `{reason}` | `waste.delete` |
-| GET | `/api/inventory/counts?date` | owner, manager | Conteos del día (hoy por defecto) | — |
-| PUT | `/api/inventory/counts/:date` | owner, manager | `{items:[{supplyId, quantity}]}`; upsert de todos en una transacción. Un conteo por insumo y día: volver a guardarlo lo corrige | `count.update` (solo si cambia el valor) |
+| GET | `/api/inventory/daily?date` | owner, manager | «Compra del día» de una fecha: críticos activos en `sort_order` con lo guardado y el prellenado (`suggestion`: compra del mismo día de la semana anterior o la última, último precio y proveedor), `wasteDate` (día operativo anterior) y notas | — |
+| POST | `/api/inventory/daily` | owner, manager | `{date?, items:[{supplyId, opening?, wasted?, purchased?, unitPrice?, totalCost?, supplier?}], notes?:[{kind, text?}]}`. Una transacción: apertura, merma por deterioro, compras y notas. Idempotente por fecha (reemplaza solo `source='daily'`); sin `notes` las notas no se tocan. Hasta 7 días atrás (`DATE_OUT_OF_RANGE`) | `daily.update` si cambia algo |
+| GET | `/api/inventory/daily/pending` | owner, manager | `{date, pending}`: ayer hubo ventas y no hay «Compra del día» (indicador del Layout) | — |
+| GET | `/api/inventory/counts?date&moment` | owner, manager | Conteos del día (hoy por defecto) | — |
+| PUT | `/api/inventory/counts/:date` | owner, manager | Conteo suelto `{moment?, items}` (por defecto `cierre`); upsert por insumo, día y momento | `count.update` (solo si cambia el valor) |
 | POST | `/api/inventory/lost-sales` | todos | "No había" desde el POS: `dishId` y/o `supplyId`, `quantity` (1 por defecto) | — |
 | GET | `/api/inventory/lost-sales?from&to` | owner, manager | Ventas perdidas del rango (límites del día local convertidos a UTC) | — |
-| GET | `/api/inventory/export?table&from&to` | owner, manager | CSV (UTF-8 con BOM, CRLF) de una tabla: `supplies`, `purchases`, `waste`, `counts`, `lost_sales` o `stockouts` (quiebres desde `audit_log`). Fechas y horas locales; textos que empiezan con `= + - @` se escapan para que la hoja no los ejecute | — |
+| GET | `/api/inventory/export?table&from&to` | owner, manager | Dataset de la tesis: `daily`, `purchases`, `waste`, `counts`, `lost_sales`, `stockouts` (intervalos), `day_notes`, `supplies`. Primera línea `# maui-tesis dataset v1 · …`; columnas congeladas en el [diccionario](../diccionario-datos-tesis.md) | — |
 
 **Cambios en el menú (Capa 0, TD-31):**
 - `DELETE /api/menu/dishes/:id` con historial pone `archived=true` (no toca `available`), responde `{archived:true}` y audita `dish.archive`. Sin historial sigue siendo borrado físico (ahora en una transacción).
 - `GET /api/menu` excluye los archivados e **incluye los agotados** (`available=false`): el POS los muestra deshabilitados con el botón "No había". `resolveItems` rechaza archivados y agotados con 409 `DISH_UNAVAILABLE`.
 - `PATCH /api/menu/dishes/:id` acepta `{archived:false}` para restaurar (archivar es solo `DELETE`).
+- Desde la v2 del plan, el **cajero** también puede marcar agotado (`PATCH /dishes/:id/availability`, `GET /dishes`).
 - **Quiebres:** `dish.availability` en `audit_log` se escribe solo en transiciones reales (marcar agotado dos veces cuenta como un solo quiebre), venga de `PATCH /dishes/:id/availability` o de la edición del dueño (`PATCH /dishes/:id` con `available`).
 

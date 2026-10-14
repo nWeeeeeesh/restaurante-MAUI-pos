@@ -4,7 +4,7 @@ POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, si
 
 **Estado del proyecto:** MAUI v1.1 está en **modo mantenimiento** (solo correcciones). Las funcionalidades nuevas van al producto POS que nace de la etiqueta `maui-v1.1`. Plan y decisiones: [docs/plan-maui-v1.1.md](docs/plan-maui-v1.1.md). Arquitectura: [docs/architecture/README.md](docs/architecture/README.md).
 
-**Excepción: inventario de la tesis.** El módulo de inventario de insumos perecibles se desarrolla aquí porque se mide en el local (diseño preprueba/posprueba). Plan: [docs/plan-inventario-tesis.md](docs/plan-inventario-tesis.md). Hecho: Capa 0 y Capa 1 (Fase 0, solo registro). La Capa 2 (recetas, stock teórico, alertas, costeo) **no se implementa** hasta que el plan lo indique.
+**Excepción: inventario de la tesis.** El módulo de inventario de insumos perecibles se desarrolla aquí porque se mide en el local (diseño preprueba/posprueba). Plan: [docs/plan-inventario-tesis.md](docs/plan-inventario-tesis.md) (v2). Instrumento de medición: [docs/diccionario-datos-tesis.md](docs/diccionario-datos-tesis.md) (v1, **congelado**). Hecho: fase 0 v2 (solo registro; rutina = «Compra del día»). La fase 2 (recetas, stock teórico, sugerencia de compra, alertas) **no se implementa** hasta que el plan lo indique.
 
 ## Stack
 
@@ -49,8 +49,8 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el ser
 
 Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
 - Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
-- Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**.
-- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, marcar platos agotados, inventario (compras, merma, cierre, export).
+- Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**, marcar platos agotados.
+- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, inventario («Compra del día», compras, merma, export).
 - Dueño: todo, incluidos precios, menú, mesas/plano, usuarios y el catálogo de insumos.
 - "No había" (`POST /inventory/lost-sales`) lo registra cualquier rol desde el POS.
 
@@ -76,7 +76,9 @@ server/src/
     receipt.service.ts   boleta armada desde la BD
     order.serializer.ts  forma única del pedido (incluye tableNumber)
     audit.ts             audit(tx, …) — registro en audit_log
-    inventory.service.ts insumos, compras, merma, conteos, ventas perdidas y export CSV
+    inventory.service.ts insumos, compras, merma, conteos sueltos, ventas perdidas
+    inventory-daily.service.ts   «Compra del día»: apertura + merma + compras + notas en una tx
+    inventory-export.service.ts  CSV del instrumento de la tesis (columnas congeladas)
   schemas/           Schemas Zod por recurso
   db/
     schema.ts        tablas drizzle (incluye índices declarados)
@@ -88,7 +90,7 @@ server/src/
   utils/
     printer.ts       ESC/POS: TCP (cross-platform) y Windows (dev only)
     tickets.ts       etiqueta de pedido, datos de comanda, selección de reimpresión
-    dates.ts / math.ts / csv.ts
+    dates.ts / math.ts / csv.ts / codes.ts (código estable de insumo)
   __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol)
 
 server/scripts/
@@ -96,7 +98,7 @@ server/scripts/
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
-                     inventory/{Inventory, PurchasesTab, WasteTab, CountsTab, SuppliesTab, model, ui}
+                     inventory/{Inventory, DailyTab, PurchasesTab, WasteTab, SuppliesTab, model, ui}
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
   api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
@@ -132,7 +134,10 @@ client/src/
 - Operaciones sensibles escriben en `audit_log` con `audit(tx, …)` **en la misma transacción**: cancelaciones, correcciones/borrados de gastos (con motivo), precios, disponibilidad y bajas de platos, cambios de usuarios y mesas, y en el inventario correcciones/borrados de compras y merma, correcciones de conteos y cambios del catálogo de insumos. El dueño lo ve en Reportes → "Cancelaciones y correcciones".
 
 ### Inventario (Fase 0 de la tesis)
-- Solo **registro**: compras, merma, conteo de cierre (insumos `critical`) y ventas perdidas. Sin stock teórico ni alertas: la Capa 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
+- **El instrumento está congelado** ([diccionario](docs/diccionario-datos-tesis.md) v1): no cambiar columnas, orden ni semántica del export ni de lo que registra la «Compra del día». `inventory.export.test.ts` fija los encabezados y falla a propósito; un cambio exige versión nueva del diccionario y de `DATASET_VERSION`.
+- La única rutina es la **«Compra del día»** (`POST /inventory/daily`, dueño/encargado): una transacción por fecha con apertura (`supply_counts.moment='apertura'`), merma por deterioro (imputada al **día operativo anterior** = último día con boletas), compras y notas del día. Es idempotente: reemplaza solo lo que creó (`source='daily'`, `source_date`) y audita `daily.update` si cambia algo. Hasta 7 días atrás.
+- El mozo y el cajero no hacen nada obligatorio; «No había» es opcional. Sin stock teórico ni alertas: la fase 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
+- `supplies.code` es el identificador estable del insumo (no editable); `local_id` existe en las tablas de hechos (siempre 1) y no se muestra en la UI.
 - Fechas de compra, merma y conteo: **día local** `YYYY-MM-DD` (no futuro). `lost_sales.occurred_at`: UTC como el resto; los rangos se convierten con `parseDayBoundary`.
 - Corregir o borrar exige motivo y audita el registro anterior (como los gastos). En la merma, `reason` es la causa y el motivo de la corrección va en `correctionReason`.
 - `available=false` es solo "agotado"; la baja de un plato con historial es `archived=true`. `dish.availability` en `audit_log` (la medida de quiebres) se escribe solo en transiciones reales, desde `/availability` o desde la edición del dueño. No romper esto: es un indicador de la tesis.

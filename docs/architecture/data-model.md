@@ -300,11 +300,22 @@ erDiagram
 | `lost_sales` | "Pidieron X y no había" | `dish_id` y/o `supply_id` (al menos uno, validado en el schema). `occurred_at` en **UTC** como el resto de timestamps |
 | `dishes.archived` | Baja de un plato con historial | `available=false` queda solo para "agotado": así `audit_log` con `action='dish.availability'` mide quiebres sin mezclar bajas (TD-31) |
 
-**Índices** (declarados también en `schema.ts`): `idx_supply_purchases_purchased_at`, `idx_supply_waste_wasted_at`, `idx_lost_sales_occurred_at`, `uq_supply_counts_supply_day`, `supplies_name_unique`. Todas las FK con `ON DELETE NO ACTION`.
+**Plan v2 (instrumento congelado, [diccionario](../diccionario-datos-tesis.md)):**
+
+| Cambio | Detalle |
+|---|---|
+| `supplies.code`, `supplies.sort_order` | Código estable (`CALAMAR`, índice único `supplies_code_unique`; generado desde el nombre para los insumos de la v1, no editable) y orden en la «Compra del día» |
+| `supply_purchases.supplier` | Proveedor opcional |
+| `source`, `source_date` en compras y merma | `daily` (lo creó la «Compra del día» de `source_date`) o `manual`. Permite reemplazar solo lo suyo al corregir |
+| `supply_counts.moment` | `apertura` (instrumento) o `cierre`. Los conteos anteriores a la v2 quedaron como `cierre` (eran pruebas). Índice único `uq_supply_counts_day_moment (supply_id, counted_on, moment)` reemplaza a `uq_supply_counts_supply_day` |
+| `local_id` (`DEFAULT 1 NOT NULL`) | En compras, merma, conteos, ventas perdidas y notas. No se muestra en la UI |
+| `day_notes` | Variables de control por día (`feriado`, `cerrado`, `evento`, `proveedor`, `otro`) |
+
+**Índices** (declarados también en `schema.ts`): `idx_supply_purchases_purchased_at`, `idx_supply_waste_wasted_at`, `idx_lost_sales_occurred_at`, `idx_day_notes_date`, `uq_supply_counts_day_moment`, `supplies_name_unique`, `supplies_code_unique`. Todas las FK con `ON DELETE NO ACTION`.
 
 **Auditoría:** correcciones y borrados de compras y merma (`purchase.update/delete`, `waste.update/delete`, con motivo y el registro anterior), correcciones de conteos (`count.update`, solo si cambia el valor), cambios del catálogo (`supply.update`) y bajas de platos (`dish.archive`). `dish.availability` se escribe solo en transiciones reales del estado "agotado".
 
 **Indicadores que habilita** (para la línea base de la tesis): compras y su costo por insumo y día, merma por causa, existencia física al cierre, ventas perdidas por plato y quiebres por plato. Exportables como CSV con `GET /api/inventory/export` ([api.md §6](api.md#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis)).
 
-**Migración:** pasos **requeridos** de `migrate.ts` (`dishes.archived` y las cinco tablas con el mismo DDL que genera drizzle-kit, más el índice único de conteos); los índices por fecha son opcionales. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
+**Migración:** pasos **requeridos** de `migrate.ts`: 5 (tablas v1) y 6 (v2: columnas, códigos, `moment` + marcado `cierre` en una sola transacción, cambio del índice único y `day_notes`). Los índices por fecha son opcionales. El único cambio no aditivo es el reemplazo del índice único de conteos. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
 
