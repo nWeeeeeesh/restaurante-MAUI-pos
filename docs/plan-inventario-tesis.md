@@ -1,143 +1,136 @@
-# Plan: Inventario de insumos perecibles (tesis de rentabilidad)
+# Plan: Inventario de insumos perecibles (tesis de rentabilidad) — v2
 
-> Encargo para Claude Code. Léelo completo antes de empezar, junto con `CLAUDE.md`.
-> Navegación del código: `graphify-out/obsidian/00 Inicio.md` y las notas de `Módulos/`.
+> Encargo para Claude Code. Léelo completo junto con `CLAUDE.md` antes de tocar código.
+> Navegación: `graphify-out/obsidian/00 Inicio.md` y `Módulos/`.
+> La v1 de este plan (capas 0 y 1) ya está implementada: commits `feee721`, `25028c9`, `8489a45`, `13b2b09`. Esta v2 **ajusta** lo construido; no lo reescribe.
 
 ## 1. Contexto
 
-La tesis de Cesar evalúa el **impacto de un módulo de inventario de insumos perecibles en la rentabilidad** de la Cevichería MAUI. El diseño es preprueba/posprueba:
+### 1.1 La tesis
+Cesar evalúa el **impacto de un sistema de inventario de insumos perecibles con pronóstico de demanda en la rentabilidad** de la Cevichería MAUI (Tacna). Diseño preexperimental con preprueba y posprueba:
 
-- **Fase 0 (línea base):** solo *registrar* compras, merma, conteos de cierre y ventas perdidas. Sin alertas ni sugerencias, para medir el "antes".
-- **Fase 2 (intervención):** recetas, stock teórico, alertas, sugerencia de compra y costeo.
+- **Fase 0 — línea base (preprueba, ~8 semanas):** el sistema solo *registra*. Sin alertas, sin sugerencias.
+- **Fase 1 — desarrollo:** recetas, stock teórico, pronóstico, panel (en paralelo con la fase 0).
+- **Fase 2 — intervención (posprueba, ~8 semanas):** control y sugerencia de compra activos.
 
-El dueño hoy **no registra nada** de compras ni merma. Los insumos críticos son **pescado, calamar y mariscos** (lo demás lo compra en el mercado de al lado y casi nunca le falta). El caso típico de quiebre: se acaba el calamar y el "chicharrón de calamar" deja de venderse.
+La rentabilidad se mide en cinco dimensiones: **merma**, **disponibilidad** (quiebres y ventas perdidas), **costo de insumos / ventas**, **margen** y **beneficio-costo**. Además se mide la **adherencia** (cuánto se usa realmente el sistema) y variables de control (día de la semana, feriados, precio por kg).
 
-**Este encargo cubre la Capa 0 y la Capa 1 (Fase 0).** La Capa 2 está descrita al final solo como referencia: **no implementarla todavía.**
+### 1.2 Decisiones que cambian respecto a la v1
+1. **Una sola sucursal.** La tesis no depende del segundo local. No se construye nada multisucursal; solo se deja el dato `local_id` para no tener que mapear después.
+2. **Cero sensación de "tarea".** Es el requisito principal de diseño:
+   - Casi todo se **deriva** de lo que ya ocurre (ventas del POS, eventos de «agotado» en `audit_log`).
+   - **Una sola interacción diaria obligatoria**, del dueño, en un momento que ya existe en su rutina: cuando vuelve de comprar.
+   - Todo **prellenado**; el usuario solo confirma o corrige.
+   - El mozo y el cajero **no hacen nada nuevo obligatorio**.
+3. **Se elimina el conteo de cierre.** Se reemplaza por el conteo **antes de comprar** (apertura), dentro de la «Compra del día». Matemáticamente da el mismo consumo diario.
+4. **Ventas perdidas: estimadas, no registradas.** Se calculan desde los intervalos de «agotado» y la venta habitual del plato. El botón «No había» queda como **opcional** (sirve para calibrar la estimación).
+5. **El instrumento de medición se congela.** Antes de empezar la línea base se fija el diccionario de datos (§4) y el formato del CSV exportado. Si más adelante MAUI migra al producto (nwish-pos-core), debe seguir produciendo exactamente lo mismo.
 
-MauiDesk sigue en piloto con el cliente: se puede modificar la BD y desplegar, pero **todas las reglas de `CLAUDE.md` siguen vigentes** (migraciones aditivas e idempotentes en `migrate.ts` + `schema.ts`, `withWriteLock` + transacción, `validateBody` con Zod, `DomainError`, `audit()` en la misma transacción, toasts, sin `alert/confirm`, comentarios en español, sin punto y coma).
+### 1.3 Estado actual (lo que ya existe)
+- Tablas: `supplies`, `supply_purchases`, `supply_waste`, `supply_counts` (hoy semántica «cierre»), `lost_sales`; `dishes.archived` separado de `available` (TD-31).
+- API `/api/inventory/*`: CRUD de insumos, compras, merma, conteos (`PUT /counts/:date`), ventas perdidas, export CSV (incluye `stockouts` desde `audit_log`).
+- Cliente: `/inventory` con pestañas Compras · Merma · Cierre · Insumos, export; botón «No había» en el POS.
+- Restauración de backups documentada.
 
-## 2. Capa 0 — Prerrequisitos
+**La línea base aún no ha empezado.** Es el último momento para cambiar qué y cómo se registra.
 
-### 2.1 Separar "agotado" de "eliminado" (TD-31)
-- Hoy `DELETE /api/menu/dishes/:id` con historial pone `available=false`, lo mismo que "agotado".
-- Agregar columna aditiva `dishes.archived` (boolean, default false). El borrado con historial pone `archived=true` (no toca `available`) y registra `audit(... action: 'dish.archive')`.
-- `GET /api/menu` y el POS excluyen platos `archived`. `MenuAdmin` no los lista (o los muestra aparte).
-- `available=false` queda **solo** para "agotado". Así `audit_log` con `action='dish.availability'` es una medida limpia de quiebres.
-- Test: borrar un plato con historial no cambia `available` y sí `archived`.
+## 2. Encargo (fase 0 v2)
 
-### 2.2 Backup y restauración
-- Documentar en `DEPLOYMENT.md` el procedimiento de **restauración** del backup diario (hoy solo está el backup) y agregar un script `server/scripts/restore-backup.sh` que restaure un `.gz` a una ruta indicada sin pisar la BD activa.
+Todas las reglas de `CLAUDE.md` siguen vigentes: cambios **aditivos** en `schema.ts` + paso idempotente en `migrate.ts`, `withWriteLock` + transacción, `validateBody`, `DomainError`, `audit()` en la misma transacción, toasts, sin `alert/confirm`, comentarios en español, sin punto y coma. Primero el test que reproduce cada regla nueva.
 
-## 3. Capa 1 — Registro mínimo (Fase 0)
+### 2.1 Modelo de datos (aditivo)
+| Cambio | Detalle |
+|---|---|
+| `supplies.code` | texto, único, estable (`PESCADO`, `CALAMAR`, `PULPO`…). Migración: generar desde `name` (mayúsculas, sin tildes ni espacios) para los existentes. No editable desde la UI una vez creado. |
+| `supplies.sort_order` | entero; orden en la «Compra del día». |
+| `supply_purchases.supplier` | texto opcional (nombre libre del proveedor o puesto). |
+| `local_id` | entero `NOT NULL DEFAULT 1` en `supply_purchases`, `supply_waste`, `supply_counts`, `lost_sales` y `day_notes`. **No se muestra en la UI.** |
+| `supply_counts.moment` | `'apertura' \| 'cierre'`, default `'apertura'`. Los registros previos quedan como `'cierre'` (fueron pruebas; documentarlo). El índice único pasa a `(supply_id, counted_on, moment)`; declararlo igual en `schema.ts`. |
+| tabla `day_notes` | `id`, `date` (YYYY-MM-DD, local), `kind` (`feriado` \| `cerrado` \| `evento` \| `proveedor` \| `otro`), `text`, `local_id`, `created_by`, `created_at`. Varias notas por día permitidas. |
 
-### 3.1 Tablas nuevas (`schema.ts` + paso requerido en `migrate.ts`)
+Las fechas del hecho ya existen (`purchased_at`, `wasted_at`, `counted_on`) y la de registro es `created_at`: no tocar, pero el export debe incluir ambas.
 
-```
-supplies                       -- catálogo de insumos
-  id            integer PK
-  name          text NOT NULL UNIQUE
-  unit          text NOT NULL  enum: 'kg' | 'unit' | 'l'
-  perishable    boolean default true
-  critical      boolean default false   -- insumos que entran al estudio
-  active        boolean default true
-  created_at    text default datetime('now')
+### 2.2 «Compra del día» — la única pantalla obligatoria
+Nueva pestaña **por defecto** en `/inventory` (owner, manager). Una lista con **solo los insumos `critical`**, en `sort_order`. Por cada insumo, una fila con tres campos:
 
-supply_purchases               -- compras
-  id            integer PK
-  supply_id     integer NOT NULL FK supplies
-  quantity      real NOT NULL          -- en la unidad del insumo
-  total_cost    real NOT NULL          -- S/ pagados (precio unitario = total/quantity)
-  purchased_at  text NOT NULL          -- fecha local 'YYYY-MM-DD'
-  notes         text
-  created_by    integer FK users
-  created_at    text default datetime('now')
+| Campo | Significado | Prellenado |
+|---|---|---|
+| **Quedaba** | Stock físico **antes de comprar** (después de botar lo que no sirve) | Vacío la primera vez; luego el stock teórico si existe (fase 2), si no vacío |
+| **Botaste** | Merma por deterioro descubierta al revisar | `0` |
+| **Compraste** | Cantidad comprada hoy | Lo comprado el **mismo día de la semana anterior**; si no hay, la última compra. En fase 2: la sugerencia del sistema |
 
-supply_waste                   -- merma
-  id            integer PK
-  supply_id     integer NOT NULL FK supplies
-  quantity      real NOT NULL
-  reason        text NOT NULL  enum: 'deterioro' | 'sobra_comensal' | 'preparacion' | 'otro'
-  wasted_at     text NOT NULL          -- fecha local
-  notes         text
-  created_by    integer FK users
-  created_at    text default datetime('now')
+Más, por insumo comprado: **precio por kg/unidad**, prellenado con el último precio de ese insumo; el total se calcula solo (cantidad × precio) y es editable. Proveedor: un campo opcional plegado («+ proveedor»), que recuerda el último usado.
 
-supply_counts                  -- conteo físico de cierre
-  id            integer PK
-  supply_id     integer NOT NULL FK supplies
-  quantity      real NOT NULL
-  counted_on    text NOT NULL          -- fecha local
-  created_by    integer FK users
-  created_at    text default datetime('now')
-  UNIQUE (supply_id, counted_on)       -- un conteo por insumo y día (re-registrar = corregir)
+Al pie: **Notas del día** opcional (chips: feriado, evento, cambio de proveedor, otro + texto).
 
-lost_sales                     -- "pidieron X y no había"
-  id            integer PK
-  dish_id       integer FK dishes      -- null si se registra por insumo
-  supply_id     integer FK supplies    -- opcional
-  quantity      integer default 1      -- porciones pedidas
-  occurred_at   text default datetime('now')   -- UTC, como el resto
-  created_by    integer FK users
-```
+Un solo botón **Guardar**: `POST /api/inventory/daily` en **una transacción** que:
+- hace upsert de `supply_counts` (`moment='apertura'`, `counted_on = fecha`);
+- crea `supply_waste` con `reason='deterioro'` y `wasted_at = día operativo anterior` (lo que se bota en la mañana pertenece al periodo anterior; ver §4) solo si `botaste > 0`;
+- crea `supply_purchases` solo si `compraste > 0`;
+- crea `day_notes` si hay;
+- es **idempotente por fecha**: volver a guardar el mismo día corrige (reemplaza lo creado por esta pantalla ese día), no duplica. Marcar el origen (`source='daily'`) en compras y merma para poder reemplazar solo lo suyo.
 
-Índices: por fecha en compras, merma y lost_sales; declarados también en `schema.ts` con el mismo nombre.
+Requisitos de UX:
+- Selector de fecha visible, por defecto hoy; se permite registrar hasta **7 días atrás** (si se olvidó un día).
+- Inputs `inputMode="decimal"`, botones grandes, cero campos obligatorios salvo que si hay compra debe haber cantidad y precio.
+- Meta: **≤ 60 s** para 5 insumos en un celular.
+- Sin recordatorios insistentes: como máximo un indicador discreto en el `Layout` del dueño/encargado si **ayer** no tiene «Compra del día». Nada de toasts repetidos.
 
-### 3.2 Endpoints (`server/src/routes/inventory.ts`, servicio `services/inventory.service.ts`, schemas `schemas/inventory.ts`)
+### 2.3 Lo que pasa a segundo plano
+- Pestañas **Compras**, **Merma**, **Insumos** se mantienen como *detalle/corrección* (para compras de no críticos, otros motivos de merma, editar con motivo). No son parte de la rutina.
+- Pestaña **Cierre**: se quita de la navegación (el endpoint puede quedar; `moment='cierre'` sigue siendo válido).
+- **«No había»** en el POS: se mantiene, explícitamente opcional (texto de ayuda breve). No agregar más pasos al mozo.
 
-| Método | Ruta | Roles | Nota |
-|---|---|---|---|
-| GET | `/api/inventory/supplies` | autenticado | activos |
-| POST/PATCH | `/api/inventory/supplies[/:id]` | owner | audit en PATCH |
-| GET | `/api/inventory/purchases?from&to` | owner, manager | |
-| POST | `/api/inventory/purchases` | owner, manager | |
-| PATCH/DELETE | `/api/inventory/purchases/:id` | owner, manager | **motivo obligatorio** + audit (igual que gastos) |
-| GET/POST | `/api/inventory/waste` | owner, manager | |
-| PATCH/DELETE | `/api/inventory/waste/:id` | owner, manager | motivo + audit |
-| GET | `/api/inventory/counts?date` | owner, manager | |
-| PUT | `/api/inventory/counts/:date` | owner, manager | upsert de varios insumos en una transacción |
-| POST | `/api/inventory/lost-sales` | **cualquier rol** | lo usa el mozo desde el POS |
-| GET | `/api/inventory/lost-sales?from&to` | owner, manager | |
-| GET | `/api/inventory/export?from&to` | owner, manager | CSV por tabla para el análisis de la tesis |
+### 2.4 Quiebres de stock
+- Permitir que **`cashier`** marque/desmarque «agotado» además de owner/manager (hoy solo owner/manager). Precios y altas siguen siendo del dueño. Actualizar la matriz en `permissions.test.ts` y en `CLAUDE.md`.
+- El export `stockouts` debe dar intervalos: `dish_id`, `dish_name`, `inicio`, `fin` (o null si sigue agotado), `marcado_por`, `local_id`.
 
-Montarlo en `app.ts`. Validar cantidades > 0, costo ≥ 0, fechas `YYYY-MM-DD` (usar `utils/dates.ts`, día local de Lima).
+### 2.5 Export y diccionario (el instrumento congelado)
+- Crear `docs/diccionario-datos-tesis.md` con el contenido de §4 y versión `v1`.
+- Cada CSV lleva en la primera línea un comentario `# maui-tesis dataset v1 · tabla · desde · hasta · generado` y columnas en orden fijo, incluyendo `local_id`, fecha del hecho y `created_at`.
+- Nuevas tablas exportables: `daily` (vista por día e insumo: quedaba, botaste, compraste, precio, total), `day_notes`.
+- Un test que fije el encabezado de cada CSV (si cambia, el test falla a propósito).
 
-### 3.3 Pantallas (cliente, pensadas para celular)
+### 2.6 Seed
+Insumos iniciales con `code` y `sort_order`: PESCADO, CALAMAR, PULPO, LANGOSTINO, CONCHAS (critical); LIMON, CEBOLLA, CAMOTE, CHOCLO (no critical). Solo si la tabla está vacía.
 
-- **`/inventory`** (owner, manager), nueva entrada en `Layout`:
-  - Pestaña **Compras**: formulario rápido (insumo, cantidad, total S/, fecha = hoy por defecto) + lista del día/semana.
-  - Pestaña **Merma**: insumo, cantidad, motivo (botones grandes), fecha.
-  - Pestaña **Cierre del día**: lista de insumos `critical` con un input numérico cada uno (`inputMode="decimal"`), un solo botón "Guardar conteo".
-  - Pestaña **Insumos** (solo owner): CRUD del catálogo, marcar `critical`.
-- **POS**: botón "No había" en el detalle del plato (y en platos agotados) → `POST /lost-sales`. Debe costar un toque; toast de confirmación.
-- Reutilizar `ConfirmDialog` para borrar con motivo, toasts para errores, botones con estado "enviando".
+### 2.7 Tests mínimos
+- `POST /daily`: crea lo correcto; repetir el mismo día no duplica; `botaste=0` y `compraste=0` no crean filas; merma fechada el día operativo anterior; fecha > 7 días atrás → 400.
+- Permisos: owner/manager pueden `/daily`; cashier y waiter no. Cashier sí puede marcar agotado.
+- Migración: `code` generado para insumos existentes; registros previos de conteo quedan `moment='cierre'`.
+- Encabezados de CSV fijos.
 
-### 3.4 Seed
-
-Agregar al seed (solo si la tabla está vacía) los insumos iniciales: pescado (kg, critical), calamar (kg, critical), langostino, pulpo, conchas (critical), limón (kg), cebolla (kg), camote (kg), choclo (kg). El dueño los ajusta luego.
-
-### 3.5 Tests (Vitest, siguiendo `helpers/http.ts`)
-
-- Permisos por rol de cada endpoint (agregar a `permissions.test.ts`).
-- Compra/merma: validación, borrado exige motivo y escribe `audit_log`.
-- Conteo: upsert del mismo día reemplaza, no duplica.
-- `lost-sales`: un mozo puede registrar; no puede listar.
-- Export CSV: respeta el rango de fechas local.
-
-### 3.6 Criterio de terminado
-
+### 2.8 Terminado cuando
 - `npm run ci` en verde.
-- Migración probada sobre una copia de la BD de producción (arranca, no pierde datos).
-- Flujo manual en celular: registrar compra, merma, cierre y "No había" en menos de 30 s cada uno.
-- Actualizar `CLAUDE.md` (estructura, roles, endpoints), `docs/architecture/api.md` y `data-model.md`.
-- Asignar los archivos nuevos al módulo correcto en `scripts/vault/build_vault.py` (crear módulo **"Inventario"**) y regenerar: `graphify update .` + `python scripts/vault/build_vault.py`.
+- Migración probada sobre una copia de la BD de producción.
+- Prueba manual en celular: «Compra del día» de 5 insumos en ≤ 60 s; corregir el mismo día no duplica.
+- `CLAUDE.md`, `docs/architecture/api.md` y `data-model.md` actualizados; archivos nuevos asignados en `scripts/vault/build_vault.py` (módulo **Inventario**); `graphify update .` + `python scripts/vault/build_vault.py`.
+- Desplegado en la Pi **antes** de iniciar la línea base (anotar la fecha de inicio en `day_notes`).
 
-## 4. Capa 2 — Intervención (NO implementar aún, solo referencia)
+## 3. Fase 2 — referencia (NO implementar aún)
 
-- **Recetas**: `recipe_items (dish_id, supply_id, quantity_per_portion)`.
-- **Stock teórico**: inicial + compras − consumo por ventas (recetas × `order_items` cobrados) − merma; comparar con conteo físico (diferencia = merma no registrada).
-- **Alertas** en el POS de stock bajo y "agotado" automático al llegar a 0.
-- **Sugerencia de compra** diaria: pronóstico por día de la semana (promedio / promedio móvil / suavizado exponencial) + stock de seguridad − stock actual.
-- **Costeo**: costo por plato con el último precio de compra, food cost %, margen por plato.
-- **Panel de rentabilidad** con los indicadores de la tesis: % merma por insumo, quiebres (`dish.availability` en `audit_log`), ventas perdidas, food cost %, margen, utilidad (ventas − compras − `expenses`).
+Se activa al terminar la línea base. Debe poder encenderse **sin cambiar** cómo se registra lo de la fase 0.
 
-Para que la Fase 0 sirva de línea base, la Capa 2 debe poder activarse después **sin cambiar** cómo se registran los datos de la Capa 1.
+| Pieza | Para qué | Esfuerzo del usuario |
+|---|---|---|
+| **Recetas** (`recipe_items`: plato, insumo, cantidad por porción) | Consumo teórico y costo por plato | Una tarde de configuración (Cesar + dueño), solo platos con insumos críticos |
+| **Stock teórico** = apertura + compras − consumo(ventas × receta) − merma | Prellenar «Quedaba»; la diferencia con lo contado revela merma no registrada y ajusta recetas | Ninguno |
+| **Sugerencia de compra** = pronóstico por día de la semana + stock de seguridad − stock | Prellenar «Compraste» | Confirmar con un toque |
+| **`purchase_suggestions`** (fecha, insumo, sugerido, modelo, creado) | **Adherencia** = comprado vs sugerido, sin preguntar nada | Ninguno |
+| **Aviso al mozo** «quedan ~N» y agotado automático en 0 | Menos promesas incumplidas, menos ventas perdidas | Ninguno |
+| **Antigüedad del lote** («el pescado del martes tiene 2 días») | Menos merma por deterioro | Ninguno |
+| **Resumen semanal** al dueño (vendiste, botaste, plato más rentable, pérdida por agotados) | Convertir intuición en números | Leerlo |
+| **Matriz de menú mensual** (popularidad × margen) | La palanca de margen más grande: precios y recomendación | Decidir |
+| **Ventas perdidas estimadas** (venta habitual del plato en ese día y franja × duración del agotado) | Dimensión de disponibilidad | Ninguno |
+
+## 4. Diccionario de datos v1 (resumen; el detalle va en `docs/diccionario-datos-tesis.md`)
+
+- **Día operativo:** fecha local (America/Lima) en que el local atendió. Los días sin ventas no son operativos.
+- **Apertura (`moment='apertura'`):** stock físico de un insumo crítico al inicio del día, antes de la compra y después de descartar lo deteriorado.
+- **Merma por deterioro:** lo descartado al revisar en la mañana; se imputa al **día operativo anterior**.
+- **Consumo real del día d** = apertura(d) + compras(d) − merma(d) − apertura(d+1).
+- **Precio unitario** = `total_cost / quantity` de cada compra; para costeo se usa el promedio ponderado de la semana.
+- **Quiebre:** intervalo en que un plato estuvo `available=false` (de `audit_log`, acción `dish.availability`).
+- **Venta perdida registrada:** cada «No había» (opcional). **Venta perdida estimada:** se calcula en el análisis, no en el sistema (fase 0).
+- **Registro tardío:** `created_at` − fecha del hecho > 1 día. Se reporta como indicador de constancia.
+- Unidades: kg con 2 decimales, S/ con 2 decimales.
