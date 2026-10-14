@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import api from '../api/client'
 import { useAuthStore } from '../store/auth'
 import {
   LayoutGrid, UtensilsCrossed, Receipt,
@@ -16,7 +17,7 @@ const navItems = [
   { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','manager','cashier','waiter'] as Role[] },
   { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner','manager'] as Role[] },
   { to: '/inventory',   label: 'Inventario', icon: Package,       roles: ['owner','manager'] as Role[] },
-  { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager'] as Role[] },
+  { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager','cashier'] as Role[] },
   { to: '/admin/users', label: 'Usuarios', icon: Users,           roles: ['owner'] as Role[] },
 ]
 
@@ -34,6 +35,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [showProfile, setShowProfile] = useState(false)
 
   const visible = navItems.filter(item => user && item.roles.includes(user.role))
+
+  // Si ayer hubo ventas y falta la «Compra del día», un punto discreto en Inventario.
+  // Sin toasts ni recordatorios insistentes (plan inventario v2 §2.2).
+  const location = useLocation()
+  const [dailyPending, setDailyPending] = useState(false)
+  const seesInventory = user?.role === 'owner' || user?.role === 'manager'
+  useEffect(() => {
+    if (!seesInventory) return
+    api.get<{ pending: boolean }>('/inventory/daily/pending')
+      .then(({ data }) => setDailyPending(data.pending))
+      .catch(() => { /* indicador opcional: sin conexión simplemente no se muestra */ })
+  }, [seesInventory, location.pathname])
+  const dot = (to: string) => to === '/inventory' && dailyPending
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -76,6 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <>
                   <Icon size={18} className={isActive ? 'text-[#F4792B]' : ''} />
                   {label}
+                  {dot(to) && <span title="Falta la compra del día de ayer" className="ml-auto w-2 h-2 rounded-full bg-[#F4792B]" />}
                 </>
               )}
             </NavLink>
@@ -133,7 +148,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             {({ isActive }) => (
               <>
-                <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
+                <span className="relative">
+                  <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
+                  {dot(to) && <span title="Falta la compra del día de ayer" className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#F4792B]" />}
+                </span>
                 <span className="text-[10px] font-semibold">{label}</span>
               </>
             )}

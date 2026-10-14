@@ -3,13 +3,18 @@
 export type Unit = 'kg' | 'unit' | 'l'
 export type WasteReason = 'deterioro' | 'sobra_comensal' | 'preparacion' | 'otro'
 
+export type DayNoteKind = 'feriado' | 'cerrado' | 'evento' | 'proveedor' | 'otro'
+
 export interface Supply {
   id: number
+  // Identificador estable para el análisis (CALAMAR); no se edita
+  code: string | null
   name: string
   unit: Unit
   perishable: boolean | null
   critical: boolean | null
   active: boolean | null
+  sortOrder: number | null
 }
 
 export interface Purchase {
@@ -21,6 +26,9 @@ export interface Purchase {
   totalCost: number
   purchasedAt: string
   notes: string | null
+  supplier: string | null
+  // 'daily' = lo registró la «Compra del día»
+  source: 'manual' | 'daily'
   createdByName: string | null
 }
 
@@ -36,24 +44,40 @@ export interface WasteRecord {
   createdByName: string | null
 }
 
-export interface CountRow {
-  id: number
+// «Compra del día»: una fila por insumo crítico
+export interface DailyItem {
   supplyId: number
-  supplyName: string
-  quantity: number
-  countedOn: string
-  createdByName: string | null
+  code: string | null
+  name: string
+  unit: Unit
+  opening: number | null
+  wasted: number
+  purchased: number
+  unitPrice: number | null
+  totalCost: number | null
+  supplier: string | null
+  // Prellenado: compra del mismo día de la semana anterior (o la última), último precio y proveedor
+  suggestion: { purchased: number | null; unitPrice: number | null; supplier: string | null }
 }
 
-export interface LostSale {
-  id: number
-  dishName: string | null
-  supplyName: string | null
-  quantity: number | null
-  occurredAt: string
+export interface DailyDay {
+  date: string
+  minDate: string
+  saved: boolean
+  // Día operativo anterior: a él se imputa lo que se bota en la mañana
+  wasteDate: string
+  items: DailyItem[]
+  notes: { id: number; kind: DayNoteKind; text: string | null }[]
 }
 
 export const UNIT_LABEL: Record<Unit, string> = { kg: 'kg', unit: 'unid.', l: 'L' }
+
+export const NOTE_KINDS: { key: DayNoteKind; label: string }[] = [
+  { key: 'feriado',   label: 'Feriado' },
+  { key: 'evento',    label: 'Evento' },
+  { key: 'proveedor', label: 'Cambio de proveedor' },
+  { key: 'otro',      label: 'Otro' },
+]
 
 export const WASTE_REASONS: { key: WasteReason; label: string }[] = [
   { key: 'deterioro',      label: 'Deterioro' },

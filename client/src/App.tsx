@@ -55,7 +55,7 @@ export default function App() {
           <ProtectedRoute roles={['owner', 'manager']}><Inventory /></ProtectedRoute>
         } />
         <Route path="/admin/menu" element={
-          <ProtectedRoute roles={['owner', 'manager']}><MenuAdmin /></ProtectedRoute>
+          <ProtectedRoute roles={['owner', 'manager', 'cashier']}><MenuAdmin /></ProtectedRoute>
         } />
         <Route path="/admin/users" element={
           <ProtectedRoute roles={['owner']}><Users /></ProtectedRoute>

@@ -117,7 +117,10 @@ export default function WasteTab({ supplies }: { supplies: Supply[] }) {
   return (
     <div className="space-y-4">
       <form onSubmit={submit} className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
-        <h2 className="font-black text-[#0F172A]">Nueva merma</h2>
+        <div>
+          <h2 className="font-black text-[#0F172A]">Otra merma</h2>
+          <p className="text-xs text-[#64748B]">Lo deteriorado de la mañana va en la «Compra del día»; aquí, sobras, preparación y otros.</p>
+        </div>
         <SupplyPicker supplies={supplies} value={supplyId} onChange={setSupplyId} />
         <Field label={`Cantidad${supply ? ` (${UNIT_LABEL[supply.unit]})` : ''}`}>
           <input value={qty} onChange={e => setQty(e.target.value)} inputMode="decimal" placeholder="0" className={inputCls} />

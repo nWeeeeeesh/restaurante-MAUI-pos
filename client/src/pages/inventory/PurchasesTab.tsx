@@ -18,6 +18,7 @@ export default function PurchasesTab({ supplies }: { supplies: Supply[] }) {
   const [total, setTotal] = useState('')
   const [date, setDate] = useState(today)
   const [notes, setNotes] = useState('')
+  const [supplier, setSupplier] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [range, setRange] = useState<'today' | 'week'>('week')
@@ -57,6 +58,7 @@ export default function PurchasesTab({ supplies }: { supplies: Supply[] }) {
     try {
       await api.post('/inventory/purchases', {
         supplyId: supply.id, quantity: qtyN, totalCost: totalN, purchasedAt: date, notes: notes.trim() || null,
+        supplier: supplier.trim() || null,
       })
       pushToast({ variant: 'success', title: 'Compra registrada', message: `${supply.name}: ${fmtQty(qtyN!, supply.unit)} · ${money(totalN!)}` })
       setSupplyId(null); setQty(''); setTotal(''); setNotes('')
@@ -105,7 +107,10 @@ export default function PurchasesTab({ supplies }: { supplies: Supply[] }) {
   return (
     <div className="space-y-4">
       <form onSubmit={submit} className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
-        <h2 className="font-black text-[#0F172A]">Nueva compra</h2>
+        <div>
+          <h2 className="font-black text-[#0F172A]">Otra compra</h2>
+          <p className="text-xs text-[#64748B]">Para insumos no críticos o compras fuera de la «Compra del día».</p>
+        </div>
         <SupplyPicker supplies={supplies} value={supplyId} onChange={setSupplyId} />
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Cantidad${supply ? ` (${UNIT_LABEL[supply.unit]})` : ''}`}>
@@ -122,10 +127,13 @@ export default function PurchasesTab({ supplies }: { supplies: Supply[] }) {
           <Field label="Fecha">
             <input type="date" value={date} max={today} onChange={e => setDate(e.target.value || today)} className={inputCls} />
           </Field>
-          <Field label="Nota (opcional)">
-            <input value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} placeholder="Proveedor…" className={inputCls} />
+          <Field label="Proveedor (opcional)">
+            <input value={supplier} onChange={e => setSupplier(e.target.value)} maxLength={80} placeholder="Puesto…" className={inputCls} />
           </Field>
         </div>
+        <Field label="Nota (opcional)">
+          <input value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} className={inputCls} />
+        </Field>
         <button type="submit" disabled={!canSave}
           className="w-full bg-[#0077B6] hover:bg-[#005a8a] text-white font-bold py-4 rounded-xl shadow-md disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
           {saving && <Loader2 size={16} className="animate-spin" />}
@@ -153,6 +161,7 @@ export default function PurchasesTab({ supplies }: { supplies: Supply[] }) {
                   <p className="text-sm font-bold text-[#0F172A] truncate">{r.supplyName} · {fmtQty(r.quantity, r.unit)}</p>
                   <p className="text-xs text-[#64748B] truncate">
                     {formatLocalDate(r.purchasedAt)} · {money(r.totalCost / r.quantity)}/{UNIT_LABEL[r.unit]}
+                    {r.supplier ? ` · ${r.supplier}` : ''}{r.source === 'daily' ? ' · del día' : ''}
                     {r.createdByName ? ` · ${r.createdByName}` : ''}{r.notes ? ` · ${r.notes}` : ''}
                   </p>
                 </div>

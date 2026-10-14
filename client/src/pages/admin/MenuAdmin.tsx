@@ -24,7 +24,7 @@ export default function MenuAdmin() {
   const [editAvailable, setEditAvailable] = useState(true)
 
   const [pendingDelete, setPendingDelete] = useState<Dish | null>(null)
-  // Matriz de permisos (plan v1.1): el encargado solo marca agotado/disponible
+  // Matriz de permisos: encargado y cajero solo marcan agotado/disponible (plan v1.1 e inventario v2)
   const isOwner = useAuthStore(st => st.user?.role) === 'owner'
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -337,7 +337,7 @@ export default function MenuAdmin() {
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-600 h-fit">
             <p className="font-semibold text-[#1E1E2E] mb-1">Disponibilidad de platos</p>
-            <p>Como encargado puedes marcar un plato como agotado o volver a habilitarlo. Los precios y las altas o bajas del menú los gestiona el dueño.</p>
+            <p>Puedes marcar un plato como agotado en cuanto se acabe y volver a habilitarlo cuando haya. Los precios y las altas o bajas del menú los gestiona el dueño.</p>
           </div>
         )}
       </div>

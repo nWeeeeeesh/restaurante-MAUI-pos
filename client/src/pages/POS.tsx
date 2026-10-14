@@ -127,9 +127,10 @@ function ModifierModal({ dish, onConfirm, onClose, onLostSale }: {
             <div>
               <h3 className="text-lg font-black text-[#0F172A]">{dish.name}</h3>
               {dish.description && <p className="text-sm text-[#64748B] mt-0.5">{dish.description}</p>}
-              <button onClick={onLostSale}
+              {/* Opcional: el plan v2 no agrega pasos obligatorios al mozo */}
+              <button onClick={onLostSale} title="Opcional: anota que lo pidieron y no había"
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#F4792B] bg-orange-50 hover:bg-orange-100 px-2.5 py-1.5 rounded-lg transition-colors">
-                <Ban size={12}/> No había
+                <Ban size={12}/> No había <span className="font-medium text-[#F4792B]/70">(opcional)</span>
               </button>
             </div>
             <p className="text-2xl font-black text-[#F4792B] shrink-0">S/ {dish.price.toFixed(2)}</p>
@@ -510,6 +511,7 @@ export default function POS() {
                     className="mt-auto w-full flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-xl bg-orange-50 text-[#F4792B] hover:bg-orange-100 disabled:opacity-50 active:scale-95 transition-all">
                     {lostSending === dish.id ? <Loader2 size={13} className="animate-spin"/> : <Ban size={13}/>} No había
                   </button>
+                  <p className="mt-1 text-[10px] text-center text-[#94A3B8]">Opcional · si alguien lo pidió</p>
                 </div>
               ) : (
                 <button key={dish.id} onClick={() => setSelectedDish(dish)}

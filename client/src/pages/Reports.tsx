@@ -96,7 +96,8 @@ const AUDIT_LABELS: Record<string, string> = {
   'purchase.delete': 'Compra eliminada',
   'waste.update': 'Merma corregida',
   'waste.delete': 'Merma eliminada',
-  'count.update': 'Conteo de cierre corregido',
+  'count.update': 'Conteo corregido',
+  'daily.update': 'Compra del día corregida',
 }
 
 function auditLabel(e: AuditEntry): string {
@@ -134,6 +135,10 @@ function auditDetail(e: AuditEntry): string {
       return 'Merma #' + e.entityId + ': ' + d.before?.quantity + ' → ' + d.after?.quantity + ' · "' + (d.reason ?? '') + '"'
     case 'waste.delete':
       return 'Merma #' + e.entityId + ' (' + d.before?.quantity + ', ' + (d.before?.wastedAt ?? '') + ') · "' + (d.reason ?? '') + '"'
+    case 'daily.update':
+      return 'Día ' + (d.date ?? '')
+        + ' · compras ' + (d.before?.purchases?.length ?? 0) + ' → ' + (d.after?.purchases?.length ?? 0)
+        + ' · conteos ' + (d.before?.counts?.length ?? 0) + ' → ' + (d.after?.counts?.length ?? 0)
     case 'count.update':
       return (d.name ?? 'Insumo #' + d.supplyId) + ' del ' + (d.date ?? '') + ': ' + d.before + ' → ' + d.after
     case 'dish.availability':

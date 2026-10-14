@@ -47,6 +47,7 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
   const [editing, setEditing] = useState<Supply | null>(null)
   const [editName, setEditName] = useState('')
   const [editUnit, setEditUnit] = useState<Unit>('kg')
+  const [editOrder, setEditOrder] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
   const load = useCallback(async () => {
@@ -70,7 +71,9 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
     if (!name.trim() || saving) return
     setSaving(true)
     try {
-      await api.post('/inventory/supplies', { name: name.trim(), unit, critical, perishable })
+      // Al final del orden; el código lo genera el servidor desde el nombre
+      const sortOrder = Math.max(0, ...rows.map(r => r.sortOrder ?? 0)) + 1
+      await api.post('/inventory/supplies', { name: name.trim(), unit, critical, perishable, sortOrder })
       pushToast({ variant: 'success', title: 'Insumo agregado', message: name.trim() })
       setName(''); setCritical(false); setPerishable(true)
       await afterChange()
@@ -97,7 +100,10 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
     if (!editing || !editName.trim()) return
     setSavingEdit(true)
     try {
-      await api.patch(`/inventory/supplies/${editing.id}`, { name: editName.trim(), unit: editUnit })
+      const order = parseInt(editOrder, 10)
+      await api.patch(`/inventory/supplies/${editing.id}`, {
+        name: editName.trim(), unit: editUnit, ...(Number.isInteger(order) && order >= 0 ? { sortOrder: order } : {}),
+      })
       pushToast({ variant: 'success', title: 'Insumo actualizado' })
       setEditing(null)
       await afterChange()
@@ -117,7 +123,7 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
         </Field>
         <UnitButtons value={unit} onChange={setUnit} />
         <div className="flex gap-2">
-          <Toggle on={critical} label="Crítico (se cuenta al cierre)" onClick={() => setCritical(c => !c)} />
+          <Toggle on={critical} label="Crítico (va en la compra del día)" onClick={() => setCritical(c => !c)} />
           <Toggle on={perishable} label="Perecible" onClick={() => setPerishable(p => !p)} />
         </div>
         <button type="submit" disabled={!name.trim() || saving}
@@ -139,11 +145,13 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
               <div key={s.id} className={`px-4 py-3 flex flex-wrap items-center gap-2 ${s.active === false ? 'opacity-50' : ''}`}>
                 <div className="flex-1 min-w-[8rem]">
                   <p className="text-sm font-bold text-[#0F172A]">{s.name}</p>
-                  <p className="text-xs text-[#64748B]">{UNIT_LABEL[s.unit]}{s.perishable ? ' · perecible' : ''}</p>
+                  <p className="text-xs text-[#64748B]">
+                    <span className="font-mono">{s.code}</span> · {UNIT_LABEL[s.unit]}{s.perishable ? ' · perecible' : ''}
+                  </p>
                 </div>
                 <Toggle on={s.critical === true} label="Crítico" disabled={busyId === s.id} onClick={() => patch(s, { critical: !s.critical })} />
                 <Toggle on={s.active !== false} label={s.active === false ? 'Inactivo' : 'Activo'} disabled={busyId === s.id} onClick={() => patch(s, { active: s.active === false })} />
-                <button onClick={() => { setEditing(s); setEditName(s.name); setEditUnit(s.unit) }} title="Editar"
+                <button onClick={() => { setEditing(s); setEditName(s.name); setEditUnit(s.unit); setEditOrder(String(s.sortOrder ?? 0)) }} title="Editar"
                   className="p-2 rounded-lg text-[#94A3B8] hover:text-[#0077B6] hover:bg-blue-50"><Pencil size={15} /></button>
               </div>
             ))}
@@ -166,7 +174,13 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
             <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={80} className={inputCls} />
           </Field>
           <UnitButtons value={editUnit} onChange={setEditUnit} />
-          <p className="text-xs text-[#94A3B8]">Cambiar la unidad no convierte lo ya registrado.</p>
+          <Field label="Orden en la compra del día">
+            <input value={editOrder} onChange={e => setEditOrder(e.target.value)} inputMode="numeric" className={inputCls} />
+          </Field>
+          <p className="text-xs text-[#94A3B8]">
+            Código <span className="font-mono">{editing?.code}</span>: no cambia aunque cambie el nombre (identifica el insumo en los datos de la tesis).
+            Cambiar la unidad no convierte lo ya registrado.
+          </p>
         </div>
       </ConfirmDialog>
     </div>

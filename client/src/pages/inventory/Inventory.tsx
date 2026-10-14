@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ClipboardCheck, Download, Loader2, Package, ShoppingCart, Trash2, X } from 'lucide-react'
+import { ClipboardList, Download, Loader2, Package, ShoppingCart, Trash2, X } from 'lucide-react'
 import api from '../../api/client'
 import { useAuthStore } from '../../store/auth'
 import { useToastStore } from '../../store/toast'
@@ -8,36 +8,31 @@ import { errorMessage, inputCls, type Supply } from './model'
 import { Field } from './ui'
 import PurchasesTab from './PurchasesTab'
 import WasteTab from './WasteTab'
-import CountsTab from './CountsTab'
+import DailyTab from './DailyTab'
 import SuppliesTab from './SuppliesTab'
 
-type Tab = 'purchases' | 'waste' | 'counts' | 'supplies'
+type Tab = 'daily' | 'purchases' | 'waste' | 'supplies'
 
+// «Compra del día» es la rutina y abre siempre primero; las demás pestañas son
+// detalle y corrección (compras de no críticos, otras mermas, editar con motivo).
 const TABS: { key: Tab; label: string; icon: typeof Package; ownerOnly?: boolean }[] = [
+  { key: 'daily',     label: 'Del día',  icon: ClipboardList },
   { key: 'purchases', label: 'Compras',  icon: ShoppingCart },
   { key: 'waste',     label: 'Merma',    icon: Trash2 },
-  { key: 'counts',    label: 'Cierre',   icon: ClipboardCheck },
   { key: 'supplies',  label: 'Insumos',  icon: Package, ownerOnly: true },
 ]
 
+// Dataset de la tesis (docs/diccionario-datos-tesis.md)
 const EXPORTS: { table: string; label: string }[] = [
+  { table: 'daily',      label: 'Compra del día (por día e insumo)' },
   { table: 'purchases',  label: 'Compras' },
   { table: 'waste',      label: 'Merma' },
-  { table: 'counts',     label: 'Conteos de cierre' },
-  { table: 'lost_sales', label: 'Ventas perdidas ("No había")' },
   { table: 'stockouts',  label: 'Quiebres (platos agotados)' },
+  { table: 'lost_sales', label: 'Ventas perdidas ("No había")' },
+  { table: 'day_notes',  label: 'Notas del día' },
+  { table: 'counts',     label: 'Conteos' },
   { table: 'supplies',   label: 'Catálogo de insumos' },
 ]
-
-const TAB_KEY = 'mauidesk.inventory.tab'
-
-function readTab(): Tab {
-  try {
-    const t = localStorage.getItem(TAB_KEY)
-    if (t && TABS.some(x => x.key === t)) return t as Tab
-  } catch { /* sin almacenamiento: pestaña por defecto */ }
-  return 'purchases'
-}
 
 // CSV por tabla para el análisis de la tesis. El endpoint exige el token, por
 // eso se descarga como blob y no con un enlace directo.
@@ -106,7 +101,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
 export default function Inventory() {
   const isOwner = useAuthStore(s => s.user?.role) === 'owner'
   const pushToast = useToastStore(s => s.push)
-  const [tab, setTab] = useState<Tab>(readTab)
+  const [tab, setTab] = useState<Tab>('daily')
   const [supplies, setSupplies] = useState<Supply[]>([])
   const [showExport, setShowExport] = useState(false)
 
@@ -122,12 +117,7 @@ export default function Inventory() {
   useEffect(() => { loadSupplies() }, [loadSupplies])
 
   const visibleTabs = TABS.filter(t => !t.ownerOnly || isOwner)
-  const current = visibleTabs.some(t => t.key === tab) ? tab : 'purchases'
-
-  const selectTab = (t: Tab) => {
-    setTab(t)
-    try { localStorage.setItem(TAB_KEY, t) } catch { /* solo es una comodidad */ }
-  }
+  const current = visibleTabs.some(t => t.key === tab) ? tab : 'daily'
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -135,7 +125,7 @@ export default function Inventory() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-black text-[#0F172A]">Inventario</h1>
-            <p className="text-xs text-[#64748B]">Compras, merma y cierre de insumos</p>
+            <p className="text-xs text-[#64748B]">Insumos perecibles: compra del día, compras y merma</p>
           </div>
           <button onClick={() => setShowExport(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#E2E8F0] text-sm font-semibold text-[#0077B6] hover:border-[#0077B6]">
@@ -145,7 +135,7 @@ export default function Inventory() {
 
         <div className="flex bg-white rounded-2xl p-1 shadow-sm">
           {visibleTabs.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => selectTab(key)}
+            <button key={key} onClick={() => setTab(key)}
               className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                 current === key ? 'bg-[#0077B6] text-white shadow-md' : 'text-[#64748B]'
               }`}>
@@ -154,9 +144,9 @@ export default function Inventory() {
           ))}
         </div>
 
+        {current === 'daily' && <DailyTab />}
         {current === 'purchases' && <PurchasesTab supplies={supplies} />}
         {current === 'waste' && <WasteTab supplies={supplies} />}
-        {current === 'counts' && <CountsTab supplies={supplies} />}
         {current === 'supplies' && isOwner && <SuppliesTab onChanged={loadSupplies} />}
       </div>
 
