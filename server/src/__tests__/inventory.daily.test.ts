@@ -164,14 +164,15 @@ describe('GET /api/inventory/daily', () => {
     const p = res.body.items.find((i: { code: string }) => i.code === 'PULPO')
     expect(p.opening).toBeNull()
     // Mismo día de la semana anterior; precio de la última compra; último proveedor usado
-    expect(p.suggestion).toEqual({ purchased: 2, unitPrice: 21, supplier: 'Puesto B' })
+    // fromDate: de qué compra sale la cantidad sugerida (la pantalla la muestra, no la escribe)
+    expect(p.suggestion).toEqual({ purchased: 2, fromDate: addDays(day, -7), unitPrice: 21, supplier: 'Puesto B' })
   })
 
   it('sin compra la semana anterior sugiere la última compra', async () => {
     const day = addDays(today, -6)
     await ctx.db.insert(ctx.schema.supplyPurchases).values({ supplyId: calamar, purchasedAt: addDays(day, -2), quantity: 1.2, totalCost: 30 })
     const c = (await getDaily(day)).body.items.find((i: { code: string }) => i.code === 'CALAMAR')
-    expect(c.suggestion).toMatchObject({ purchased: 1.2, unitPrice: 25 })
+    expect(c.suggestion).toMatchObject({ purchased: 1.2, fromDate: addDays(day, -2), unitPrice: 25 })
   })
 
   it('devuelve lo guardado y la fecha a la que se imputa la merma', async () => {

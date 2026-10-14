@@ -149,6 +149,7 @@ const wasteColumns = {
   reason: supplyWaste.reason,
   wastedAt: supplyWaste.wastedAt,
   notes: supplyWaste.notes,
+  source: supplyWaste.source,
   createdByName: users.name,
   createdAt: supplyWaste.createdAt,
 }

@@ -15,6 +15,7 @@ import {
 import { withWriteLock } from '../db/write-lock'
 import { audit } from '../services/audit'
 import { DomainError } from '../errors'
+import { emit } from '../realtime'
 
 const router = Router()
 
@@ -145,7 +146,7 @@ router.patch(
     // Normalizar description vacío como null para limpieza
     if (set.description === '') set.description = null
     // Cambios de precio o disponibilidad quedan registrados (quién y desde qué valor)
-    const updated = await withWriteLock(() => db.transaction(async (tx) => {
+    const { after: updated, availabilityChanged } = await withWriteLock(() => db.transaction(async (tx) => {
       const [before] = await tx.select().from(dishes).where(eq(dishes.id, id))
       if (!before) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
       const [after] = await tx.update(dishes).set(set).where(eq(dishes.id, id)).returning()
@@ -155,14 +156,16 @@ router.patch(
       })
       // Un quiebre se mide con dish.availability venga de donde venga (aquí o
       // desde /availability): es el indicador de la tesis.
-      if (set.available !== undefined && set.available !== before.available) {
+      const availabilityChanged = set.available !== undefined && set.available !== before.available
+      if (availabilityChanged) {
         await audit(tx, {
           userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
           data: { name: after.name, available: set.available },
         })
       }
-      return after
+      return { after, availabilityChanged }
     }))
+    if (availabilityChanged) emit('menu:availability', { dishId: id, available: updated.available })
     res.json(updated)
   },
 )
@@ -180,15 +183,17 @@ router.patch(
       const [before] = await tx.select().from(dishes).where(eq(dishes.id, id))
       if (!before) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
       // Solo las transiciones reales: marcar agotado dos veces es un solo quiebre
-      if (before.available === available) return before
+      if (before.available === available) return { dish: before, changed: false }
       const [after] = await tx.update(dishes).set({ available }).where(eq(dishes.id, id)).returning()
       await audit(tx, {
         userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
         data: { name: after.name, available },
       })
-      return after
+      return { dish: after, changed: true }
     }))
-    res.json(updated)
+    // Los demás celulares actualizan el menú del POS sin recargar
+    if (updated.changed) emit('menu:availability', { dishId: id, available })
+    res.json(updated.dish)
   },
 )
 

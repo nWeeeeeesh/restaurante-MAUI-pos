@@ -67,8 +67,10 @@ function snapshot(r: DailyRows) {
   }
 }
 
-// Prellenado de «Compraste»: lo comprado el mismo día de la semana anterior; si no
+// Sugerencia para «Compraste»: lo comprado el mismo día de la semana anterior; si no
 // hubo, la última compra. Precio: el de la última compra. Proveedor: el último usado.
+// La cantidad NO se prellena (v2.1): el dueño la confirma con [Usar] para que cada
+// compra registrada sea una compra real.
 async function suggestion(ex: Executor, supplyId: number, date: string) {
   const [lastWeek] = await ex.select({ qty: sql<number | null>`sum(${supplyPurchases.quantity})` })
     .from(supplyPurchases)
@@ -81,8 +83,11 @@ async function suggestion(ex: Executor, supplyId: number, date: string) {
     .where(and(eq(supplyPurchases.supplyId, supplyId), lt(supplyPurchases.purchasedAt, date), isNotNull(supplyPurchases.supplier)))
     .orderBy(desc(supplyPurchases.purchasedAt), desc(supplyPurchases.id))
     .limit(1)
+  const fromLastWeek = !!lastWeek?.qty
   return {
-    purchased: lastWeek?.qty ? lastWeek.qty : last?.quantity ?? null,
+    purchased: fromLastWeek ? lastWeek.qty : last?.quantity ?? null,
+    // La pantalla la muestra como "El mar 7 oct: 2 kg [Usar]"; no se guarda sola
+    fromDate: fromLastWeek ? addDays(date, -7) : last?.purchasedAt ?? null,
     unitPrice: last && last.quantity > 0 ? roundMoney(last.totalCost / last.quantity) : null,
     supplier: lastSupplier?.supplier ?? null,
   }
