@@ -48,3 +48,9 @@ export function transfersEnabledIn(config: StudyConfig, date: string): boolean {
   const opens = config.second_local_opens_on
   return !!opens && opens <= date
 }
+
+// La medición corre desde el inicio de la línea base hasta el fin (sin fin: sigue abierta)
+export function studyRunningIn(config: StudyConfig, date: Date | string = new Date()): boolean {
+  const d = limaDate(date)
+  return !!config.baseline_starts_on && d >= config.baseline_starts_on && (!config.study_ends_on || d <= config.study_ends_on)
+}

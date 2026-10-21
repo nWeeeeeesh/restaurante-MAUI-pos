@@ -131,3 +131,34 @@ describe('PUT /api/inventory/study', () => {
     expect(g.active_today).toBe(true)
   })
 })
+
+describe('insumos del estudio durante la medición', () => {
+  // Si un insumo del estudio deja de ser crítico o se desactiva, sale de la «Compra
+  // del día» y el registro cambia a mitad del estudio (invariante 1)
+  it('no pueden dejar de ser críticos ni desactivarse entre la línea base y el fin', async () => {
+    const [calamar] = await ctx.db.select().from(ctx.schema.supplies).where(eq(ctx.schema.supplies.code, 'CALAMAR'))
+    const [limon] = await ctx.db.select().from(ctx.schema.supplies).where(eq(ctx.schema.supplies.code, 'LIMON'))
+    const patch = (id: number, body: object) => request(ctx.app).patch(`/api/inventory/supplies/${id}`).set('Authorization', owner).send(body)
+
+    await ctx.db.delete(ctx.schema.studyConfig)
+    // Antes de la línea base se puede ajustar todo
+    expect((await patch(calamar.id, { critical: false })).status).toBe(200)
+    expect((await patch(calamar.id, { critical: true })).status).toBe(200)
+
+    await setRaw('baseline_starts_on', addDays(today, -1))
+    await setRaw('study_ends_on', addDays(today, 30))
+    const locked = await patch(calamar.id, { critical: false })
+    expect(locked.status).toBe(409)
+    expect(locked.body.code).toBe('study.supply_locked')
+    expect((await patch(calamar.id, { active: false })).status).toBe(409)
+    // Lo demás sí: nombre del insumo del estudio, o cualquier cambio fuera del estudio
+    expect((await patch(calamar.id, { name: 'Calamar gigante' })).status).toBe(200)
+    expect((await patch(limon.id, { active: false })).status).toBe(200)
+
+    // Terminado el estudio, vuelve a ser libre
+    await setRaw('study_ends_on', addDays(today, -1))
+    expect((await patch(calamar.id, { critical: false })).status).toBe(200)
+    await ctx.db.delete(ctx.schema.studyConfig)
+  })
+})
+
