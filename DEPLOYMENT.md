@@ -161,6 +161,9 @@ ALLOWED_ORIGINS=http://192.168.1.50:3001
 
 DATABASE_URL=file:/home/mauidesk/MAUI/server/mauidisk.db
 
+# Número del local: 1 en el principal, 2 en el segundo (cada uno con su Pi y su base)
+MAUI_LOCAL_ID=1
+
 PRINTER_TYPE=tcp
 PRINTER_HOST=192.168.1.100
 PRINTER_PORT=9100
@@ -401,6 +404,46 @@ journalctl -u mauidesk -n 50 --no-pager
 ```
 
 Después: prueba de humo con un dispositivo por rol (pedido → comanda con el número de mesa correcto → cobro → boleta → reportes).
+
+### Desplegar la entrega E1 del inventario (antes del 2026-11-09)
+
+La E1 (plan de la tesis v3) agrega la «Compra del día» en dos partes, la configuración del estudio y el export final. Debe quedar desplegada **antes del inicio de la línea base (2026-11-09)**. Las migraciones son aditivas.
+
+```bash
+# 0. En una PC, probar primero la migración sobre una COPIA de la base de producción
+#    (bajada del backup diario) — nunca sobre la del local:
+#    gunzip -c mauidisk-<fecha>.db.gz > /tmp/copia.db
+#    cd server && DATABASE_URL=file:/tmp/copia.db npm run db:migrate   # "[migrate] OK"
+#    DATABASE_URL=file:/tmp/copia.db npm run db:seed                   # insumos, si no hay
+
+# 1. En la Pi: backup previo (también fuera del local)
+sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '/home/mauidesk/backups/pre-e1.db'"
+
+# 2. Agregar el número de local al .env (si falta, vale 1)
+grep -q '^MAUI_LOCAL_ID=' /home/mauidesk/MAUI/server/.env || echo 'MAUI_LOCAL_ID=1' >> /home/mauidesk/MAUI/server/.env
+
+# 3. Bajar la versión (la etiqueta que se cree para E1, p. ej. maui-v1.2) y compilar
+cd /home/mauidesk/MAUI && git fetch --tags && git checkout <etiqueta-e1>
+sudo systemctl stop mauidesk
+cd server && npm ci && npm run build
+cd ../client && npm ci && npm run build
+
+# 4. Migrar y cargar los insumos del estudio (solo si la tabla está vacía)
+cd ../server && npm run db:migrate      # debe terminar en "[migrate] OK"
+npm run db:seed                          # "Supplies seeded." o nada si ya existían
+
+# 5. Arrancar y revisar el log: debe decir "[startup] Local 1 (MAUI_LOCAL_ID)"
+sudo systemctl start mauidesk
+journalctl -u mauidesk -n 50 --no-pager
+```
+
+Después, con el dueño (no es código):
+1. Entrar como dueño → Inventario → Insumos → **Estudio**: cargar las fechas del sorteo (línea base 2026-11-09, primer grupo 2027-01-11, segundo 2027-02-01, fin 2027-04-04, mariscos 2027-04-05, segundo local ~2026-12-28) y el orden sorteado.
+2. Revisar que PESCADO, CALAMAR, PULPO, LANGOSTINO y CONCHAS figuren como críticos, activos y con su grupo.
+3. Hacer una «Compra del día» de prueba con fecha de ayer y corregirla una vez (debe reemplazarse, no duplicarse).
+4. El 2026-11-09, en «Al abrir», nota «Otro»: «Inicio de la línea base».
+
+Si los insumos ya existían sin código o sin grupo, la migración los asigna por código (PESCADO → pescado, CALAMAR → calamar, PULPO/LANGOSTINO/CONCHAS → mariscos).
 
 **Rollback:** `git checkout <versión anterior>` → `npm ci && npm run build` en server y client → `sudo systemctl restart mauidesk`. Restaurar `pre-update.db` solo si los datos se dañaron.
 

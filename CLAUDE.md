@@ -4,7 +4,7 @@ POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, si
 
 **Estado del proyecto:** MAUI v1.1 está en **modo mantenimiento** (solo correcciones). Las funcionalidades nuevas van al producto POS que nace de la etiqueta `maui-v1.1`. Plan y decisiones: [docs/plan-maui-v1.1.md](docs/plan-maui-v1.1.md). Arquitectura: [docs/architecture/README.md](docs/architecture/README.md).
 
-**Excepción: inventario de la tesis.** El módulo de inventario de insumos perecibles se desarrolla aquí porque se mide en el local (diseño preprueba/posprueba). Plan: [docs/plan-inventario-tesis.md](docs/plan-inventario-tesis.md) (v2). Instrumento de medición: [docs/diccionario-datos-tesis.md](docs/diccionario-datos-tesis.md) (v1, **congelado**). Hecho: fase 0 v2 (solo registro; rutina = «Compra del día»). La fase 2 (recetas, stock teórico, sugerencia de compra, alertas) **no se implementa** hasta que el plan lo indique.
+**Excepción: inventario de la tesis.** El módulo de inventario de insumos perecibles se desarrolla aquí porque se mide en el local (diseño preprueba/posprueba). Plan: [docs/plan-inventario-tesis.md](docs/plan-inventario-tesis.md) (v3; diseño de la investigación en [docs/tesis/](docs/tesis/README.md)). Instrumento de medición: [docs/diccionario-datos-tesis.md](docs/diccionario-datos-tesis.md) (dataset v1, **congelado el 2026-11-09**). Hecho: entrega **E1** (registro diario en dos partes, configuración del estudio por grupos, trazabilidad, traslados ocultos hasta habilitarse, otros insumos, export de ventas). E2 (segundo local), E3 (fase 2: recetas, stock teórico, pronóstico, avisos) y E4 **no se implementan** hasta que se pidan. Los siete invariantes de la §1.2 del plan no se negocian.
 
 ## Stack
 
@@ -50,8 +50,8 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el ser
 Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
 - Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
 - Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**, marcar platos agotados (desde el POS o Menú).
-- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, inventario («Compra del día», compras, merma, export).
-- Dueño: todo, incluidos precios, menú, mesas/plano, usuarios y el catálogo de insumos.
+- Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, inventario («Compra del día» en sus dos partes, compras, merma, export) y ver la configuración del estudio.
+- Dueño: todo, incluidos precios, menú, mesas/plano, usuarios, el catálogo de insumos y la configuración del estudio (`PUT /inventory/study`).
 - "No había" (`POST /inventory/lost-sales`) lo registra cualquier rol desde el POS.
 
 ## Estructura
@@ -79,6 +79,7 @@ server/src/
     inventory.service.ts insumos, compras, merma, conteos sueltos, ventas perdidas
     inventory-daily.service.ts   «Compra del día»: apertura + merma + compras + notas en una tx
     inventory-export.service.ts  CSV del instrumento de la tesis (columnas congeladas)
+    study.service.ts     configuración del estudio; isGroupActive / areGlobalIndicatorsVisible
   schemas/           Schemas Zod por recurso
   db/
     schema.ts        tablas drizzle (incluye índices declarados)
@@ -91,6 +92,8 @@ server/src/
     printer.ts       ESC/POS: TCP (cross-platform) y Windows (dev only)
     tickets.ts       etiqueta de pedido, datos de comanda, selección de reimpresión
     dates.ts / math.ts / csv.ts / codes.ts (código estable de insumo)
+    local.ts         currentLocalId() desde MAUI_LOCAL_ID
+    study.ts         reglas puras del estudio en hora de Lima (limaDate, isGroupActiveIn…)
   __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol)
 
 server/scripts/
@@ -98,7 +101,7 @@ server/scripts/
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
-                     inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, model, ui}
+                     inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, StudySection, model, ui}
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
   api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
@@ -133,15 +136,19 @@ client/src/
 ### Auditoría
 - Operaciones sensibles escriben en `audit_log` con `audit(tx, …)` **en la misma transacción**: cancelaciones, correcciones/borrados de gastos (con motivo), precios, disponibilidad y bajas de platos, cambios de usuarios y mesas, y en el inventario correcciones/borrados de compras y merma, correcciones de conteos y cambios del catálogo de insumos. El dueño lo ve en Reportes → "Cancelaciones y correcciones".
 
-### Inventario (Fase 0 de la tesis)
-- **El instrumento está congelado** ([diccionario](docs/diccionario-datos-tesis.md) v1): no cambiar columnas, orden ni semántica del export ni de lo que registra la «Compra del día». `inventory.export.test.ts` fija los encabezados y falla a propósito; un cambio exige versión nueva del diccionario y de `DATASET_VERSION`.
-- La única rutina es la **«Compra del día»** (`POST /inventory/daily`, dueño/encargado): una transacción por fecha con apertura (`supply_counts.moment='apertura'`), merma por deterioro (imputada al **día operativo anterior** = último día con boletas), compras y notas del día. Es idempotente: reemplaza solo lo que creó (`source='daily'`, `source_date`) y audita `daily.update` si cambia algo. Hasta 7 días atrás.
+### Inventario de la tesis (E1)
+- **El instrumento se congela el 2026-11-09** ([diccionario](docs/diccionario-datos-tesis.md), dataset v1): desde ese día no se cambian columnas, orden ni semántica del export ni de lo que registra la «Compra del día». `inventory.export.test.ts` fija los encabezados de las trece tablas y falla a propósito; un cambio exige `DATASET_VERSION = 'v2'` y versión nueva del diccionario. Lo de la fase 2 entra como tablas nuevas (adenda v1.1).
+- **Invariantes (plan §1.2):** la «Compra del día» es idéntica en todas las fases (`GET /daily/:date` no depende de la activación, hay test); nada de la intervención llega a un grupo antes de su fecha (`isGroupActive`); «agotado» lo confirma siempre una persona; indicadores globales ocultos hasta `study_ends_on` (`areGlobalIndicatorsVisible`); trazabilidad de cada valor; sin servidor central (`MAUI_LOCAL_ID`).
+- La única rutina es la **«Compra del día»** en dos partes (`POST /inventory/daily` con `part`, dueño/encargado): **apertura** («Al abrir»: quedaba obligatorio para todos los críticos activos, botaste —también en 0— y notas) y **compra** («Al volver de comprar»: compras con precio, proveedor, otros insumos del día y traslados). Cada parte es una transacción idempotente por fecha que reemplaza solo sus filas (`source='daily'`), deja una fila en `daily_parts` (autor, hora, `duration_ms`, `is_correction`) y `audit()` (`daily.save` / `daily.update`). Merma imputada al **día operativo anterior** (último día con boletas). Hasta 7 días atrás.
+- Cada valor guarda su **modo de entrada** (`typed`, `copied` = [Usar] o precio prellenado, `default` = no tocado).
+- **Estudio:** `study_config` (solo el dueño, `PUT /inventory/study`): no se mueve una activación que ya llegó ni la línea base iniciada; mariscos después del fin; el orden sorteado coincide con las fechas. Mientras corre la medición, un insumo con `study_group` no puede dejar de ser crítico ni desactivarse. Fechas en hora de Lima con `limaDate` (zona explícita, no la del proceso).
+- **Traslados:** solo desde `second_local_opens_on`; el local 1 registra envíos y el 2 recepciones.
 - El mozo y el cajero no hacen nada obligatorio; «No había» es opcional. Cajero, encargado y dueño marcan agotado desde el POS («Se agotó» / «Habilitar»).
 - **En la línea base la UI solo refleja lo registrado** (plan §2.9): sin alertas, stock bajo, sugerencias, totales de merma ni costeo. «Compraste» nunca se prellena: la compra de referencia se ofrece con [Usar]. Sin stock teórico ni alertas: la fase 2 se calculará desde estas tablas **sin cambiar cómo se registran** (requisito de la línea base).
-- `supplies.code` es el identificador estable del insumo (no editable); `local_id` existe en las tablas de hechos (siempre 1) y no se muestra en la UI.
+- `supplies.code` es el identificador estable del insumo (no editable); `local_id` sale de `MAUI_LOCAL_ID` (`currentLocalId()`) y no se muestra en la UI.
 - Fechas de compra, merma y conteo: **día local** `YYYY-MM-DD` (no futuro). `lost_sales.occurred_at`: UTC como el resto; los rangos se convierten con `parseDayBoundary`.
 - Corregir o borrar exige motivo y audita el registro anterior (como los gastos). En la merma, `reason` es la causa y el motivo de la corrección va en `correctionReason`.
-- `available=false` es solo "agotado"; la baja de un plato con historial es `archived=true`. `dish.availability` en `audit_log` (la medida de quiebres) se escribe solo en transiciones reales, desde `/availability` o desde la edición del dueño. No romper esto: es un indicador de la tesis.
+- `available=false` es solo "agotado"; la baja de un plato con historial es `archived=true`. `dish.availability` en `audit_log` (la medida de quiebres) se escribe solo en transiciones reales, desde `/availability` o desde la edición del dueño, con `source: 'manual'`. No romper esto: es un indicador de la tesis.
 - `GET /api/menu` devuelve los agotados (el POS los muestra con "No había") y excluye los archivados.
 
 ### Socket
@@ -185,6 +192,7 @@ Ver [server/.env.example](server/.env.example) — variables documentadas una po
 - `JWT_SECRET` (obligatorio, ≥ 32 chars)
 - `ALLOWED_ORIGINS` (CORS allowlist; vacío = defaults de dev)
 - `DATABASE_URL` (en Pi: ruta absoluta al SSD)
+- `MAUI_LOCAL_ID` (1 = local principal; 2 = segundo local; inválido → no arranca)
 - `PRINTER_TYPE` + (`PRINTER_HOST`/`PRINTER_PORT` o `PRINTER_NAME`)
 - Zona horaria del proceso: `TZ=America/Lima` (en la unidad systemd)
 

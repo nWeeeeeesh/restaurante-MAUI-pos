@@ -317,5 +317,20 @@ erDiagram
 
 **Indicadores que habilita** (para la línea base de la tesis): compras y su costo por insumo y día, merma por causa, existencia física al cierre, ventas perdidas por plato y quiebres por plato. Exportables como CSV con `GET /api/inventory/export` ([api.md §6](api.md#6-inventario-de-insumos-2026-10-fase-0-de-la-tesis)).
 
-**Migración:** pasos **requeridos** de `migrate.ts`: 5 (tablas v1) y 6 (v2: columnas, códigos, `moment` + marcado `cierre` en una sola transacción, cambio del índice único y `day_notes`). Los índices por fecha son opcionales. El único cambio no aditivo es el reemplazo del índice único de conteos. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
+**Plan v3, entrega E1 (instrumento final):**
+
+| Cambio | Detalle |
+|---|---|
+| `supplies.study_group` | `calamar`, `pescado`, `mariscos` o null. La migración lo asigna por código (CALAMAR, PESCADO; PULPO, LANGOSTINO y CONCHAS → mariscos). No se edita desde la UI |
+| `entry_mode` | `typed`, `copied` o `default` en `supply_counts`, `supply_waste` y `supply_purchases`; `price_entry_mode` en `supply_purchases`. Null en los registros anteriores a la v3 |
+| `study_config` | `key` (PK), `value`, `updated_by`, `updated_at`. Fechas del estudio en hora de Lima |
+| `daily_parts` | Una fila por guardado de cada parte de la «Compra del día» (`apertura`, `compra`): autor, hora, `duration_ms`, `is_correction`, `client_version`. Índice `idx_daily_parts_date_part (date, local_id, part)` |
+| `supply_transfers` | Traslados: cada local registra su lado (`envio` / `recepcion`), con `other_local_id` y costo unitario opcional en la recepción |
+| `other_supply_costs` | Monto del día en insumos no críticos; único `uq_other_supply_costs_day (date, local_id, source)` |
+| `day_notes.kind` | Admite `dueno_ausente` (solo cambia el enum de Drizzle y Zod) |
+| `local_id` | Sale de `MAUI_LOCAL_ID` en todo lo nuevo (cada local tiene su instancia y su base) |
+
+La «Compra del día» guarda «Botaste» también en 0 (`supply_waste` con `quantity = 0` y modo `typed` o `default`): distingue «no boté nada» de «no lo toqué».
+
+**Migración:** pasos **requeridos** de `migrate.ts`: 5 (tablas v1), 6 (v2: columnas, códigos, `moment` + marcado `cierre` en una sola transacción, cambio del índice único y `day_notes`) y 7 (v3: `study_group` por código, modos de entrada, `study_config`, `daily_parts`, `supply_transfers`, `other_supply_costs` y su índice único). Los índices por fecha son opcionales. El único cambio no aditivo es el reemplazo del índice único de conteos. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
 
