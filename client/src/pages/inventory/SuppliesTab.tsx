@@ -3,8 +3,10 @@ import { Loader2, Pencil } from 'lucide-react'
 import api from '../../api/client'
 import { useToastStore } from '../../store/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { errorMessage, inputCls, UNIT_LABEL, type Supply, type Unit } from './model'
+import { formatLocalDate } from '../../utils/dates'
+import { errorMessage, GROUP_LABEL, inputCls, UNIT_LABEL, type StudyOverview, type Supply, type Unit } from './model'
 import { Field } from './ui'
+import StudySection from './StudySection'
 
 const UNITS: Unit[] = ['kg', 'unit', 'l']
 
@@ -49,6 +51,18 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
   const [editUnit, setEditUnit] = useState<Unit>('kg')
   const [editOrder, setEditOrder] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // Grupo y fecha de activación de cada insumo (solo lectura)
+  const [study, setStudy] = useState<StudyOverview | null>(null)
+  useEffect(() => {
+    api.get<StudyOverview>('/inventory/study').then(({ data }) => setStudy(data))
+      .catch(err => pushToast({ variant: 'error', title: 'No se pudo cargar el estudio', message: errorMessage(err) }))
+  }, [pushToast])
+  const groupOf = (s: Supply) => {
+    if (!s.studyGroup) return null
+    const g = study?.groups.find(x => x.group === s.studyGroup)
+    return `${GROUP_LABEL[s.studyGroup]}${g?.activates_on ? ` · se activa el ${formatLocalDate(g.activates_on)}` : ''}`
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -116,6 +130,7 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="space-y-4">
+      {study && <StudySection key={JSON.stringify(study.config)} overview={study} onSaved={setStudy} />}
       <form onSubmit={create} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
         <h2 className="font-black text-[#0F172A]">Nuevo insumo</h2>
         <Field label="Nombre">
@@ -148,6 +163,7 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
                   <p className="text-xs text-[#64748B]">
                     <span className="font-mono">{s.code}</span> · {UNIT_LABEL[s.unit]}{s.perishable ? ' · perecible' : ''}
                   </p>
+                  {groupOf(s) && <p className="text-xs font-semibold text-[#0077B6]">Estudio: {groupOf(s)}</p>}
                 </div>
                 <Toggle on={s.critical === true} label="Crítico" disabled={busyId === s.id} onClick={() => patch(s, { critical: !s.critical })} />
                 <Toggle on={s.active !== false} label={s.active === false ? 'Inactivo' : 'Activo'} disabled={busyId === s.id} onClick={() => patch(s, { active: s.active === false })} />

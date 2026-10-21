@@ -39,15 +39,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Si ayer hubo ventas y falta la «Compra del día», un punto discreto en Inventario.
   // Sin toasts ni recordatorios insistentes (plan inventario v2 §2.2).
   const location = useLocation()
-  const [dailyPending, setDailyPending] = useState(false)
+  const [dailyPending, setDailyPending] = useState<string | null>(null)
   const seesInventory = user?.role === 'owner' || user?.role === 'manager'
   useEffect(() => {
     if (!seesInventory) return
-    api.get<{ pending: boolean }>('/inventory/daily/pending')
-      .then(({ data }) => setDailyPending(data.pending))
+    api.get<{ pending: boolean; missing: { apertura: boolean; compra: boolean } }>('/inventory/daily/pending')
+      .then(({ data }) => setDailyPending(!data.pending ? null
+        : `Falta de ayer: ${[data.missing.apertura && 'al abrir', data.missing.compra && 'al volver de comprar'].filter(Boolean).join(' y ')}`))
       .catch(() => { /* indicador opcional: sin conexión simplemente no se muestra */ })
   }, [seesInventory, location.pathname])
-  const dot = (to: string) => to === '/inventory' && dailyPending
+  const dot = (to: string) => to === '/inventory' && dailyPending !== null
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -90,7 +91,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <>
                   <Icon size={18} className={isActive ? 'text-[#F4792B]' : ''} />
                   {label}
-                  {dot(to) && <span title="Falta la compra del día de ayer" className="ml-auto w-2 h-2 rounded-full bg-[#F4792B]" />}
+                  {dot(to) && <span title={dailyPending ?? undefined} className="ml-auto w-2 h-2 rounded-full bg-[#F4792B]" />}
                 </>
               )}
             </NavLink>
@@ -150,7 +151,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <span className="relative">
                   <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
-                  {dot(to) && <span title="Falta la compra del día de ayer" className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#F4792B]" />}
+                  {dot(to) && <span title={dailyPending ?? undefined} className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[#F4792B]" />}
                 </span>
                 <span className="text-[10px] font-semibold">{label}</span>
               </>

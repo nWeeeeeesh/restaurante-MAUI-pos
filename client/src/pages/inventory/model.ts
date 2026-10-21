@@ -3,7 +3,13 @@
 export type Unit = 'kg' | 'unit' | 'l'
 export type WasteReason = 'deterioro' | 'sobra_comensal' | 'preparacion' | 'otro'
 
-export type DayNoteKind = 'feriado' | 'cerrado' | 'evento' | 'proveedor' | 'otro'
+export type DayNoteKind = 'feriado' | 'cerrado' | 'evento' | 'proveedor' | 'otro' | 'dueno_ausente'
+// Trazabilidad (invariante 5): escrito, copiado de la referencia o sin tocar
+export type EntryMode = 'typed' | 'copied' | 'default'
+export type StudyGroup = 'calamar' | 'pescado' | 'mariscos'
+
+// Versión de esta pantalla en daily_parts: permite saber con qué interfaz se registró
+export const CLIENT_VERSION = 'inventario-v3'
 
 export interface Supply {
   id: number
@@ -15,6 +21,7 @@ export interface Supply {
   critical: boolean | null
   active: boolean | null
   sortOrder: number | null
+  studyGroup: StudyGroup | null
 }
 
 export interface Purchase {
@@ -52,33 +59,66 @@ export interface DailyItem {
   name: string
   unit: Unit
   opening: number | null
+  openingMode: EntryMode | null
   wasted: number
+  wastedMode: EntryMode | null
   purchased: number
+  purchasedMode: EntryMode | null
   unitPrice: number | null
+  priceMode: EntryMode | null
   totalCost: number | null
   supplier: string | null
+  // Enviado al otro local (local 1) o recibido del principal (local 2)
+  transfer: number
+  transferMode: EntryMode | null
+  transferUnitCost: number | null
   // Compra de referencia (mismo día de la semana anterior o la última; se ofrece con
-  // [Usar], no se prellena), último precio y último proveedor
-  suggestion: { purchased: number | null; fromDate: string | null; unitPrice: number | null; supplier: string | null }
+  // [Usar], nunca se prellena), último precio y último proveedor
+  reference: { purchased: number | null; fromDate: string | null; unitPrice: number | null; supplier: string | null }
+}
+
+export interface PartStatus {
+  by: string | null
+  at: string | null
+  corrections: number
+  lastAt: string | null
 }
 
 export interface DailyDay {
   date: string
   minDate: string
-  saved: boolean
   // Día operativo anterior: a él se imputa lo que se bota en la mañana
   wasteDate: string
+  parts: { apertura: PartStatus | null; compra: PartStatus | null }
+  transfers: { enabled: boolean; direction: 'envio' | 'recepcion' }
   items: DailyItem[]
+  otherCost: { amount: number; mode: EntryMode | null } | null
+  otherCostReference: { amount: number; fromDate: string } | null
   notes: { id: number; kind: DayNoteKind; text: string | null }[]
 }
+
+// Configuración del estudio (GET /inventory/study)
+export interface StudyOverview {
+  today: string
+  config: Partial<Record<StudyKey, string>>
+  groups: { group: StudyGroup; activates_on: string | null; active_today: boolean; supplies: string[] }[]
+}
+
+export type StudyKey =
+  | 'baseline_starts_on' | 'study_ends_on' | 'activation_order' | 'activates_calamar' | 'activates_pescado'
+  | 'activates_mariscos' | 'second_local_opens_on' | 'protocol_url'
+
+export const GROUP_LABEL: Record<StudyGroup, string> = { calamar: 'Calamar', pescado: 'Pescado', mariscos: 'Mariscos' }
 
 export const UNIT_LABEL: Record<Unit, string> = { kg: 'kg', unit: 'unid.', l: 'L' }
 
 export const NOTE_KINDS: { key: DayNoteKind; label: string }[] = [
-  { key: 'feriado',   label: 'Feriado' },
-  { key: 'evento',    label: 'Evento' },
-  { key: 'proveedor', label: 'Cambio de proveedor' },
-  { key: 'otro',      label: 'Otro' },
+  { key: 'feriado',       label: 'Feriado' },
+  { key: 'evento',        label: 'Evento' },
+  { key: 'cerrado',       label: 'Cerrado' },
+  { key: 'proveedor',     label: 'Cambio de proveedor' },
+  { key: 'dueno_ausente', label: 'El dueño no estuvo' },
+  { key: 'otro',          label: 'Otro' },
 ]
 
 export const WASTE_REASONS: { key: WasteReason; label: string }[] = [

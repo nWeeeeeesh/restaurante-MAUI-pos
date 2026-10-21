@@ -22,14 +22,19 @@ const TABS: { key: Tab; label: string; icon: typeof Package; ownerOnly?: boolean
 
 // Dataset de la tesis (docs/diccionario-datos-tesis.md)
 const EXPORTS: { table: string; label: string }[] = [
-  { table: 'daily',      label: 'Compra del día (por día e insumo)' },
-  { table: 'purchases',  label: 'Compras' },
-  { table: 'waste',      label: 'Merma' },
-  { table: 'stockouts',  label: 'Quiebres (platos agotados)' },
-  { table: 'lost_sales', label: 'Ventas perdidas ("No había")' },
-  { table: 'day_notes',  label: 'Notas del día' },
-  { table: 'counts',     label: 'Conteos' },
-  { table: 'supplies',   label: 'Catálogo de insumos' },
+  { table: 'daily',        label: 'Compra del día (por día e insumo)' },
+  { table: 'sales',        label: 'Ventas (por ítem cobrado)' },
+  { table: 'purchases',    label: 'Compras' },
+  { table: 'waste',        label: 'Merma' },
+  { table: 'other_costs',  label: 'Otros insumos del día' },
+  { table: 'transfers',    label: 'Traslados entre locales' },
+  { table: 'stockouts',    label: 'Quiebres (platos agotados)' },
+  { table: 'lost_sales',   label: 'Ventas perdidas ("No había")' },
+  { table: 'day_notes',    label: 'Notas del día' },
+  { table: 'daily_parts',  label: 'Partes del registro (quién y cuándo)' },
+  { table: 'counts',       label: 'Conteos' },
+  { table: 'supplies',     label: 'Catálogo de insumos' },
+  { table: 'study_config', label: 'Configuración del estudio' },
 ]
 
 // CSV por tabla para el análisis de la tesis. El endpoint exige el token, por

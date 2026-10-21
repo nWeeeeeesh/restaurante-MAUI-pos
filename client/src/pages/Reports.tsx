@@ -98,6 +98,7 @@ const AUDIT_LABELS: Record<string, string> = {
   'waste.delete': 'Merma eliminada',
   'count.update': 'Conteo corregido',
   'daily.update': 'Compra del día corregida',
+  'study.configure': 'Estudio configurado',
 }
 
 function auditLabel(e: AuditEntry): string {
@@ -136,9 +137,12 @@ function auditDetail(e: AuditEntry): string {
     case 'waste.delete':
       return 'Merma #' + e.entityId + ' (' + d.before?.quantity + ', ' + (d.before?.wastedAt ?? '') + ') · "' + (d.reason ?? '') + '"'
     case 'daily.update':
-      return 'Día ' + (d.date ?? '')
-        + ' · compras ' + (d.before?.purchases?.length ?? 0) + ' → ' + (d.after?.purchases?.length ?? 0)
-        + ' · conteos ' + (d.before?.counts?.length ?? 0) + ' → ' + (d.after?.counts?.length ?? 0)
+      return 'Día ' + (d.date ?? '') + ' · ' + (d.part === 'compra' ? 'al volver de comprar' : 'al abrir')
+        + (d.part === 'compra'
+          ? ' · compras ' + (d.before?.purchases?.length ?? 0) + ' → ' + (d.after?.purchases?.length ?? 0)
+          : ' · conteos ' + (d.before?.counts?.length ?? 0) + ' → ' + (d.after?.counts?.length ?? 0))
+    case 'study.configure':
+      return Object.keys(d.after ?? {}).filter(k => d.after?.[k] !== d.before?.[k]).map(k => k + ': ' + (d.after?.[k] ?? '—')).join(' · ')
     case 'count.update':
       return (d.name ?? 'Insumo #' + d.supplyId) + ' del ' + (d.date ?? '') + ': ' + d.before + ' → ' + d.after
     case 'dish.availability':
@@ -243,7 +247,9 @@ export default function Reports() {
       setSummary(s.data)
       setExpenses(e.data)
       setBills(b.data)
-      setAuditEntries(a.data)
+      // El guardado diario de la «Compra del día» queda en audit_log, pero no es una
+      // corrección: aquí solo se listan cancelaciones y correcciones
+      setAuditEntries(a.data.filter(e => e.action !== 'daily.save'))
     } catch (err: any) {
       pushToast({ variant: 'error', title: 'No se pudieron cargar los reportes', message: err?.response?.data?.error ?? 'Verifica la conexión.' })
     } finally {

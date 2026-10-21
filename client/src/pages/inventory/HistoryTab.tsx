@@ -56,7 +56,8 @@ export default function HistoryTab({ supplies }: { supplies: Supply[] }) {
       ])
       const all: Entry[] = [
         ...p.data.map(row => ({ kind: 'purchase' as const, date: row.purchasedAt, row })),
-        ...w.data.map(row => ({ kind: 'waste' as const, date: row.wastedAt, row })),
+        // La «Compra del día» guarda Botaste también en 0 (para medir constancia): no es merma que listar
+        ...w.data.filter(row => row.quantity > 0).map(row => ({ kind: 'waste' as const, date: row.wastedAt, row })),
       ]
       all.sort((a, b) => b.date.localeCompare(a.date) || b.row.id - a.row.id)
       setEntries(all)
