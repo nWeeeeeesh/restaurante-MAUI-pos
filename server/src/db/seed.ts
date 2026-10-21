@@ -2,18 +2,19 @@ import { db } from './index'
 import { users, categories, dishes, modifierGroups, modifierOptions, tables, supplies } from './schema'
 import bcrypt from 'bcryptjs'
 
-// Insumos iniciales del inventario (plan-inventario-tesis §3.4). Va aparte del
+// Insumos iniciales del inventario (plan-inventario-tesis), con su código estable y
+// su grupo del estudio (los no críticos quedan fuera del estudio). Va aparte del
 // resto del seed para poder sembrarlos en una BD que ya tiene menú (la del local);
 // solo corre si la tabla está vacía y el dueño los ajusta luego.
 async function seedSupplies() {
   const existing = await db.select({ id: supplies.id }).from(supplies).limit(1)
   if (existing.length > 0) return
   await db.insert(supplies).values([
-    { code: 'PESCADO', name: 'Pescado', unit: 'kg', critical: true, sortOrder: 1 },
-    { code: 'CALAMAR', name: 'Calamar', unit: 'kg', critical: true, sortOrder: 2 },
-    { code: 'PULPO', name: 'Pulpo', unit: 'kg', critical: true, sortOrder: 3 },
-    { code: 'LANGOSTINO', name: 'Langostino', unit: 'kg', critical: true, sortOrder: 4 },
-    { code: 'CONCHAS', name: 'Conchas', unit: 'unit', critical: true, sortOrder: 5 },
+    { code: 'PESCADO', name: 'Pescado', unit: 'kg', critical: true, sortOrder: 1, studyGroup: 'pescado' },
+    { code: 'CALAMAR', name: 'Calamar', unit: 'kg', critical: true, sortOrder: 2, studyGroup: 'calamar' },
+    { code: 'PULPO', name: 'Pulpo', unit: 'kg', critical: true, sortOrder: 3, studyGroup: 'mariscos' },
+    { code: 'LANGOSTINO', name: 'Langostino', unit: 'kg', critical: true, sortOrder: 4, studyGroup: 'mariscos' },
+    { code: 'CONCHAS', name: 'Conchas', unit: 'unit', critical: true, sortOrder: 5, studyGroup: 'mariscos' },
     { code: 'LIMON', name: 'Limón', unit: 'kg', sortOrder: 6 },
     { code: 'CEBOLLA', name: 'Cebolla', unit: 'kg', sortOrder: 7 },
     { code: 'CAMOTE', name: 'Camote', unit: 'kg', sortOrder: 8 },

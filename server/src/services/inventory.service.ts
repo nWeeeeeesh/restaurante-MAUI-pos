@@ -6,6 +6,7 @@ import { DomainError } from '../errors'
 import { audit } from './audit'
 import { localDateString, parseDayBoundary } from '../utils/dates'
 import { supplyCodeFrom, uniqueCode } from '../utils/codes'
+import { currentLocalId } from '../utils/local'
 import type {
   CreateLostSaleInput, CreatePurchaseInput, CreateSupplyInput, CreateWasteInput,
   SaveCountsInput, UpdatePurchaseInput, UpdateSupplyInput, UpdateWasteInput,
@@ -111,6 +112,9 @@ export function createPurchase(input: CreatePurchaseInput, userId: number) {
       purchasedAt: input.purchasedAt ?? localDateString(),
       notes: input.notes ?? null,
       supplier: input.supplier || null,
+      localId: currentLocalId(),
+      entryMode: 'typed',
+      priceEntryMode: 'typed',
       createdBy: userId,
     }).returning()
     return row
@@ -171,6 +175,8 @@ export function createWaste(input: CreateWasteInput, userId: number) {
       reason: input.reason,
       wastedAt: input.wastedAt ?? localDateString(),
       notes: input.notes ?? null,
+      localId: currentLocalId(),
+      entryMode: 'typed',
       createdBy: userId,
     }).returning()
     return row
@@ -226,9 +232,11 @@ export async function saveCounts(date: string, input: SaveCountsInput, userId: n
     for (const item of input.items) {
       const supply = await requireSupply(tx, item.supplyId)
       const [existing] = await tx.select().from(supplyCounts)
-        .where(and(eq(supplyCounts.supplyId, item.supplyId), eq(supplyCounts.countedOn, date), eq(supplyCounts.moment, moment)))
+        .where(and(eq(supplyCounts.supplyId, item.supplyId), eq(supplyCounts.countedOn, date), eq(supplyCounts.moment, moment), eq(supplyCounts.localId, currentLocalId())))
       if (!existing) {
-        await tx.insert(supplyCounts).values({ supplyId: item.supplyId, quantity: item.quantity, countedOn: date, moment, createdBy: userId })
+        await tx.insert(supplyCounts).values({
+          supplyId: item.supplyId, quantity: item.quantity, countedOn: date, moment, localId: currentLocalId(), entryMode: 'typed', createdBy: userId,
+        })
       } else if (existing.quantity !== item.quantity) {
         await tx.update(supplyCounts).set({ quantity: item.quantity, createdBy: userId }).where(eq(supplyCounts.id, existing.id))
         await audit(tx, {
@@ -256,6 +264,7 @@ export function createLostSale(input: CreateLostSaleInput, userId: number) {
       dishId: input.dishId ?? null,
       supplyId: input.supplyId ?? null,
       quantity: input.quantity ?? 1,
+      localId: currentLocalId(),
       createdBy: userId,
     }).returning()
     return row

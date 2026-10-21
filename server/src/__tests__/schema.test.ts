@@ -108,4 +108,37 @@ describe('esquema de tests', () => {
     expect(idx).toContain('uq_supply_counts_day_moment')
     client.close()
   })
+
+  // Plan v3 §2.1: la BD de la v2 pasa a la v3 con el grupo del estudio asignado por
+  // código, los modos de entrada y las tablas nuevas, sin tocar los datos.
+  it('migra el inventario v2 a la v3 (grupos por código, modos de entrada, tablas nuevas)', async () => {
+    const client = createClient({ url: tempDbUrl() })
+    await createSchema(client)
+    for (const t of ['study_config', 'daily_parts', 'supply_transfers', 'other_supply_costs']) await client.execute(`DROP TABLE ${t}`)
+    const dropped: [string, string][] = [
+      ['supplies', 'study_group'], ['supply_counts', 'entry_mode'], ['supply_waste', 'entry_mode'],
+      ['supply_purchases', 'entry_mode'], ['supply_purchases', 'price_entry_mode'],
+    ]
+    for (const [t, c] of dropped) await client.execute(`ALTER TABLE ${t} DROP COLUMN ${c}`)
+    for (const [name, code] of [['Calamar', 'CALAMAR'], ['Pescado', 'PESCADO'], ['Pulpo', 'PULPO'], ['Langostino', 'LANGOSTINO'], ['Conchas', 'CONCHAS'], ['Limón', 'LIMON']]) {
+      await client.execute({ sql: "INSERT INTO supplies (name, code, unit) VALUES (?, ?, 'kg')", args: [name, code] })
+    }
+    await client.execute("INSERT INTO supply_purchases (supply_id, quantity, total_cost, purchased_at) VALUES (1, 2, 50, '2026-10-01')")
+
+    await applyStartupMigrations(client)
+    await applyStartupMigrations(client) // idempotente
+
+    const db = drizzle(client, { schema })
+    const groups = Object.fromEntries((await db.select().from(schema.supplies)).map(s => [s.code, s.studyGroup]))
+    expect(groups).toEqual({ CALAMAR: 'calamar', PESCADO: 'pescado', PULPO: 'mariscos', LANGOSTINO: 'mariscos', CONCHAS: 'mariscos', LIMON: null })
+    const [purchase] = await db.select().from(schema.supplyPurchases)
+    expect(purchase).toMatchObject({ quantity: 2, entryMode: null, priceEntryMode: null })
+    await db.insert(schema.studyConfig).values({ key: 'study_ends_on', value: '2027-04-04' })
+    await db.insert(schema.dailyParts).values({ date: '2026-11-09', part: 'apertura', durationMs: 1000 })
+    await db.insert(schema.supplyTransfers).values({ date: '2026-12-28', supplyId: 1, direction: 'envio', quantity: 1, otherLocalId: 2 })
+    await db.insert(schema.otherSupplyCosts).values({ date: '2026-11-09', amount: 20 })
+    await expect(db.insert(schema.otherSupplyCosts).values({ date: '2026-11-09', amount: 25 })).rejects.toThrow()
+    await db.insert(schema.dayNotes).values({ date: '2026-11-09', kind: 'dueno_ausente' })
+    client.close()
+  })
 })

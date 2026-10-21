@@ -163,13 +163,74 @@ export async function applyStartupMigrations(existing?: Client) {
       FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
     )`)
 
+    // 7) Inventario v3 del plan (E1, instrumento final de la tesis): grupo del estudio,
+    // modo de entrada de cada valor, configuración del estudio, partes del registro,
+    // traslados y otros insumos. Todo aditivo.
+    await addColumn(client, 'supplies', 'study_group', 'text')
+    await fillStudyGroups(client)
+    await addColumn(client, 'supply_counts', 'entry_mode', 'text')
+    await addColumn(client, 'supply_waste', 'entry_mode', 'text')
+    await addColumn(client, 'supply_purchases', 'entry_mode', 'text')
+    await addColumn(client, 'supply_purchases', 'price_entry_mode', 'text')
+    const v3Ddl = [
+      `CREATE TABLE IF NOT EXISTS \`study_config\` (
+        \`key\` text PRIMARY KEY NOT NULL,
+        \`value\` text,
+        \`updated_by\` integer,
+        \`updated_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`updated_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`daily_parts\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`date\` text NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`part\` text NOT NULL,
+        \`completed_by\` integer,
+        \`completed_at\` text DEFAULT (datetime('now')),
+        \`duration_ms\` integer,
+        \`is_correction\` integer DEFAULT false NOT NULL,
+        \`client_version\` text,
+        FOREIGN KEY (\`completed_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`supply_transfers\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`date\` text NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`direction\` text NOT NULL,
+        \`quantity\` real NOT NULL,
+        \`unit_cost\` real,
+        \`other_local_id\` integer NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`source\` text DEFAULT 'daily' NOT NULL,
+        \`entry_mode\` text,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`other_supply_costs\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`date\` text NOT NULL,
+        \`amount\` real NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`source\` text DEFAULT 'daily' NOT NULL,
+        \`entry_mode\` text,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      // Requerido: la idempotencia de «otros insumos» depende de él
+      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_other_supply_costs_day` ON `other_supply_costs` (`date`,`local_id`,`source`)',
+    ]
+    for (const ddl of v3Ddl) await client.execute(ddl)
+
     // ── Opcionales ────────────────────────────────────────────────────────────
-    // 7) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
+    // 8) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
     // esperan al escritor. Es persistente en el archivo; `sqlite3 .backup` lo soporta.
     await optional('journal_mode=WAL', () => client.execute('PRAGMA journal_mode=WAL'))
 
-    // 8) Índices — también declarados en schema.ts con los mismos nombres: si no lo
+    // 9) Índices — también declarados en schema.ts con los mismos nombres: si no lo
     // estuvieran, `drizzle-kit push` los borraría (verificado).
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
@@ -181,10 +242,12 @@ export async function applyStartupMigrations(existing?: Client) {
       'CREATE INDEX IF NOT EXISTS `idx_supply_waste_wasted_at` ON `supply_waste` (`wasted_at`)',
       'CREATE INDEX IF NOT EXISTS `idx_lost_sales_occurred_at` ON `lost_sales` (`occurred_at`)',
       'CREATE INDEX IF NOT EXISTS `idx_day_notes_date` ON `day_notes` (`date`)',
+      'CREATE INDEX IF NOT EXISTS `idx_daily_parts_date_part` ON `daily_parts` (`date`,`local_id`,`part`)',
+      'CREATE INDEX IF NOT EXISTS `idx_supply_transfers_date` ON `supply_transfers` (`date`)',
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 
-    // 9) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
+    // 10) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
     // pedidos activos, el índice no se puede crear: se avisa con los ids y se sigue,
     // porque la creación de pedidos ya está serializada en la app.
     await optional('uq_orders_active_table', async () => {
@@ -220,6 +283,22 @@ async function addColumn(client: Client, table: string, column: string, ddl: str
 }
 
 // Genera el código de los insumos que no lo tienen (los creados con la v1)
+// Grupo del estudio de los insumos que no lo tienen, por su código estable. Solo
+// estos cinco entran al estudio; el resto queda fuera (null).
+const STUDY_GROUP_BY_CODE: Record<string, string> = {
+  CALAMAR: 'calamar',
+  PESCADO: 'pescado',
+  PULPO: 'mariscos',
+  LANGOSTINO: 'mariscos',
+  CONCHAS: 'mariscos',
+}
+
+async function fillStudyGroups(client: Client) {
+  for (const [code, group] of Object.entries(STUDY_GROUP_BY_CODE)) {
+    await client.execute({ sql: 'UPDATE supplies SET study_group = ? WHERE code = ? AND study_group IS NULL', args: [group, code] })
+  }
+}
+
 async function fillSupplyCodes(client: Client) {
   const rows = await client.execute('SELECT id, name, code FROM supplies ORDER BY id')
   const taken = new Set(rows.rows.map(r => r.code).filter((c): c is string => typeof c === 'string'))

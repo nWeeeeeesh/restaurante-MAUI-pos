@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { localDateString } from '../utils/dates'
 import { SUPPLY_CODE_RE } from '../utils/codes'
+import { ENTRY_MODES } from '../db/schema'
 
 // Día local 'YYYY-MM-DD' válido y no futuro: compras, merma y conteos se
 // registran el mismo día o después, nunca por adelantado.
@@ -23,7 +24,7 @@ const ReasonSchema = z.string().trim().min(3, 'Indica el motivo (mínimo 3 carac
 
 export const SUPPLY_UNITS = ['kg', 'unit', 'l'] as const
 export const WASTE_REASONS = ['deterioro', 'sobra_comensal', 'preparacion', 'otro'] as const
-export const DAY_NOTE_KINDS = ['feriado', 'cerrado', 'evento', 'proveedor', 'otro'] as const
+export const DAY_NOTE_KINDS = ['feriado', 'cerrado', 'evento', 'proveedor', 'otro', 'dueno_ausente'] as const
 export const COUNT_MOMENTS = ['apertura', 'cierre'] as const
 
 const supplier = z.string().trim().max(80).nullable().optional()
@@ -115,33 +116,83 @@ export const CountsQuerySchema = z.object({
   moment: z.enum(COUNT_MOMENTS).optional(),
 })
 
-// ── «Compra del día» ─────────────────────────────────────────────────────────
-// Todo opcional salvo que una compra debe tener precio (unitario o total).
-const DailyItemSchema = z.object({
+// ── «Compra del día» en dos partes (plan v3 §2.2) ────────────────────────────
+// Cada valor viaja con su modo de entrada (invariante 5): 'typed' lo escribió una
+// persona, 'copied' vino de [Usar] o del precio prellenado, 'default' no se tocó.
+const entryMode = z.enum(ENTRY_MODES)
+const qty = z.number().min(0, 'La cantidad no puede ser negativa').max(99999)
+const hasValue = (v: number | null | undefined) => v !== null && v !== undefined
+
+const notesSchema = z.array(z.object({
+  kind: z.enum(DAY_NOTE_KINDS),
+  text: z.string().trim().max(300).nullable().optional(),
+})).max(20)
+
+const uniqueSupplies = <T extends { supplyId: number }>(items: T[]) => new Set(items.map(i => i.supplyId)).size === items.length
+
+const partCommon = {
+  date: LocalDateSchema.optional(),
+  // Del primer render de la tarjeta al guardado exitoso (carga del registro)
+  durationMs: z.number().int().min(0).max(30 * 24 * 3600 * 1000).optional(),
+  clientVersion: z.string().trim().max(40).optional(),
+}
+
+// Parte A · «Al abrir»: quedaba (obligatorio) y botaste, más las notas del día
+const AperturaItemSchema = z.object({
   supplyId: id,
-  // «Quedaba»: stock antes de comprar; null = no se contó
-  opening: z.number().min(0, 'La cantidad no puede ser negativa').max(99999).nullable().optional(),
-  // «Botaste»: merma por deterioro descubierta al revisar
-  wasted: z.number().min(0).max(99999).optional(),
-  // «Compraste»
-  purchased: z.number().min(0).max(99999).optional(),
+  opening: qty,
+  openingMode: entryMode.optional(),
+  wasted: qty.optional(),
+  wastedMode: entryMode.optional(),
+})
+
+// Parte B · «Al volver de comprar»: compra con precio, proveedor y, desde la apertura
+// del segundo local, el traslado (envío en el local 1, recepción en el 2)
+const CompraItemSchema = z.object({
+  supplyId: id,
+  purchased: qty.optional(),
+  purchasedMode: entryMode.optional(),
   unitPrice: z.number().min(0).max(99999).nullable().optional(),
   totalCost: z.number().min(0).max(999999).nullable().optional(),
+  priceMode: entryMode.optional(),
   supplier,
+  transfer: qty.optional(),
+  transferMode: entryMode.optional(),
+  transferUnitCost: z.number().min(0).max(99999).nullable().optional(),
 }).refine(
-  i => !i.purchased || (i.unitPrice !== null && i.unitPrice !== undefined) || (i.totalCost !== null && i.totalCost !== undefined),
+  i => !i.purchased || hasValue(i.unitPrice) || hasValue(i.totalCost),
   { message: 'Si compraste, indica el precio', path: ['unitPrice'] },
 )
 
-export const SaveDailySchema = z.object({
-  date: LocalDateSchema.optional(),
-  items: z.array(DailyItemSchema).max(100)
-    .refine(items => new Set(items.map(i => i.supplyId)).size === items.length, 'Insumo repetido'),
-  notes: z.array(z.object({
-    kind: z.enum(DAY_NOTE_KINDS),
-    text: z.string().trim().max(300).nullable().optional(),
-  })).max(20).optional(),
-})
+export const SaveDailySchema = z.discriminatedUnion('part', [
+  z.object({
+    part: z.literal('apertura'),
+    ...partCommon,
+    items: z.array(AperturaItemSchema).max(100).refine(uniqueSupplies, 'Insumo repetido'),
+    notes: notesSchema.optional(),
+  }),
+  z.object({
+    part: z.literal('compra'),
+    ...partCommon,
+    items: z.array(CompraItemSchema).max(100).refine(uniqueSupplies, 'Insumo repetido'),
+    // Monto en S/ de todo lo no crítico del día; null = no se registró
+    otherCost: z.object({ amount: z.number().min(0).max(999999), mode: entryMode.optional() }).nullable().optional(),
+  }),
+])
+
+// ── Configuración del estudio (solo el dueño, plan v3 §2.3) ──────────────────
+const studyDate = LocalDateSchema.nullable().optional()
+export const StudyConfigSchema = z.object({
+  baseline_starts_on: studyDate,
+  study_ends_on: studyDate,
+  // Resultado del sorteo: qué grupo se activa primero
+  activation_order: z.enum(['calamar,pescado', 'pescado,calamar']).nullable().optional(),
+  activates_calamar: studyDate,
+  activates_pescado: studyDate,
+  activates_mariscos: studyDate,
+  second_local_opens_on: studyDate,
+  protocol_url: z.string().trim().url('Debe ser una URL').max(500).nullable().optional(),
+}).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
 
 export const DailyQuerySchema = z.object({
   date: LocalDateSchema.optional(),
@@ -160,7 +211,11 @@ export const RangeQuerySchema = z.object({
   to: LocalDateSchema.optional(),
 })
 
-export const EXPORT_TABLES = ['daily', 'purchases', 'waste', 'counts', 'lost_sales', 'stockouts', 'day_notes', 'supplies'] as const
+export const EXPORT_TABLES = [
+  'daily', 'purchases', 'waste', 'counts', 'lost_sales', 'stockouts', 'day_notes', 'supplies',
+  // Plan v3 (E1)
+  'study_config', 'daily_parts', 'transfers', 'other_costs', 'sales',
+] as const
 export const ExportQuerySchema = RangeQuerySchema.extend({
   table: z.enum(EXPORT_TABLES),
 })
@@ -174,4 +229,5 @@ export type UpdateWasteInput    = z.infer<typeof UpdateWasteSchema>
 export type SaveCountsInput     = z.infer<typeof SaveCountsSchema>
 export type CreateLostSaleInput = z.infer<typeof CreateLostSaleSchema>
 export type SaveDailyInput      = z.infer<typeof SaveDailySchema>
+export type StudyConfigInput    = z.infer<typeof StudyConfigSchema>
 export type ExportTable         = typeof EXPORT_TABLES[number]

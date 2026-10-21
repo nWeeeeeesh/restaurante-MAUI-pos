@@ -8,6 +8,7 @@ import { createApp, type AllowedOrigins } from './app'
 import { applyStartupMigrations } from './db/migrate'
 import { setIo } from './realtime'
 import { checkTimezone, checkDefaultPasswords } from './startup-checks'
+import { currentLocalId } from './utils/local'
 
 // ── Validación de configuración crítica al startup ────────────────────────
 // JWT_SECRET es obligatorio y debe ser largo. Sin esto, todo el flujo de auth
@@ -20,6 +21,15 @@ if (!JWT_SECRET) {
 if (JWT_SECRET.length < 32) {
   console.error(`[FATAL] JWT_SECRET es demasiado corto (${JWT_SECRET.length} chars). Mínimo 32 chars.`)
   console.error('        Generá uno con: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"')
+  process.exit(1)
+}
+
+// MAUI_LOCAL_ID identifica el local en todo lo que se registra (plan v3, invariante 7).
+// Un valor inválido escribiría datos con un local equivocado: mejor no arrancar.
+try {
+  console.log(`[startup] Local ${currentLocalId()} (MAUI_LOCAL_ID)`)
+} catch (e) {
+  console.error(`[FATAL] ${(e as Error).message}`)
   process.exit(1)
 }
 

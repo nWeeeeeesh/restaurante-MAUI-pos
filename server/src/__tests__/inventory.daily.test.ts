@@ -4,9 +4,10 @@ import { and, eq } from 'drizzle-orm'
 import { setupHttpApp } from './helpers/http'
 import { addDays, localDateString, parseDayBoundary } from '../utils/dates'
 
-// Plan v2 §2.2: la «Compra del día» es la única interacción diaria obligatoria.
-// Una transacción por fecha: conteo de apertura, merma por deterioro (imputada al
-// día operativo anterior), compras y notas. Guardar otra vez corrige, no duplica.
+// Plan v3 §2.2: la «Compra del día» en dos partes que se guardan por separado.
+// A «Al abrir»: quedaba (obligatorio), botaste y notas. B «Al volver de comprar»:
+// compras, precio, proveedor y otros insumos. Cada parte es idempotente por fecha,
+// no toca la otra y deja quién, cuándo, cuánto tardó y cómo se ingresó cada valor.
 let ctx: Awaited<ReturnType<typeof setupHttpApp>>
 let owner: string
 let manager: string
@@ -19,8 +20,8 @@ const today = localDateString()
 
 beforeAll(async () => {
   ctx = await setupHttpApp()
-  owner = (await ctx.as('owner')).auth
-  manager = (await ctx.as('manager')).auth
+  owner = (await ctx.as('owner', 'Dueño')).auth
+  manager = (await ctx.as('manager', 'Encargada')).auth
   const ins = (name: string, code: string, sortOrder: number, critical = true, active = true) =>
     ctx.db.insert(ctx.schema.supplies).values({ name, code, sortOrder, unit: 'kg', critical, active }).returning()
   ;[{ id: pescado }] = await ins('Pescado', 'PESCADO', 1)
@@ -30,19 +31,33 @@ beforeAll(async () => {
   await ins('Langostino', 'LANGOSTINO', 4, true, false)
 })
 
-const save = (body: object, auth = manager) => request(ctx.app).post('/api/inventory/daily').set('Authorization', auth).send(body)
-const getDaily = (date: string) => request(ctx.app).get(`/api/inventory/daily?date=${date}`).set('Authorization', manager)
+const apertura = (date: string, items: object[], extra: object = {}, auth = manager) =>
+  request(ctx.app).post('/api/inventory/daily').set('Authorization', auth)
+    .send({ part: 'apertura', date, items, durationMs: 41000, clientVersion: 'test', ...extra })
+const compra = (date: string, items: object[], extra: object = {}, auth = owner) =>
+  request(ctx.app).post('/api/inventory/daily').set('Authorization', auth)
+    .send({ part: 'compra', date, items, durationMs: 52000, clientVersion: 'test', ...extra })
+const getDaily = (date: string) => request(ctx.app).get(`/api/inventory/daily/${date}`).set('Authorization', manager)
+
+// Apertura completa de los tres críticos activos
+const fullOpening = (p: number, c: number, u: number) => [
+  { supplyId: pescado, opening: p, openingMode: 'typed', wasted: 0.5, wastedMode: 'typed' },
+  { supplyId: calamar, opening: c, openingMode: 'typed', wasted: 0, wastedMode: 'default' },
+  { supplyId: pulpo, opening: u, openingMode: 'typed' },
+]
 
 const rowsFor = async (date: string) => ({
-  counts: await ctx.db.select().from(ctx.schema.supplyCounts).where(eq(ctx.schema.supplyCounts.countedOn, date)),
+  counts: await ctx.db.select().from(ctx.schema.supplyCounts)
+    .where(and(eq(ctx.schema.supplyCounts.countedOn, date), eq(ctx.schema.supplyCounts.moment, 'apertura'))),
   purchases: await ctx.db.select().from(ctx.schema.supplyPurchases).where(and(
     eq(ctx.schema.supplyPurchases.source, 'daily'), eq(ctx.schema.supplyPurchases.sourceDate, date))),
   waste: await ctx.db.select().from(ctx.schema.supplyWaste).where(and(
     eq(ctx.schema.supplyWaste.source, 'daily'), eq(ctx.schema.supplyWaste.sourceDate, date))),
   notes: await ctx.db.select().from(ctx.schema.dayNotes).where(eq(ctx.schema.dayNotes.date, date)),
+  parts: await ctx.db.select().from(ctx.schema.dailyParts).where(eq(ctx.schema.dailyParts.date, date)),
+  other: await ctx.db.select().from(ctx.schema.otherSupplyCosts).where(eq(ctx.schema.otherSupplyCosts.date, date)),
 })
 
-// Una boleta pagada el día local `date` lo vuelve día operativo
 async function sale(date: string) {
   await ctx.db.insert(ctx.schema.bills).values({
     subtotal: 30, total: 30, paymentMethod: 'cash',
@@ -51,149 +66,164 @@ async function sale(date: string) {
   })
 }
 
-describe('POST /api/inventory/daily', () => {
-  it('crea apertura, merma, compra y notas; botaste=0 y compraste=0 no crean filas', async () => {
-    const res = await save({
-      date: today,
-      items: [
-        { supplyId: pescado, opening: 2, wasted: 0.5, purchased: 3, unitPrice: 25, supplier: 'Terminal pesquero' },
-        { supplyId: calamar, opening: 1, wasted: 0, purchased: 0 },
-      ],
-      notes: [{ kind: 'otro', text: 'Inicio de la línea base' }],
-    })
+describe('parte A · «Al abrir»', () => {
+  it('guarda apertura, merma (también 0) y notas, con modo de entrada, autor y duración', async () => {
+    const res = await apertura(today, fullOpening(2, 1, 0), { notes: [{ kind: 'dueno_ausente' }] })
     expect(res.status).toBe(200)
-    expect(res.body.saved).toBe(true)
-
     const r = await rowsFor(today)
-    expect(r.counts.map(c => [c.supplyId, c.quantity, c.moment]).sort()).toEqual([[pescado, 2, 'apertura'], [calamar, 1, 'apertura']].sort())
-    expect(r.purchases).toHaveLength(1)
-    expect(r.purchases[0]).toMatchObject({ supplyId: pescado, quantity: 3, totalCost: 75, purchasedAt: today, supplier: 'Terminal pesquero', localId: 1 })
-    expect(r.waste).toHaveLength(1)
-    // Sin días con ventas antes de hoy, se imputa al día calendario anterior
-    expect(r.waste[0]).toMatchObject({ supplyId: pescado, quantity: 0.5, reason: 'deterioro', wastedAt: addDays(today, -1) })
-    expect(r.notes).toMatchObject([{ kind: 'otro', text: 'Inicio de la línea base' }])
+    expect(r.counts.map(c => [c.supplyId, c.quantity, c.entryMode, c.localId]).sort())
+      .toEqual([[pescado, 2, 'typed', 1], [calamar, 1, 'typed', 1], [pulpo, 0, 'typed', 1]].sort())
+    // Botaste en 0 sin tocar también queda registrado: distingue "no boté" de "no revisé"
+    const waste = Object.fromEntries(r.waste.map(w => [w.supplyId, w]))
+    expect(waste[pescado]).toMatchObject({ quantity: 0.5, entryMode: 'typed', reason: 'deterioro', wastedAt: addDays(today, -1) })
+    expect(waste[calamar]).toMatchObject({ quantity: 0, entryMode: 'default' })
+    expect(waste[pulpo]).toMatchObject({ quantity: 0, entryMode: 'default' })
+    expect(r.notes.map(n => n.kind)).toEqual(['dueno_ausente'])
+    expect(r.parts).toHaveLength(1)
+    expect(r.parts[0]).toMatchObject({ part: 'apertura', durationMs: 41000, isCorrection: false, clientVersion: 'test', localId: 1 })
   })
 
-  it('guardar otra vez el mismo día corrige sin duplicar y deja la corrección en audit_log', async () => {
-    const res = await save({
-      date: today,
-      items: [
-        { supplyId: pescado, opening: 2.5, wasted: 0, purchased: 4, unitPrice: 25, totalCost: 98 },
-        { supplyId: calamar, opening: null },
-      ],
-      notes: [{ kind: 'feriado' }],
-    })
-    expect(res.status).toBe(200)
-
-    const r = await rowsFor(today)
-    expect(r.counts.map(c => [c.supplyId, c.quantity])).toEqual([[pescado, 2.5]])
-    expect(r.purchases).toHaveLength(1)
-    // El total editado manda sobre cantidad × precio
-    expect(r.purchases[0]).toMatchObject({ quantity: 4, totalCost: 98 })
-    expect(r.waste).toHaveLength(0)
-    expect(r.notes.map(n => n.kind)).toEqual(['feriado'])
-
-    const logs = await ctx.db.select().from(ctx.schema.auditLog).where(eq(ctx.schema.auditLog.action, 'daily.update'))
-    expect(logs).toHaveLength(1)
-    expect(JSON.parse(logs[0].data!)).toMatchObject({ date: today, before: { purchases: [{ supplyId: pescado, quantity: 3 }] } })
-
-    // Reenviar exactamente lo mismo no es una corrección
-    await save({
-      date: today,
-      items: [
-        { supplyId: pescado, opening: 2.5, wasted: 0, purchased: 4, unitPrice: 25, totalCost: 98 },
-        { supplyId: calamar, opening: null },
-      ],
-      notes: [{ kind: 'feriado' }],
-    })
-    expect(await ctx.db.select().from(ctx.schema.auditLog).where(eq(ctx.schema.auditLog.action, 'daily.update'))).toHaveLength(1)
+  it('quedaba es obligatorio para todos los críticos activos', async () => {
+    const day = addDays(today, -2)
+    const res = await apertura(day, [{ supplyId: pescado, opening: 1 }, { supplyId: calamar, opening: 1 }])
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('DAILY_INCOMPLETE')
+    expect((await apertura(day, [{ supplyId: pescado, opening: null }])).status).toBe(400)
+    expect((await rowsFor(day)).parts).toHaveLength(0)
   })
 
-  it('no toca las compras y mermas manuales del mismo día', async () => {
-    const manual = await request(ctx.app).post('/api/inventory/purchases').set('Authorization', manager)
-      .send({ supplyId: choclo, quantity: 5, totalCost: 10, purchasedAt: today })
+  it('volver a guardarla corrige sin duplicar, marca is_correction y deja audit', async () => {
+    const res = await apertura(today, fullOpening(2.5, 1, 0))
+    expect(res.status).toBe(200)
+    const r = await rowsFor(today)
+    expect(r.counts).toHaveLength(3)
+    expect(r.counts.find(c => c.supplyId === pescado)?.quantity).toBe(2.5)
+    expect(r.waste).toHaveLength(3)
     // Sin `notes` en el cuerpo, las notas del día no se tocan
-    await save({ date: today, items: [{ supplyId: pescado, opening: 2.5, purchased: 4, totalCost: 98 }] })
-    const [still] = await ctx.db.select().from(ctx.schema.supplyPurchases).where(eq(ctx.schema.supplyPurchases.id, manual.body.id))
-    expect(still).toMatchObject({ source: 'manual', quantity: 5 })
+    expect(r.notes.map(n => n.kind)).toEqual(['dueno_ausente'])
+    expect(r.parts.map(p => p.isCorrection)).toEqual([false, true])
+    const logs = await ctx.db.select().from(ctx.schema.auditLog).where(eq(ctx.schema.auditLog.action, 'daily.update'))
+    expect(JSON.parse(logs[logs.length - 1].data!)).toMatchObject({ date: today, part: 'apertura', before: { counts: expect.any(Array) } })
   })
 
   it('la merma se imputa al día operativo anterior (el último con ventas)', async () => {
     const day = addDays(today, -1)
     await sale(addDays(today, -4))
-    await save({ date: day, items: [{ supplyId: calamar, wasted: 0.3 }] })
-    const r = await rowsFor(day)
-    expect(r.waste[0]).toMatchObject({ quantity: 0.3, wastedAt: addDays(today, -4), sourceDate: day })
-  })
-
-  it('acepta hasta 7 días atrás; más atrás, futuro o compra sin precio → 400', async () => {
-    expect((await save({ date: addDays(today, -7), items: [{ supplyId: pulpo, opening: 1 }] })).status).toBe(200)
-    const old = await save({ date: addDays(today, -8), items: [{ supplyId: pulpo, opening: 1 }] })
-    expect(old.status).toBe(400)
-    expect(old.body.code).toBe('DATE_OUT_OF_RANGE')
-    expect((await save({ date: addDays(today, 1), items: [{ supplyId: pulpo, opening: 1 }] })).status).toBe(400)
-    expect((await save({ date: today, items: [{ supplyId: pulpo, purchased: 2 }] })).status).toBe(400)
-    expect((await save({ date: today, items: [{ supplyId: pulpo, opening: -1 }] })).status).toBe(400)
-    expect((await save({ date: today, items: [{ supplyId: pulpo }, { supplyId: pulpo }] })).status).toBe(400)
-  })
-
-  it('rechaza insumos inexistentes o desactivados sin guardar nada', async () => {
-    const day = addDays(today, -2)
-    const inactive = await ctx.db.select().from(ctx.schema.supplies).where(eq(ctx.schema.supplies.code, 'LANGOSTINO'))
-    const res = await save({ date: day, items: [{ supplyId: pescado, opening: 9 }, { supplyId: inactive[0].id, opening: 1 }] })
-    expect(res.status).toBe(409)
-    expect((await rowsFor(day)).counts).toHaveLength(0)
-    expect((await save({ date: day, items: [{ supplyId: 99999, opening: 1 }] })).status).toBe(404)
+    await apertura(day, fullOpening(1, 1, 1))
+    const w = (await rowsFor(day)).waste.find(x => x.supplyId === pescado)
+    expect(w).toMatchObject({ quantity: 0.5, wastedAt: addDays(today, -4), sourceDate: day })
   })
 })
 
-describe('GET /api/inventory/daily', () => {
-  it('lista los críticos activos en orden y prellena compra, precio y proveedor', async () => {
+describe('parte B · «Al volver de comprar»', () => {
+  it('guarda compras con modo de cantidad y de precio, y otros insumos; no toca la parte A', async () => {
+    const res = await compra(today, [
+      { supplyId: pescado, purchased: 3, purchasedMode: 'copied', unitPrice: 25, priceMode: 'copied', supplier: 'Terminal' },
+      { supplyId: calamar, purchased: 2, purchasedMode: 'typed', unitPrice: 24, priceMode: 'typed', totalCost: 47 },
+      { supplyId: pulpo },
+    ], { otherCost: { amount: 38.5, mode: 'typed' } })
+    expect(res.status).toBe(200)
+    const r = await rowsFor(today)
+    expect(r.purchases).toHaveLength(2)
+    expect(r.purchases.find(p => p.supplyId === pescado)).toMatchObject({ quantity: 3, totalCost: 75, entryMode: 'copied', priceEntryMode: 'copied', supplier: 'Terminal', localId: 1 })
+    expect(r.purchases.find(p => p.supplyId === calamar)).toMatchObject({ totalCost: 47, entryMode: 'typed', priceEntryMode: 'typed' })
+    expect(r.other).toMatchObject([{ amount: 38.5, entryMode: 'typed', source: 'daily', localId: 1 }])
+    // La parte A sigue intacta
+    expect(r.counts).toHaveLength(3)
+    expect(r.waste).toHaveLength(3)
+    expect(r.parts.filter(p => p.part === 'compra').map(p => p.isCorrection)).toEqual([false])
+  })
+
+  it('volver a guardarla reemplaza solo lo suyo; guardar A después no borra B', async () => {
+    await compra(today, [{ supplyId: pescado, purchased: 4, unitPrice: 25 }], { otherCost: { amount: 40, mode: 'copied' } })
+    let r = await rowsFor(today)
+    expect(r.purchases.map(p => [p.supplyId, p.quantity])).toEqual([[pescado, 4]])
+    expect(r.other).toMatchObject([{ amount: 40, entryMode: 'copied' }])
+    expect(r.parts.filter(p => p.part === 'compra').map(p => p.isCorrection)).toEqual([false, true])
+
+    await apertura(today, fullOpening(2.5, 1.2, 0))
+    r = await rowsFor(today)
+    expect(r.purchases).toHaveLength(1)
+    expect(r.other).toHaveLength(1)
+
+    // Sin otros insumos en el cuerpo se borra el de esta pantalla
+    await compra(today, [{ supplyId: pescado, purchased: 4, unitPrice: 25 }], { otherCost: null })
+    expect((await rowsFor(today)).other).toHaveLength(0)
+  })
+
+  it('no toca las compras manuales del mismo día', async () => {
+    const manual = await request(ctx.app).post('/api/inventory/purchases').set('Authorization', manager)
+      .send({ supplyId: choclo, quantity: 5, totalCost: 10, purchasedAt: today })
+    await compra(today, [{ supplyId: pescado, purchased: 4, unitPrice: 25 }])
+    const [still] = await ctx.db.select().from(ctx.schema.supplyPurchases).where(eq(ctx.schema.supplyPurchases.id, manual.body.id))
+    expect(still).toMatchObject({ source: 'manual', quantity: 5, entryMode: 'typed', priceEntryMode: 'typed' })
+  })
+
+  it('una compra sin precio, fechas fuera de los 7 días o insumos inválidos → error sin guardar', async () => {
+    expect((await compra(today, [{ supplyId: pulpo, purchased: 2 }])).status).toBe(400)
+    const old = await compra(addDays(today, -8), [{ supplyId: pulpo, purchased: 1, unitPrice: 30 }])
+    expect(old.status).toBe(400)
+    expect(old.body.code).toBe('DATE_OUT_OF_RANGE')
+    expect((await compra(addDays(today, 1), [])).status).toBe(400)
+    const inactive = await ctx.db.select().from(ctx.schema.supplies).where(eq(ctx.schema.supplies.code, 'LANGOSTINO'))
+    expect((await compra(today, [{ supplyId: inactive[0].id, purchased: 1, unitPrice: 1 }])).status).toBe(409)
+    expect((await compra(today, [{ supplyId: 99999, purchased: 1, unitPrice: 1 }])).status).toBe(404)
+    expect((await request(ctx.app).post('/api/inventory/daily').set('Authorization', owner).send({ date: today, items: [] })).status).toBe(400)
+  })
+})
+
+describe('GET /api/inventory/daily/:date', () => {
+  it('devuelve lo guardado, el estado de cada parte y la compra de referencia', async () => {
     const day = addDays(today, -3)
     const buy = (supplyId: number, purchasedAt: string, quantity: number, totalCost: number, supplier?: string) =>
       ctx.db.insert(ctx.schema.supplyPurchases).values({ supplyId, purchasedAt, quantity, totalCost, supplier })
-    // Pulpo: compró el mismo día de la semana anterior y después otra vez
     await buy(pulpo, addDays(day, -7), 2, 40, 'Puesto A')
     await buy(pulpo, addDays(day, -5), 1.5, 33, 'Puesto B')
     await buy(pulpo, addDays(day, -4), 1, 21)
+    await ctx.db.insert(ctx.schema.otherSupplyCosts).values({ date: addDays(day, -7), amount: 55, source: 'daily' })
 
     const res = await getDaily(day)
     expect(res.status).toBe(200)
-    expect(res.body.saved).toBe(false)
+    expect(res.body.parts).toEqual({ apertura: null, compra: null })
     expect(res.body.items.map((i: { code: string }) => i.code)).toEqual(['PESCADO', 'CALAMAR', 'PULPO'])
     const p = res.body.items.find((i: { code: string }) => i.code === 'PULPO')
     expect(p.opening).toBeNull()
-    // Mismo día de la semana anterior; precio de la última compra; último proveedor usado
-    // fromDate: de qué compra sale la cantidad sugerida (la pantalla la muestra, no la escribe)
-    expect(p.suggestion).toEqual({ purchased: 2, fromDate: addDays(day, -7), unitPrice: 21, supplier: 'Puesto B' })
+    // Referencia para [Usar]: mismo día de la semana anterior; nunca se prellena
+    expect(p.reference).toEqual({ purchased: 2, fromDate: addDays(day, -7), unitPrice: 21, supplier: 'Puesto B' })
+    expect(res.body.otherCostReference).toEqual({ amount: 55, fromDate: addDays(day, -7) })
+
+    const t = (await getDaily(today)).body
+    expect(t.parts.apertura).toMatchObject({ by: 'Encargada', corrections: 2 })
+    expect(t.parts.compra).toMatchObject({ by: 'Dueño' })
+    expect(t.items.find((i: { code: string }) => i.code === 'PESCADO')).toMatchObject({
+      opening: 2.5, openingMode: 'typed', wasted: 0.5, wastedMode: 'typed', purchased: 4, totalCost: 100,
+    })
+    expect(t.otherCost).toBeNull()
+    expect(t.transfers).toEqual({ enabled: false, direction: 'envio' })
   })
 
-  it('sin compra la semana anterior sugiere la última compra', async () => {
-    const day = addDays(today, -6)
-    await ctx.db.insert(ctx.schema.supplyPurchases).values({ supplyId: calamar, purchasedAt: addDays(day, -2), quantity: 1.2, totalCost: 30 })
-    const c = (await getDaily(day)).body.items.find((i: { code: string }) => i.code === 'CALAMAR')
-    expect(c.suggestion).toMatchObject({ purchased: 1.2, fromDate: addDays(day, -2), unitPrice: 25 })
-  })
-
-  it('devuelve lo guardado y la fecha a la que se imputa la merma', async () => {
-    const res = await getDaily(today)
-    expect(res.body.saved).toBe(true)
-    expect(res.body.wasteDate).toBe(addDays(today, -4))
-    const p = res.body.items.find((i: { code: string }) => i.code === 'PESCADO')
-    expect(p).toMatchObject({ opening: 2.5, purchased: 4, totalCost: 98, wasted: 0 })
-    expect(res.body.notes.map((n: { kind: string }) => n.kind)).toEqual(['feriado'])
+  it('invariante 1: responde idéntico antes y después de activar un grupo', async () => {
+    const before = (await getDaily(today)).body
+    await ctx.db.insert(ctx.schema.studyConfig).values([
+      { key: 'activates_pescado', value: addDays(today, -1) },
+      { key: 'activates_calamar', value: today },
+      { key: 'study_ends_on', value: addDays(today, 100) },
+    ])
+    const after = (await getDaily(today)).body
+    expect(after).toEqual(before)
+    await ctx.db.delete(ctx.schema.studyConfig)
   })
 })
 
 describe('GET /api/inventory/daily/pending', () => {
-  it('avisa si ayer hubo ventas y no hay «Compra del día»', async () => {
+  it('avisa por parte si ayer hubo ventas y falta alguna', async () => {
     const yesterday = addDays(today, -1)
-    await ctx.db.delete(ctx.schema.supplyWaste).where(eq(ctx.schema.supplyWaste.sourceDate, yesterday))
     await sale(yesterday)
-    const before = await request(ctx.app).get('/api/inventory/daily/pending').set('Authorization', owner)
-    expect(before.body).toEqual({ date: yesterday, pending: true })
-    await save({ date: yesterday, items: [{ supplyId: pescado, opening: 1 }] })
+    const res = await request(ctx.app).get('/api/inventory/daily/pending').set('Authorization', owner)
+    // Ayer (test de imputación) se guardó la apertura, no la compra
+    expect(res.body).toEqual({ date: yesterday, pending: true, missing: { apertura: false, compra: true } })
+    await compra(yesterday, [])
     const after = await request(ctx.app).get('/api/inventory/daily/pending').set('Authorization', owner)
-    expect(after.body.pending).toBe(false)
+    expect(after.body).toEqual({ date: yesterday, pending: false, missing: { apertura: false, compra: false } })
   })
 })

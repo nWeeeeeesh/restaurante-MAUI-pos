@@ -171,12 +171,18 @@ export const expenses = sqliteTable('expenses', {
 // Las fechas de compra, merma y conteo son días LOCALES 'YYYY-MM-DD' (como
 // expenses.date); lost_sales.occurred_at es UTC como el resto de timestamps.
 // Definiciones y formato del export: docs/diccionario-datos-tesis.md (instrumento
-// congelado de la tesis). local_id es siempre 1: existe para no mapear datos si
-// algún día hay más sucursales; no se muestra en la UI.
+// congelado de la tesis). local_id sale de MAUI_LOCAL_ID (cada local tiene su
+// instancia y su base; no hay servidor central) y no se muestra en la UI.
 
 // Origen de compras y merma: 'daily' = lo creó la «Compra del día» (que reemplaza
 // solo lo suyo al corregir); 'manual' = pestañas de detalle.
 const SOURCES = ['manual', 'daily'] as const
+// Trazabilidad (invariante 5 del plan v3): 'typed' = lo escribió una persona;
+// 'copied' = vino de [Usar] o del precio prellenado sin cambiar; 'default' = no se
+// tocó (Botaste en 0). Null en los registros anteriores a la v3.
+export const ENTRY_MODES = ['typed', 'copied', 'default'] as const
+// Grupos del estudio (activación escalonada; mariscos es el grupo de comparación)
+export const STUDY_GROUPS = ['calamar', 'pescado', 'mariscos'] as const
 
 export const supplies = sqliteTable('supplies', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -190,6 +196,8 @@ export const supplies = sqliteTable('supplies', {
   code: text('code').unique(),
   // Orden en la «Compra del día»
   sortOrder: integer('sort_order').default(0),
+  // Grupo del estudio; null = fuera del estudio. No se edita desde la UI
+  studyGroup: text('study_group', { enum: STUDY_GROUPS }),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
 
@@ -206,6 +214,8 @@ export const supplyPurchases = sqliteTable('supply_purchases', {
   // Fecha de la «Compra del día» que creó la fila (solo source='daily')
   sourceDate: text('source_date'),
   localId: integer('local_id').notNull().default(1),
+  entryMode: text('entry_mode', { enum: ENTRY_MODES }),
+  priceEntryMode: text('price_entry_mode', { enum: ENTRY_MODES }),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
@@ -224,6 +234,7 @@ export const supplyWaste = sqliteTable('supply_waste', {
   // guarda el día en que se registró, para poder reemplazarla al corregir
   sourceDate: text('source_date'),
   localId: integer('local_id').notNull().default(1),
+  entryMode: text('entry_mode', { enum: ENTRY_MODES }),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
@@ -238,6 +249,7 @@ export const supplyCounts = sqliteTable('supply_counts', {
   // 'apertura' = antes de comprar (instrumento v1); 'cierre' = conteos de prueba de la v1
   moment: text('moment', { enum: ['apertura', 'cierre'] }).notNull().default('apertura'),
   localId: integer('local_id').notNull().default(1),
+  entryMode: text('entry_mode', { enum: ENTRY_MODES }),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
@@ -262,11 +274,71 @@ export const lostSales = sqliteTable('lost_sales', {
 export const dayNotes = sqliteTable('day_notes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   date: text('date').notNull(),
-  kind: text('kind', { enum: ['feriado', 'cerrado', 'evento', 'proveedor', 'otro'] }).notNull(),
+  kind: text('kind', { enum: ['feriado', 'cerrado', 'evento', 'proveedor', 'otro', 'dueno_ausente'] }).notNull(),
   text: text('text'),
   localId: integer('local_id').notNull().default(1),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 }, (t) => [
   index('idx_day_notes_date').on(t.date),
+])
+
+// ── Plan v3 (E1): configuración del estudio y trazabilidad del registro ──────
+
+// Configuración del estudio, clave → valor (fechas 'YYYY-MM-DD' de Lima). La escribe
+// solo el dueño (PUT /inventory/study) y queda en audit_log.
+export const studyConfig = sqliteTable('study_config', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedBy: integer('updated_by').references(() => users.id),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+})
+
+// Una fila por cada guardado de una parte de la «Compra del día»: quién, cuándo y
+// cuánto tardó (adherencia y carga del registro).
+export const dailyParts = sqliteTable('daily_parts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  localId: integer('local_id').notNull().default(1),
+  part: text('part', { enum: ['apertura', 'compra'] }).notNull(),
+  completedBy: integer('completed_by').references(() => users.id),
+  completedAt: text('completed_at').default(sql`(datetime('now'))`),
+  durationMs: integer('duration_ms'),
+  isCorrection: integer('is_correction', { mode: 'boolean' }).notNull().default(false),
+  clientVersion: text('client_version'),
+}, (t) => [
+  index('idx_daily_parts_date_part').on(t.date, t.localId, t.part),
+])
+
+// Traslados entre locales. Cada instancia registra solo su lado (el local 1 envía,
+// el 2 recibe); la conciliación se hace en el análisis por fecha y código.
+export const supplyTransfers = sqliteTable('supply_transfers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  direction: text('direction', { enum: ['envio', 'recepcion'] }).notNull(),
+  quantity: real('quantity').notNull(),
+  unitCost: real('unit_cost'),
+  otherLocalId: integer('other_local_id').notNull(),
+  localId: integer('local_id').notNull().default(1),
+  source: text('source', { enum: SOURCES }).notNull().default('daily'),
+  entryMode: text('entry_mode', { enum: ENTRY_MODES }),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  index('idx_supply_transfers_date').on(t.date),
+])
+
+// Gasto del día en todo lo no crítico (limón, cebolla, abarrotes…), en S/
+export const otherSupplyCosts = sqliteTable('other_supply_costs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  amount: real('amount').notNull(),
+  localId: integer('local_id').notNull().default(1),
+  source: text('source', { enum: SOURCES }).notNull().default('daily'),
+  entryMode: text('entry_mode', { enum: ENTRY_MODES }),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  uniqueIndex('uq_other_supply_costs_day').on(t.date, t.localId, t.source),
 ])

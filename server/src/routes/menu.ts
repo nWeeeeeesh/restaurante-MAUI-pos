@@ -160,7 +160,7 @@ router.patch(
       if (availabilityChanged) {
         await audit(tx, {
           userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
-          data: { name: after.name, available: set.available },
+          data: { name: after.name, available: set.available, source: 'manual' },
         })
       }
       return { after, availabilityChanged }
@@ -187,7 +187,8 @@ router.patch(
       const [after] = await tx.update(dishes).set({ available }).where(eq(dishes.id, id)).returning()
       await audit(tx, {
         userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
-        data: { name: after.name, available },
+        // 'manual': lo decidió una persona (invariante 3); la fase 2 solo propondrá
+        data: { name: after.name, available, source: 'manual' },
       })
       return { dish: after, changed: true }
     }))
