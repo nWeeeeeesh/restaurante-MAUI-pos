@@ -12,6 +12,8 @@ import BillsHistory from './pages/BillsHistory'
 import Reports from './pages/Reports'
 import Users from './pages/admin/Users'
 import Inventory from './pages/inventory/Inventory'
+import Profitability from './pages/profitability/Profitability'
+import Recipes from './pages/profitability/Recipes'
 import ToastHost from './components/ToastHost'
 import ReconnectBanner from './components/ReconnectBanner'
 
@@ -53,6 +55,12 @@ export default function App() {
         } />
         <Route path="/inventory" element={
           <ProtectedRoute roles={['owner', 'manager']}><Inventory /></ProtectedRoute>
+        } />
+        <Route path="/profitability" element={
+          <ProtectedRoute roles={['owner']}><Profitability /></ProtectedRoute>
+        } />
+        <Route path="/recipes" element={
+          <ProtectedRoute roles={['owner']}><Recipes /></ProtectedRoute>
         } />
         <Route path="/admin/menu" element={
           <ProtectedRoute roles={['owner', 'manager', 'cashier']}><MenuAdmin /></ProtectedRoute>

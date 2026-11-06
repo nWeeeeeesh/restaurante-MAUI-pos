@@ -194,7 +194,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** pruebas HTTP de cada ruta; `[PI-15][RNF06]` amplía `permissions.test.ts` (401 sin sesión, 403 con roles sin permiso); `[PI-06][RF06]` y `[PI-08][RF08]` pasan.
 
-### - [ ] T11. Cliente del incremento 2
+### - [x] T11. Cliente del incremento 2
 - `client/src/api/profitability.ts`, `client/src/api/recipes.ts` y los hooks `useProfitability` y `useRecipes`, con estado de carga y de error.
 - Página **Rentabilidad** (solo propietario, en el menú del Layout):
   - selector de periodo (hoy, semana, mes, rango);
@@ -453,3 +453,13 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Tipos de gasto.** `PUT /expense-categories/:category` también acepta una categoría que todavía no tiene gastos, para clasificarla antes de usarla.
   - **Insumos.** `PATCH /supplies/:id` admite rendimiento en (0, 1], vida útil de 1 a 365 días (null la borra) y nivel de servicio de 0.50 a 0.999.
   - **Pruebas.** Las de API usan `sim12`. PI-06: pasar «luz» a variable baja GF de 12 800 a 12 300 y baja las ventas de equilibrio. PI-08: 180 g limpios con rendimiento 0.80 dan 0.225 kg. PI-15: 401 sin sesión y 403 para los roles sin permiso en las seis rutas y en el PATCH de parámetros. Pruebas: 206.
+- **2026-11-06 · T11.** Cliente del incremento 2:
+  - **Estructura.** Los módulos `api/profitability.ts` y `api/recipes.ts` solo hacen las llamadas. Los hooks `useProfitability` y `useRecipes` derivan «cargando» de la consulta pendiente, sin `setState` síncrono en el efecto, para no sumar warnings de lint.
+  - **Páginas nuevas.** Están en `pages/profitability/`, solo para el dueño, con entradas en el Layout:
+    - **Rentabilidad.** Hoy, semana, mes o rango con agrupación; 8 tarjetas, cada una con su ayuda; serie con `recharts` (ventas, costo de lo vendido, utilidad operativa); tabla de insumos y tabla de platos con categoría, ordenable. Las advertencias agrupan en una línea los platos sin receta.
+    - **Recetas.** Calibración con rango y factores vigentes (con el aviso de fuera de rango), y un editor por plato: una fila por variante y una columna por crítico, en gramos limpios.
+  - **Insumos.** Rendimiento, vida útil y nivel de servicio en %, solo en los críticos, cada uno con su ayuda.
+  - **Reportes.** La sección «Tipo de gasto» (fijo o variable) aparece solo para el dueño, y se agregaron las etiquetas de auditoría nuevas.
+  - **Revisión manual.** La hice con `npm run db:sim`, el servidor y Vite, y capturas sin interfaz (Playwright con el Chromium local) en 1280 px y 390 px: Rentabilidad, Recetas (calibrando desde la UI), Tipo de gasto y Editar insumo, sin errores de consola. Después de calibrar con las semanas 1 a 4, la pantalla muestra UO = S/ 27 169.74, igual que `esperado.json`.
+  - **Sin verificar en un celular real.** El menú inferior móvil, que ya tenía más entradas de las que caben, no se revisó en un teléfono.
+  - **CI.** Cliente sin errores y con los mismos 65 warnings de antes.

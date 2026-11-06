@@ -20,6 +20,10 @@ export interface Supply {
   critical: boolean | null
   active: boolean | null
   sortOrder: number | null
+  // Incremento 2 y 3: kg limpios por kg comprado, vida útil y nivel de servicio
+  yield: number
+  shelfLifeDays: number | null
+  serviceLevel: number | null
 }
 
 export interface Purchase {

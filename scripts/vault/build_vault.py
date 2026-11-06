@@ -170,7 +170,10 @@ MODULES = [
                   "server/src/repositories/profitability.repo.ts", "server/src/services/profitability.service.ts",
                   "server/src/__tests__/profitability.test.ts", "server/src/routes/profitability.ts",
                   "server/src/routes/recipes.ts", "server/src/schemas/profitability.ts", "server/src/schemas/recipes.ts",
-                  "server/src/services/recipes.service.ts", "server/src/__tests__/profitability.api.test.ts"],
+                  "server/src/services/recipes.service.ts", "server/src/__tests__/profitability.api.test.ts",
+                  "client/src/api/profitability.ts", "client/src/api/recipes.ts", "client/src/hooks/useProfitability.ts",
+                  "client/src/hooks/useRecipes.ts", "client/src/pages/profitability/Profitability.tsx",
+                  "client/src/pages/profitability/Recipes.tsx", "client/src/pages/profitability/ExpenseKinds.tsx"],
     },
     {
         "id": "impresion", "name": "Impresión",

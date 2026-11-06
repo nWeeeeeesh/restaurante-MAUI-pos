@@ -3,7 +3,7 @@ import { Loader2, Pencil } from 'lucide-react'
 import api from '../../api/client'
 import { useToastStore } from '../../store/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { errorMessage, inputCls, UNIT_LABEL, type Supply, type Unit } from './model'
+import { errorMessage, inputCls, parseNumber, UNIT_LABEL, type Supply, type Unit } from './model'
 import { Field } from './ui'
 import SettingsSection from './SettingsSection'
 
@@ -49,6 +49,10 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
   const [editName, setEditName] = useState('')
   const [editUnit, setEditUnit] = useState<Unit>('kg')
   const [editOrder, setEditOrder] = useState('')
+  // Rendimiento y nivel de servicio se escriben en % (80 = 0.80)
+  const [editYield, setEditYield] = useState('')
+  const [editShelf, setEditShelf] = useState('')
+  const [editLevel, setEditLevel] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
   const load = useCallback(async () => {
@@ -102,8 +106,13 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
     setSavingEdit(true)
     try {
       const order = parseInt(editOrder, 10)
+      const params = editing.critical ? {
+        yield: (parseNumber(editYield) ?? 100) / 100,
+        shelfLifeDays: editShelf.trim() === '' ? null : parseInt(editShelf, 10),
+        serviceLevel: editLevel.trim() === '' ? null : (parseNumber(editLevel) ?? 0) / 100,
+      } : {}
       await api.patch(`/inventory/supplies/${editing.id}`, {
-        name: editName.trim(), unit: editUnit, ...(Number.isInteger(order) && order >= 0 ? { sortOrder: order } : {}),
+        name: editName.trim(), unit: editUnit, ...(Number.isInteger(order) && order >= 0 ? { sortOrder: order } : {}), ...params,
       })
       pushToast({ variant: 'success', title: 'Insumo actualizado' })
       setEditing(null)
@@ -153,7 +162,11 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
                 </div>
                 <Toggle on={s.critical === true} label="Crítico" disabled={busyId === s.id} onClick={() => patch(s, { critical: !s.critical })} />
                 <Toggle on={s.active !== false} label={s.active === false ? 'Inactivo' : 'Activo'} disabled={busyId === s.id} onClick={() => patch(s, { active: s.active === false })} />
-                <button onClick={() => { setEditing(s); setEditName(s.name); setEditUnit(s.unit); setEditOrder(String(s.sortOrder ?? 0)) }} title="Editar"
+                <button onClick={() => {
+                  setEditing(s); setEditName(s.name); setEditUnit(s.unit); setEditOrder(String(s.sortOrder ?? 0))
+                  setEditYield(String(Math.round((s.yield ?? 1) * 1000) / 10)); setEditShelf(s.shelfLifeDays === null ? '' : String(s.shelfLifeDays))
+                  setEditLevel(s.serviceLevel === null ? '' : String(Math.round(s.serviceLevel * 1000) / 10))
+                }} title="Editar"
                   className="p-2 rounded-lg text-[#94A3B8] hover:text-[#0077B6] hover:bg-blue-50"><Pencil size={15} /></button>
               </div>
             ))}
@@ -179,6 +192,22 @@ export default function SuppliesTab({ onChanged }: { onChanged: () => void }) {
           <Field label="Orden en la compra del día">
             <input value={editOrder} onChange={e => setEditOrder(e.target.value)} inputMode="numeric" className={inputCls} />
           </Field>
+          {editing?.critical && (
+            <>
+              <Field label="Rendimiento (%)">
+                <input value={editYield} onChange={e => setEditYield(e.target.value)} inputMode="decimal" className={inputCls} />
+              </Field>
+              <p className="text-[11px] text-[#94A3B8] -mt-2">Cuánto queda limpio de cada kg comprado: pescado entero que rinde 800 g de filete = 80.</p>
+              <Field label="Vida útil (días)">
+                <input value={editShelf} onChange={e => setEditShelf(e.target.value)} inputMode="numeric" placeholder="sin definir" className={inputCls} />
+              </Field>
+              <p className="text-[11px] text-[#94A3B8] -mt-2">Días que dura en buen estado desde la compra; limita la lista de compra.</p>
+              <Field label="Nivel de servicio (%)">
+                <input value={editLevel} onChange={e => setEditLevel(e.target.value)} inputMode="decimal" placeholder="sin definir" className={inputCls} />
+              </Field>
+              <p className="text-[11px] text-[#94A3B8] -mt-2">Qué tan seguro quieres estar de no quedarte sin el insumo (50 a 99.9). Más alto = compra un poco más.</p>
+            </>
+          )}
           <p className="text-xs text-[#94A3B8]">
             Código <span className="font-mono">{editing?.code}</span>: no cambia aunque cambie el nombre (identifica el insumo en los datos de la tesis).
             Cambiar la unidad no convierte lo ya registrado.

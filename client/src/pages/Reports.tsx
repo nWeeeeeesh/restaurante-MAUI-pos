@@ -9,6 +9,8 @@ import { useToastStore } from '../store/toast'
 import { formatDbDateTime } from '../utils/dates'
 import { generateReportHTML } from '../utils/reportHTML'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { useAuthStore } from '../store/auth'
+import ExpenseKinds from './profitability/ExpenseKinds'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -100,6 +102,9 @@ const AUDIT_LABELS: Record<string, string> = {
   'daily.update': 'Compra del día corregida',
   'study.configure': 'Estudio configurado',
   'settings.update': 'Ajustes modificados',
+  'recipe.update': 'Receta modificada',
+  'recipe.calibrate': 'Recetas calibradas',
+  'expense_category.update': 'Tipo de gasto cambiado',
 }
 
 function auditLabel(e: AuditEntry): string {
@@ -221,6 +226,7 @@ function downloadCSV(content: string, filename: string) {
 
 export default function Reports() {
   const [period, setPeriod]       = useState<Period>('today')
+  const isOwner = useAuthStore(s => s.user?.role === 'owner')
   const [summary, setSummary]     = useState<Summary | null>(null)
   const [expenses, setExpenses]   = useState<Expense[]>([])
   const [billHistory, setBills]   = useState<BillRecord[]>([])
@@ -550,6 +556,8 @@ export default function Reports() {
                 </div>
               </div>
             </div>
+
+            {isOwner && <ExpenseKinds />}
 
             {/* ── Cancelaciones y correcciones (M10): lo hecho en ausencia del dueño ── */}
             <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
