@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, lte, sql, type Column } from 'drizzle-orm'
-import { db } from '../db'
+import { db as defaultDb, type Executor } from '../db'
 import {
   auditLog, bills, categories, dailyParts, dayNotes, dishes, lostSales, orderItems, orders, otherSupplyCosts, studyConfig,
   supplies, supplyCounts, supplyPurchases, supplyTransfers, supplyWaste, users,
@@ -29,7 +29,7 @@ function preamble(table: ExportTable, range: DateRange) {
 // Timestamp UTC de la BD → fecha y hora locales 'YYYY-MM-DD HH:MM:SS'
 const localTs = (col: unknown) => sql<string | null>`datetime(${col}, ${sqliteLocalOffset()})`
 
-export async function exportCsv(table: ExportTable, range: DateRange): Promise<string> {
+export async function exportCsv(db: Executor = defaultDb, table: ExportTable, range: DateRange): Promise<string> {
   const pre = preamble(table, range)
   const utcFrom = parseDayBoundary(range.from, 'start')
   const utcTo = parseDayBoundary(range.to, 'end')
@@ -39,7 +39,7 @@ export async function exportCsv(table: ExportTable, range: DateRange): Promise<s
       return toCsv(
         ['local_id', 'fecha', 'insumo_id', 'insumo_codigo', 'insumo', 'unidad', 'quedaba', 'botaste', 'compraste', 'precio_unitario', 'costo_total', 'proveedor',
           'enviaste', 'recibiste', 'modo_quedaba', 'modo_botaste', 'modo_compraste', 'modo_precio', 'apertura_por', 'apertura_en', 'compra_por', 'compra_en'],
-        await dailyRows(range),
+        await dailyRows(db, range),
         pre,
       )
 
@@ -119,7 +119,7 @@ export async function exportCsv(table: ExportTable, range: DateRange): Promise<s
     case 'stockouts':
       return toCsv(
         ['local_id', 'plato_id', 'plato', 'inicio', 'fin', 'duracion_min', 'origen', 'marcado_por', 'habilitado_por'],
-        (await stockoutIntervals(range)).map(i => [currentLocalId(), i.dishId, i.dishName, i.start, i.end, i.minutes, i.source, i.markedBy, i.restoredBy]),
+        (await stockoutIntervals(db, range)).map(i => [currentLocalId(), i.dishId, i.dishName, i.start, i.end, i.minutes, i.source, i.markedBy, i.restoredBy]),
         pre,
       )
 
@@ -237,7 +237,7 @@ export async function exportCsv(table: ExportTable, range: DateRange): Promise<s
 
 // Vista por día e insumo de lo que dejó la «Compra del día», con quién hizo cada
 // parte (el primer guardado; las correcciones están en daily_parts)
-async function dailyRows(range: DateRange) {
+async function dailyRows(db: Executor, range: DateRange) {
   const inRange = (col: Column) => and(gte(col, range.from), lte(col, range.to))
   const counts = await db.select().from(supplyCounts).where(and(eq(supplyCounts.moment, 'apertura'), inRange(supplyCounts.countedOn)))
   const purchases = await db.select().from(supplyPurchases).where(and(eq(supplyPurchases.source, 'daily'), inRange(supplyPurchases.sourceDate)))
@@ -310,7 +310,7 @@ async function dailyRows(range: DateRange) {
 // antes del rango ni cortar uno que terminó después; se devuelven los que se
 // superponen con el rango. `origen` dice quién lo decidió: 'manual' (una persona) o,
 // en la fase 2, 'propuesta_confirmada'.
-async function stockoutIntervals(range: DateRange) {
+async function stockoutIntervals(db: Executor, range: DateRange) {
   const events = await db.select({
     at: auditLog.at, localAt: localTs(auditLog.at), dishId: auditLog.entityId, data: auditLog.data, by: users.name,
   }).from(auditLog)

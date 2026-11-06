@@ -144,7 +144,7 @@ MODULES = [
                  ("architecture/api", "§6 Inventario"), ("architecture/data-model", "§9 Inventario")],
         "files": ["server/src/routes/inventory.ts", "server/src/services/inventory.service.ts", "server/src/schemas/inventory.ts",
                   "server/src/services/inventory-daily.service.ts", "server/src/services/inventory-export.service.ts",
-                  "server/src/services/settings.service.ts", "server/src/domain/settings.ts", "server/src/schemas/settings.ts", "server/src/routes/settings.ts", "server/src/utils/local.ts",
+                  "server/src/services/settings.service.ts", "server/src/domain/settings.ts", "server/src/domain/daily.ts", "server/src/schemas/settings.ts", "server/src/routes/settings.ts", "server/src/utils/local.ts",
                   "server/src/utils/csv.ts", "server/src/utils/codes.ts", "server/src/__tests__/inventory.test.ts",
                   "server/src/__tests__/inventory.daily.test.ts", "server/src/__tests__/inventory.export.test.ts",
                   "server/src/__tests__/inventory.transfers.test.ts", "server/src/__tests__/settings.test.ts",

@@ -241,3 +241,27 @@ describe('GET /api/inventory/daily/pending', () => {
     expect(after.body).toEqual({ date: yesterday, pending: false, missing: { apertura: false, compra: false } })
   })
 })
+
+describe('consultas de getDaily (T4)', () => {
+  it('[RNF09] hace una cantidad fija de consultas, sin importar el número de insumos', async () => {
+    const { getDaily } = await import('../services/inventory-daily.service')
+    const countSelects = async () => {
+      let n = 0
+      const counting = new Proxy(ctx.db, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver)
+          if (prop === 'select') return (...args: unknown[]) => { n++; return (value as (...a: unknown[]) => unknown).apply(target, args) }
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      await getDaily(counting as never, today)
+      return n
+    }
+    const withThree = await countSelects()
+    const extra = await ctx.db.insert(ctx.schema.supplies).values(
+      ['A', 'B', 'C', 'D', 'E'].map((x, i) => ({ name: `Insumo ${x}`, code: `INSUMO_${x}`, unit: 'kg' as const, critical: true, sortOrder: 20 + i })),
+    ).returning()
+    expect(await countSelects()).toBe(withThree)
+    for (const s of extra) await ctx.db.delete(ctx.schema.supplies).where(eq(ctx.schema.supplies.id, s.id))
+  })
+})

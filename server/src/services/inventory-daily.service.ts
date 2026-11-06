@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt, lte, sql } from 'drizzle-orm'
-import { db, type Executor } from '../db'
+import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm'
+import { db as defaultDb, type DB, type Executor } from '../db'
 import {
   bills, dailyParts, dayNotes, otherSupplyCosts, supplies, supplyCounts, supplyPurchases, supplyTransfers, supplyWaste, users,
 } from '../db/schema'
@@ -11,6 +11,7 @@ import { addDays, localDateString, parseDayBoundary, sqliteLocalOffset } from '.
 import { roundMoney } from '../utils/math'
 import { currentLocalId, otherLocalId } from '../utils/local'
 import { transfersEnabled } from '../domain/settings'
+import { otherCostReference, purchaseReference, summarizePurchases } from '../domain/daily'
 import type { SaveDailyInput } from '../schemas/inventory'
 
 // «Compra del día» (plan v3 §2.2): la única rutina obligatoria de la tesis, en dos
@@ -95,40 +96,17 @@ function compraSnapshot(r: Awaited<ReturnType<typeof compraRows>>) {
   }
 }
 
-// Referencia para [Usar] en «Compraste»: lo comprado el mismo día de la semana
-// anterior; si no hubo, la última compra. Precio: el de la última compra. Proveedor:
-// el último usado. Nunca se prellena: el dueño la confirma con un toque.
-async function purchaseReference(ex: Executor, supplyId: number, date: string) {
-  const [lastWeek] = await ex.select({ qty: sql<number | null>`sum(${supplyPurchases.quantity})` })
-    .from(supplyPurchases)
-    .where(and(eq(supplyPurchases.supplyId, supplyId), eq(supplyPurchases.purchasedAt, addDays(date, -7))))
-  const [last] = await ex.select().from(supplyPurchases)
-    .where(and(eq(supplyPurchases.supplyId, supplyId), lt(supplyPurchases.purchasedAt, date)))
+// Historia para las referencias de [Usar], en una consulta por tabla (no por insumo):
+// las compras y los otros insumos anteriores a la fecha, de lo más reciente a lo más
+// antiguo. El cálculo está en domain/daily.ts.
+async function referenceHistory(ex: Executor, date: string) {
+  const purchases = await ex.select().from(supplyPurchases)
+    .where(lt(supplyPurchases.purchasedAt, date))
     .orderBy(desc(supplyPurchases.purchasedAt), desc(supplyPurchases.id))
-    .limit(1)
-  const [lastSupplier] = await ex.select({ supplier: supplyPurchases.supplier }).from(supplyPurchases)
-    .where(and(eq(supplyPurchases.supplyId, supplyId), lt(supplyPurchases.purchasedAt, date), isNotNull(supplyPurchases.supplier)))
-    .orderBy(desc(supplyPurchases.purchasedAt), desc(supplyPurchases.id))
-    .limit(1)
-  const fromLastWeek = !!lastWeek?.qty
-  return {
-    purchased: fromLastWeek ? lastWeek.qty : last?.quantity ?? null,
-    fromDate: fromLastWeek ? addDays(date, -7) : last?.purchasedAt ?? null,
-    unitPrice: last && last.quantity > 0 ? roundMoney(last.totalCost / last.quantity) : null,
-    supplier: lastSupplier?.supplier ?? null,
-  }
-}
-
-// Referencia para [Usar] en «Otros insumos»: el mismo día de la semana anterior o el último
-async function otherCostReference(ex: Executor, date: string) {
-  const local = currentLocalId()
-  const [lastWeek] = await ex.select().from(otherSupplyCosts)
-    .where(and(eq(otherSupplyCosts.date, addDays(date, -7)), eq(otherSupplyCosts.localId, local)))
-  if (lastWeek) return { amount: lastWeek.amount, fromDate: lastWeek.date }
-  const [last] = await ex.select().from(otherSupplyCosts)
-    .where(and(lt(otherSupplyCosts.date, date), eq(otherSupplyCosts.localId, local)))
-    .orderBy(desc(otherSupplyCosts.date)).limit(1)
-  return last ? { amount: last.amount, fromDate: last.date } : null
+  const other = await ex.select({ date: otherSupplyCosts.date, amount: otherSupplyCosts.amount }).from(otherSupplyCosts)
+    .where(and(lt(otherSupplyCosts.date, date), eq(otherSupplyCosts.localId, currentLocalId())))
+    .orderBy(desc(otherSupplyCosts.date))
+  return { purchases, other }
 }
 
 // Quién guardó cada parte y cuándo (el primer guardado), cuántas correcciones tuvo y
@@ -143,12 +121,14 @@ async function partStatus(ex: Executor, date: string, part: Part) {
   return { by: rows[0].by, at: rows[0].at, corrections: rows.length - 1, lastAt: last.at, noPurchase: last.noPurchase }
 }
 
-export async function getDaily(date: string) {
+export async function getDaily(db: Executor = defaultDb, date: string) {
   const a = await aperturaRows(db, date)
   const c = await compraRows(db, date)
   const settings = await readSettings(db)
   const compraStatus = await partStatus(db, date, 'compra')
   const noPurchase = compraStatus?.noPurchase === true
+  const history = await referenceHistory(db, date)
+  const sameDayLastWeek = addDays(date, -7)
   const touched = new Set([...a.counts, ...a.waste, ...c.purchases, ...c.transfers].map(r => r.supplyId))
   // Los críticos activos, más cualquier insumo que ya tenga datos ese día
   const list = (await db.select().from(supplies).orderBy(asc(supplies.sortOrder), asc(supplies.name)))
@@ -158,10 +138,8 @@ export async function getDaily(date: string) {
   for (const s of list) {
     const count = a.counts.find(x => x.supplyId === s.id)
     const waste = a.waste.filter(x => x.supplyId === s.id)
-    const purchases = c.purchases.filter(x => x.supplyId === s.id)
+    const bought = summarizePurchases(c.purchases.filter(x => x.supplyId === s.id))
     const transfers = c.transfers.filter(x => x.supplyId === s.id)
-    const purchased = purchases.reduce((t, p) => t + p.quantity, 0)
-    const totalCost = purchases.reduce((t, p) => t + p.totalCost, 0)
     items.push({
       supplyId: s.id,
       code: s.code,
@@ -171,17 +149,17 @@ export async function getDaily(date: string) {
       openingMode: count?.entryMode ?? null,
       wasted: waste.reduce((t, w) => t + w.quantity, 0),
       wastedMode: waste[0]?.entryMode ?? null,
-      purchased,
+      purchased: bought.purchased,
       // «Hoy no compré»: cada crítico queda en 0 sin tocar
-      purchasedMode: purchases[0]?.entryMode ?? (noPurchase ? 'default' : null),
-      unitPrice: purchased > 0 ? roundMoney(totalCost / purchased) : null,
-      priceMode: purchases[0]?.priceEntryMode ?? null,
-      totalCost: purchases.length > 0 ? roundMoney(totalCost) : null,
-      supplier: purchases.find(p => p.supplier)?.supplier ?? null,
+      purchasedMode: bought.mode ?? (noPurchase ? 'default' : null),
+      unitPrice: bought.unitPrice,
+      priceMode: bought.priceMode,
+      totalCost: bought.totalCost,
+      supplier: bought.supplier,
       transfer: transfers.reduce((t, x) => t + x.quantity, 0),
       transferMode: transfers[0]?.entryMode ?? null,
       transferUnitCost: transfers[0]?.unitCost ?? null,
-      reference: await purchaseReference(db, s.id, date),
+      reference: purchaseReference(history.purchases, s.id, sameDayLastWeek),
     })
   }
 
@@ -193,7 +171,7 @@ export async function getDaily(date: string) {
     transfers: { enabled: transfersEnabled(settings, date), direction: currentLocalId() === 1 ? 'envio' : 'recepcion' },
     items,
     otherCost: c.other[0] ? { amount: c.other[0].amount, mode: c.other[0].entryMode } : null,
-    otherCostReference: await otherCostReference(db, date),
+    otherCostReference: otherCostReference(history.other, sameDayLastWeek),
     notes: a.notes.map(n => ({ id: n.id, kind: n.kind, text: n.text })),
   }
 }
@@ -202,7 +180,7 @@ export async function getDaily(date: string) {
 // (source='daily'), así guardar una no borra la otra. Las compras y mermas manuales no
 // se tocan. Cada guardado deja una fila en daily_parts y audit_log; volver a guardar
 // es una corrección (is_correction) y no pide motivo (cero sensación de tarea).
-export async function saveDaily(input: SaveDailyInput, userId: number) {
+export async function saveDaily(db: DB = defaultDb, input: SaveDailyInput, userId: number) {
   const date = input.date ?? localDateString()
   assertInWindow(date)
   const local = currentLocalId()
@@ -314,11 +292,11 @@ export async function saveDaily(input: SaveDailyInput, userId: number) {
     })
   }))
 
-  return getDaily(date)
+  return getDaily(db, date)
 }
 
 // Indicador discreto del Layout: ayer hubo ventas y falta alguna parte
-export async function dailyPending() {
+export async function dailyPending(db: Executor = defaultDb) {
   const date = addDays(localDateString(), -1)
   const missing = {
     apertura: (await partStatus(db, date, 'apertura')) === null,

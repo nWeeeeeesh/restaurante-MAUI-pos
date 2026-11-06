@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
-import { db, type Executor } from '../db'
+import { db as defaultDb, type DB, type Executor } from '../db'
 import { dishes, lostSales, supplies, supplyCounts, supplyPurchases, supplyWaste, users } from '../db/schema'
 import { withWriteLock } from '../db/write-lock'
 import { DomainError } from '../errors'
@@ -42,7 +42,7 @@ async function assertNameFree(tx: Executor, name: string, exceptId?: number) {
 }
 
 // ── Insumos ──────────────────────────────────────────────────────────────────
-export async function listSupplies(includeInactive: boolean) {
+export async function listSupplies(db: Executor = defaultDb, includeInactive: boolean) {
   const q = db.select().from(supplies)
   const order = [asc(supplies.sortOrder), asc(supplies.name)]
   const rows = includeInactive ? await q.orderBy(...order) : await q.where(eq(supplies.active, true)).orderBy(...order)
@@ -50,7 +50,7 @@ export async function listSupplies(includeInactive: boolean) {
   return rows.sort((a, b) => Number(b.critical) - Number(a.critical))
 }
 
-export function createSupply(input: CreateSupplyInput) {
+export function createSupply(db: DB = defaultDb, input: CreateSupplyInput) {
   return withWriteLock(() => db.transaction(async (tx) => {
     await assertNameFree(tx, input.name)
     const taken = new Set((await tx.select({ code: supplies.code }).from(supplies)).map(r => r.code).filter((c): c is string => !!c))
@@ -67,7 +67,7 @@ export function createSupply(input: CreateSupplyInput) {
   }))
 }
 
-export function updateSupply(id: number, input: UpdateSupplyInput, userId: number) {
+export function updateSupply(db: DB = defaultDb, id: number, input: UpdateSupplyInput, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplies).where(eq(supplies.id, id))
     if (!before) throw new DomainError('Insumo no encontrado', 404, 'SUPPLY_NOT_FOUND')
@@ -94,7 +94,7 @@ const purchaseColumns = {
   createdAt: supplyPurchases.createdAt,
 }
 
-export function listPurchases(range: DateRange) {
+export function listPurchases(db: Executor = defaultDb, range: DateRange) {
   return db.select(purchaseColumns).from(supplyPurchases)
     .innerJoin(supplies, eq(supplyPurchases.supplyId, supplies.id))
     .leftJoin(users, eq(supplyPurchases.createdBy, users.id))
@@ -102,7 +102,7 @@ export function listPurchases(range: DateRange) {
     .orderBy(desc(supplyPurchases.purchasedAt), desc(supplyPurchases.id))
 }
 
-export function createPurchase(input: CreatePurchaseInput, userId: number) {
+export function createPurchase(db: DB = defaultDb, input: CreatePurchaseInput, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     await requireSupply(tx, input.supplyId)
     const [row] = await tx.insert(supplyPurchases).values({
@@ -121,7 +121,7 @@ export function createPurchase(input: CreatePurchaseInput, userId: number) {
   }))
 }
 
-export function updatePurchase(id: number, input: UpdatePurchaseInput, userId: number) {
+export function updatePurchase(db: DB = defaultDb, id: number, input: UpdatePurchaseInput, userId: number) {
   const { reason, ...changes } = input
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplyPurchases).where(eq(supplyPurchases.id, id))
@@ -133,7 +133,7 @@ export function updatePurchase(id: number, input: UpdatePurchaseInput, userId: n
   }))
 }
 
-export function deletePurchase(id: number, reason: string, userId: number) {
+export function deletePurchase(db: DB = defaultDb, id: number, reason: string, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplyPurchases).where(eq(supplyPurchases.id, id))
     if (!before) throw new DomainError('Compra no encontrada', 404, 'PURCHASE_NOT_FOUND')
@@ -158,7 +158,7 @@ const wasteColumns = {
   createdAt: supplyWaste.createdAt,
 }
 
-export function listWaste(range: DateRange) {
+export function listWaste(db: Executor = defaultDb, range: DateRange) {
   return db.select(wasteColumns).from(supplyWaste)
     .innerJoin(supplies, eq(supplyWaste.supplyId, supplies.id))
     .leftJoin(users, eq(supplyWaste.createdBy, users.id))
@@ -166,7 +166,7 @@ export function listWaste(range: DateRange) {
     .orderBy(desc(supplyWaste.wastedAt), desc(supplyWaste.id))
 }
 
-export function createWaste(input: CreateWasteInput, userId: number) {
+export function createWaste(db: DB = defaultDb, input: CreateWasteInput, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     await requireSupply(tx, input.supplyId)
     const [row] = await tx.insert(supplyWaste).values({
@@ -183,7 +183,7 @@ export function createWaste(input: CreateWasteInput, userId: number) {
   }))
 }
 
-export function updateWaste(id: number, input: UpdateWasteInput, userId: number) {
+export function updateWaste(db: DB = defaultDb, id: number, input: UpdateWasteInput, userId: number) {
   const { correctionReason, ...changes } = input
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplyWaste).where(eq(supplyWaste.id, id))
@@ -195,7 +195,7 @@ export function updateWaste(id: number, input: UpdateWasteInput, userId: number)
   }))
 }
 
-export function deleteWaste(id: number, reason: string, userId: number) {
+export function deleteWaste(db: DB = defaultDb, id: number, reason: string, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplyWaste).where(eq(supplyWaste.id, id))
     if (!before) throw new DomainError('Merma no encontrada', 404, 'WASTE_NOT_FOUND')
@@ -205,7 +205,7 @@ export function deleteWaste(id: number, reason: string, userId: number) {
 }
 
 // ── Conteos sueltos (la apertura la registra la «Compra del día») ────────────
-export function listCounts(date: string, moment?: 'apertura' | 'cierre') {
+export function listCounts(db: Executor = defaultDb, date: string, moment?: 'apertura' | 'cierre') {
   return db.select({
     id: supplyCounts.id,
     supplyId: supplyCounts.supplyId,
@@ -225,7 +225,7 @@ export function listCounts(date: string, moment?: 'apertura' | 'cierre') {
 
 // Upsert de todos los insumos del día en una transacción: volver a guardar el
 // mismo día corrige el conteo (queda en audit_log con el valor anterior).
-export async function saveCounts(date: string, input: SaveCountsInput, userId: number) {
+export async function saveCounts(db: DB = defaultDb, date: string, input: SaveCountsInput, userId: number) {
   if (date > localDateString()) throw new DomainError('No se puede contar un día futuro', 400, 'FUTURE_DATE')
   const moment = input.moment ?? 'cierre'
   await withWriteLock(() => db.transaction(async (tx) => {
@@ -246,11 +246,11 @@ export async function saveCounts(date: string, input: SaveCountsInput, userId: n
       }
     }
   }))
-  return listCounts(date, moment)
+  return listCounts(db, date, moment)
 }
 
 // ── Ventas perdidas ──────────────────────────────────────────────────────────
-export function createLostSale(input: CreateLostSaleInput, userId: number) {
+export function createLostSale(db: DB = defaultDb, input: CreateLostSaleInput, userId: number) {
   return withWriteLock(() => db.transaction(async (tx) => {
     if (input.dishId !== undefined) {
       const [dish] = await tx.select({ id: dishes.id }).from(dishes).where(eq(dishes.id, input.dishId))
@@ -272,7 +272,7 @@ export function createLostSale(input: CreateLostSaleInput, userId: number) {
 }
 
 // occurred_at es UTC: el rango se convierte a límites del día local
-export function listLostSales(range: DateRange) {
+export function listLostSales(db: Executor = defaultDb, range: DateRange) {
   return db.select({
     id: lostSales.id,
     dishId: lostSales.dishId,
