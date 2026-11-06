@@ -238,6 +238,12 @@ export interface Seleccion {
   sigmaH: number
 }
 
+export interface SeleccionMulti {
+  metodo: Metodo
+  mae: Record<Metodo, number>
+  sigmas: Map<number, number>   // σ_H para cada H pedido
+}
+
 // Elige el método por MAE con origen móvil y calcula σ_H (ver formulas.seleccionar):
 // orígenes o = n−hMax−W … n−hMax−1 con W = min(24, n − 12); MAE de los horizontes
 // 1…hMax sin días imputados; σ_H del error acumulado en H días (≥ 6 errores; si no,
@@ -246,12 +252,22 @@ export function seleccionar(
   y: readonly number[], imputado: readonly boolean[], dows: readonly number[], feriados: readonly boolean[],
   H: number, hMax = 3, wMax = 24, minHist = 12,
 ): Seleccion | null {
+  const r = seleccionarMulti(y, imputado, dows, feriados, [H], hMax, wMax, minHist)
+  return r && { metodo: r.metodo, mae: r.mae, sigmaH: r.sigmas.get(H)! }
+}
+
+// Lo mismo, con σ_H para varios H en una sola pasada (cada fila guardada lleva el σ de
+// su horizonte). Los orígenes y el MAE no dependen de H mientras H ≤ hMax.
+export function seleccionarMulti(
+  y: readonly number[], imputado: readonly boolean[], dows: readonly number[], feriados: readonly boolean[],
+  Hs: readonly number[], hMax = 3, wMax = 24, minHist = 12,
+): SeleccionMulti | null {
   const n = y.length
   if (n < minHist) return null
   const W = Math.min(wMax, n - minHist)
-  const hh = Math.max(hMax, H)
+  const hh = Math.max(hMax, ...Hs)
   const errores = Object.fromEntries(METODOS.map(m => [m, [] as number[]])) as Record<Metodo, number[]>
-  const acumulados = Object.fromEntries(METODOS.map(m => [m, [] as number[]])) as Record<Metodo, number[]>
+  const acumulados = new Map(Hs.map(H => [H, Object.fromEntries(METODOS.map(m => [m, [] as number[]])) as Record<Metodo, number[]>]))
   for (let o = n - hMax - W; o < n - hMax; o++) {
     const objetivos: number[] = []
     for (let t = o + 1; t < o + 1 + hh; t++) if (t < n) objetivos.push(t)
@@ -267,27 +283,29 @@ export function seleccionar(
         const t = o + 1 + k
         if (!imputado[t]) errores[metodo].push(Math.abs(y[t] - f[k]))
       }
-      if (o + H < n) {
+      for (const H of Hs) {
+        if (o + H >= n) continue
         let algunoImputado = false
         for (let t = o + 1; t < o + 1 + H; t++) if (imputado[t]) algunoImputado = true
-        if (!algunoImputado) {
-          const reales: number[] = []
-          for (let t = o + 1; t < o + 1 + H; t++) reales.push(y[t])
-          acumulados[metodo].push(suma(reales) - suma(f.slice(0, H)))
-        }
+        if (algunoImputado) continue
+        const reales: number[] = []
+        for (let t = o + 1; t < o + 1 + H; t++) reales.push(y[t])
+        acumulados.get(H)![metodo].push(suma(reales) - suma(f.slice(0, H)))
       }
     }
   }
   const mae = Object.fromEntries(METODOS.map(m => [m, errores[m].length ? suma(errores[m]) / errores[m].length : Infinity])) as Record<Metodo, number>
   let metodo: Metodo = METODOS[0]
   for (const m of METODOS) if (mae[m] < mae[metodo]) metodo = m
-  const errs = acumulados[metodo]
-  let sigmaH: number
-  if (errs.length >= 6) {
-    const prom = suma(errs) / errs.length
-    sigmaH = Math.sqrt(suma(errs.map(e => (e - prom) * (e - prom))) / (errs.length - 1))
-  } else {
-    sigmaH = 0.25 * (suma(y) / n) * Math.sqrt(H)
+  const sigmas = new Map<number, number>()
+  for (const H of Hs) {
+    const errs = acumulados.get(H)![metodo]
+    if (errs.length >= 6) {
+      const prom = suma(errs) / errs.length
+      sigmas.set(H, Math.sqrt(suma(errs.map(e => (e - prom) * (e - prom))) / (errs.length - 1)))
+    } else {
+      sigmas.set(H, 0.25 * (suma(y) / n) * Math.sqrt(H))
+    }
   }
-  return { metodo, mae, sigmaH }
+  return { metodo, mae, sigmas }
 }

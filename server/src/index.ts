@@ -9,6 +9,7 @@ import { applyStartupMigrations } from './db/migrate'
 import { setIo } from './realtime'
 import { checkTimezone, checkDefaultPasswords } from './startup-checks'
 import { currentLocalId } from './utils/local'
+import { iniciarTareaNocturna } from './jobs/nightly'
 
 // ── Validación de configuración crítica al startup ────────────────────────
 // JWT_SECRET es obligatorio y debe ser largo. Sin esto, todo el flujo de auth
@@ -92,6 +93,8 @@ applyStartupMigrations()
     checkTimezone()
     await checkDefaultPasswords()
     httpServer.listen(PORT, () => console.log(`MauiDesk server running on port ${PORT}`))
+    // Pronóstico de cada noche a las 23:30 de Lima (NIGHTLY_JOBS=off la apaga)
+    if (iniciarTareaNocturna({ localId: currentLocalId() }) === null) console.log('[startup] Tarea nocturna apagada (NIGHTLY_JOBS=off)')
   })
   .catch(err => {
     console.error('[FATAL] Falló una migración requerida; el servidor no arranca:', err)

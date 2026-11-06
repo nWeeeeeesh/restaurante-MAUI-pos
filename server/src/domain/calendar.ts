@@ -58,6 +58,13 @@ export function siguienteAtencion(cal: Calendario, fecha: string): string {
   return d
 }
 
+// Día de atención anterior (la «noche» cuyo pronóstico usa la lista de compra de `fecha`)
+export function anteriorAtencion(cal: Calendario, fecha: string): string {
+  let d = addDaysIso(fecha, -1)
+  for (let k = 0; k < 366 && !atiende(cal, d); k++) d = addDaysIso(d, -1)
+  return d
+}
+
 export type Agrupacion = 'day' | 'week' | 'month'
 
 // Grupos del periodo: días, semanas de lunes a domingo o meses calendario, recortados

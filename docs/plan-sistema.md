@@ -238,7 +238,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** todas pasan; ninguna función importa `db` ni usa el reloj.
 
-### - [ ] T15. Repositorio, servicio y tarea nocturna
+### - [x] T15. Repositorio, servicio y tarea nocturna
 1. `repositories/forecast.repo.ts`: demanda diaria por insumo (consumo real o imputado más las ventas perdidas) de los últimos N días de atención; pronósticos guardados; último conteo; ventas del día hasta la hora t.
 2. `services/forecast.service.ts`:
    - `generarPronosticos(ex, { localId, madeOn })`: para cada insumo crítico construye la serie de días de atención hasta `madeOn` inclusive, elige el método (MAE con origen móvil en los últimos 24 días de atención, horizontes 1 a 3), pronostica los 3 siguientes días de atención y guarda con `model_version = 'mauidesk-forecast-1'`. **Idempotente:** si ya existe el pronóstico de esa noche, no lo modifica (RD04). Registra la ejecución en `forecast_runs`.
@@ -478,3 +478,18 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Pruebas.** Cubren PU-13 a PU-16 y PU-18, los casos de resultado conocido (demanda constante, patrón semanal con MAE 0 y elección del ingenuo en empate, respaldo con historia corta, demanda cero, z con 4 decimales) y dos más: un día imputado no entra en el error, y Gauss con un sistema singular.
   - **Corrección a mi propia prueba.** El caso de respaldo esperaba un promedio de dos semanas, pero con menos de 12 días solo hay una semana previa por día. Corregí la expectativa; el código ya hacía lo correcto.
   - Pruebas: 219.
+- **2026-11-06 · T15.** Repositorio, servicio y tarea nocturna del pronóstico:
+  - **Lecturas.** `forecast.repo.ts` reutiliza `leerPeriodo` de la rentabilidad (el consumo real o imputado necesita lo mismo) y agrega: agotados por día local desde `dish.availability`, parámetros de los insumos, pronósticos guardados, últimos conteos y ventas hasta una hora.
+  - **Serie de demanda.** La arman F4 y F5 en `domain/demand.ts` (`serieDemanda` y `pronosticoNoche`), que es puro. Un agotado marca todas las variantes con receta de ese plato.
+  - **σ por horizonte.** Cada fila de `demand_forecasts` guarda en `sigma_h` el σ del error acumulado de su horizonte (σ₁, σ₂, σ₃). `seleccionarMulti` los calcula en una pasada, y σ₂ es idéntico al de la referencia. Así la lista de compra acepta una cobertura de 1 a 3 días sin recalcular.
+  - **Cobertura.** El máximo es min(3, vida útil), porque se pronostican 3 días de atención; el plan hablaba del máximo de la vida útil, que llega a 10 en el limón. Un insumo sin nivel de servicio usa 0.95. Con el método de respaldo, σ queda en null y Q usa 0.
+  - **Idempotencia (RD04).** `generarPronosticos` no toca los insumos que ya tienen el pronóstico de esa noche: inserta con `onConflictDoNothing` sobre `uq_demand_forecasts_night` y registra cada ejecución en `forecast_runs`.
+  - **Lista de compra.** `listaCompra` toma los pronósticos de la noche anterior a la fecha (`anteriorAtencion`) y, si faltan, los genera. Guarda cada sugerencia con `available_source`.
+  - **Stock teórico y avisos.** `stockTeorico` aplica F6 en un instante, desde el último conteo y con las ventas hasta esa hora. `avisos` solo lista los platos disponibles con pocas porciones; no marca agotados (RD02).
+  - **Tarea nocturna.** `jobs/nightly.ts` corre a las 23:30 de Lima (04:30 UTC) solo los días de atención. Al arrancar corre la última noche cerrada si no tiene una ejecución `ok`. Hay `NIGHTLY_JOBS=off` en `.env.example` y en `vitest.config.ts`.
+  - **Pruebas.**
+    - **PP-02 y PP-03:** las 24 noches × 4 insumos coinciden con `esperado.json` en método, día objetivo, kg (±0.01), σ₂, origen y valor de A, y Q. Corren en unos 6 s.
+    - **PI-10:** 12 filas por noche; una segunda ejecución, aun con los conteos cambiados, no cambia nada.
+    - **PI-11:** `GET /daily/:date` responde idéntico antes y después de pronosticar y de pedir la lista.
+    - **Tarea:** hora de la próxima ejecución, puesta al día y lunes cerrado.
+    - Pruebas: 227.

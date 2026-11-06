@@ -6,6 +6,6 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     testTimeout: 15000,
     // Días locales de Lima en cualquier máquina (los datos simulados y el export dependen de eso)
-    env: { TZ: 'America/Lima' },
+    env: { TZ: 'America/Lima', NIGHTLY_JOBS: 'off' },
   },
 })

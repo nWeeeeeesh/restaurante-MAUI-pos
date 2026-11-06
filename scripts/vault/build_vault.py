@@ -181,10 +181,14 @@ MODULES = [
         "summary": "Incremento 3 de la tesis: demanda no censurada por insumo, cuatro métodos de pronóstico elegidos por MAE con origen móvil, σ_H y cantidad sugerida (lista de compra).",
         "rules": [
             "Las fórmulas (plan-sistema §4.2) son funciones puras en `domain/forecast.ts`, espejo de `scripts/tesis/formulas.py` con el mismo orden de operaciones (los empates del método elegido deben coincidir).",
+            "Tarea nocturna (`jobs/nightly.ts`, la arranca `index.ts`): cada día de atención a las 23:30 de Lima; al arrancar corre la noche pendiente. `NIGHTLY_JOBS=off` la apaga.",
+            "Cada fila de `demand_forecasts` lleva el σ del error acumulado de su horizonte; la cobertura de la lista va de 1 a 3 días de atención.",
             "RD01: la «Compra del día» nunca muestra el pronóstico. RD04: un pronóstico guardado no se modifica (`uq_demand_forecasts_night`).",
         ],
         "docs": [("plan-sistema", "§4.2 Pronóstico, T13 a T18")],
-        "files": ["server/src/domain/forecast.ts", "server/src/__tests__/domain.forecast.test.ts"],
+        "files": ["server/src/domain/forecast.ts", "server/src/__tests__/domain.forecast.test.ts",
+                  "server/src/domain/demand.ts", "server/src/repositories/forecast.repo.ts",
+                  "server/src/services/forecast.service.ts", "server/src/jobs/nightly.ts", "server/src/__tests__/forecast.test.ts"],
     },
     {
         "id": "impresion", "name": "Impresión",
