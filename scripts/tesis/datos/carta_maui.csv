@@ -1,0 +1,52 @@
+﻿categoria,plato,variante,precio,descripcion
+De nuestra carta,Leche de tigre clásica,pescado,12,Más porción de chicharrón
+De nuestra carta,Leche de tigre clásica,calamar,13,Más porción de chicharrón
+De nuestra carta,Leche de tigre Maui,pescado,13,A base de pescado y pulpo; más porción de chicharrón
+De nuestra carta,Leche de tigre Maui,calamar,14,A base de pescado y pulpo; más porción de chicharrón
+De nuestra carta,Leche de tigre levantamuerto,pescado,12,Crema picante con trozos de pescado; más porción de chicharrón
+De nuestra carta,Leche de tigre levantamuerto,calamar,13,Crema picante con trozos de pescado; más porción de chicharrón
+Las Power de Maui,Cevichop clásico,pescado,15,Trozos de pescado y camote con bastante jugo; más porción de chicharrón
+Las Power de Maui,Cevichop clásico,calamar,17,Trozos de pescado y camote con bastante jugo; más porción de chicharrón
+Las Power de Maui,Cevichop levantamuerto,pescado,15,"Picante, con pescado y camote; más porción de chicharrón"
+Las Power de Maui,Cevichop levantamuerto,calamar,17,"Picante, con pescado y camote; más porción de chicharrón"
+Las Power de Maui,Cevichop Maui,pescado,16,Con pescado y pulpo; más porción de chicharrón
+Las Power de Maui,Cevichop Maui,calamar,18,Con pescado y pulpo; más porción de chicharrón
+Las Power de Maui,Causita de pescado,,10,Rellena de pescado y palta
+Nuestras infaltables,Ceviche clásico de pescado,,18,Con choclo y camote
+Nuestras infaltables,Ceviche levantamuerto,,18,"Con crema picante, choclo y camote"
+Nuestras infaltables,Ceviche carretillero,,19,"Con camote, choclo y porción de chicharrón"
+Nuestros arroces,Arrocito de mariscos,,16,Con sarsa criolla y shot de leche de tigre
+Nuestros arroces,Chaufita de mariscos,,16,Con wantán frito y shot de leche de tigre
+Nuestros arroces,Chaufita de pescado,,17,"Con trozos crocantes de pescado, wantán frito y shot de leche de tigre"
+Nuestros dúos marinos,Ceviche con arrocito de mariscos,,19,
+Nuestros dúos marinos,Ceviche con chaufita de mariscos,,19,
+Nuestros dúos marinos,Ceviche con chicharrón de pescado,,19,
+Nuestros dúos marinos,Ceviche con causita de pescado,,20,
+Nuestros dúos marinos,Ceviche con chicharrón de calamar,,20,
+Nuestros dúos marinos,Ceviche con chaufa de pescado,,20,
+Nuestros dúos marinos,Dúo ármalo a tu gusto,,20,
+Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,pescado,22,
+Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,calamar,23,
+Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,pescado,22,
+Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,calamar,23,
+Nuestros tríos marinos,Ceviche + causita + chicharrón,pescado,22,
+Nuestros tríos marinos,Ceviche + causita + chicharrón,calamar,23,
+Nuestros tríos marinos,Trío ármalo a tu gusto,,20,
+Las crocantitas,Chicharrón de pescado,,16,"Con sarsa criolla, yuca y shot de leche de tigre"
+Las crocantitas,Chicharrón de calamar,,18,"Con sarsa criolla, yuca y shot de leche de tigre"
+Las crocantitas,Chicharrón a lo Maui,,22,"Pescado, calamar y pulpo; más porción de ceviche"
+Las crocantitas,Filete de pescado,,15,"Con arroz, sarsa criolla y yuca"
+Nuestras calientitas,Parihuela,,20,"Filete de pescado, mixtura de mariscos, jaiba, almejas, yuca y choclo"
+Nuestras calientitas,Sudado de pescado,,16,"Con cebolla, tomate, yuca y choclo"
+Nuestras calientitas,Sudado mixto,,18,"Pescado y mixtura de mariscos, almejas, yuca y choclo"
+Nuestras calientitas,Chilcano de pescado,,14,"Con papa amarilla, choclo y cebolla"
+Nuestras calientitas,Chilcano acevichado,,16,"Con papa amarilla y choclo, coronado con ceviche"
+Nuestras rondas,Ronda lechera,,65,"Para 3 a 4 personas: ceviche, arroz de mariscos, chaufa de mariscos y chicharrón"
+Nuestras rondas,Ronda causera,,65,"Para 3 a 4 personas: ceviche, arroz de mariscos, chaufa de mariscos y chicharrón"
+Bebidas,Chicha morada 1 L,,6,
+Bebidas,Chicha morada 1/2 L,,4,
+Bebidas,Coca Cola 1 L,,6,
+Bebidas,Coca Cola 600 ml,,4,
+Bebidas,Inka Cola 1 L,,6,
+Bebidas,Inka Cola 600 ml,,4,
+Bebidas,Cerveza Pilsen,,8,

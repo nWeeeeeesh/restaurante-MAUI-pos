@@ -5,6 +5,8 @@
 | `Plan_de_Tesis_MAUI_v3.docx` | Plan de tesis (UNSA). Fuente de verdad del diseño de la investigación: problema, objetivos, hipótesis, indicadores, análisis y limitaciones. |
 | `../plan-inventario-tesis.md` | Encargo de desarrollo (v3): qué construir, en qué orden y con qué invariantes. |
 | `../diccionario-datos-tesis.md` | Instrumento de medición: definiciones y columnas del export (dataset v1, congelado el 2026-11-09). |
+| `hitos-tesis.md` | Hitos de redacción de la tesis (H0 a H9), fechas y reglas de redacción y de fuentes. |
+| `fuentes.md` | Registro de fuentes bibliográficas: idioma, año, función, DOI y estado de verificación. |
 | `replicacion-local-2.md` | Registro del costo de instalar el sistema en el segundo local (se crea en la entrega E2). |
 
 ## Resumen del diseño para quien desarrolla
