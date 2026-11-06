@@ -301,7 +301,8 @@ MODULES = [
         ],
         "docs": [("architecture/testing", "completo")],
         "files": ["server/src/__tests__/helpers/db.ts", "server/src/__tests__/helpers/http.ts", "server/vitest.config.ts",
-                  "server/src/__tests__/helpers/sim.ts", "server/src/__tests__/sim.test.ts", "server/scripts/load-sim.ts"],
+                  "server/src/__tests__/helpers/sim.ts", "server/src/__tests__/sim.test.ts", "server/scripts/load-sim.ts",
+                  "server/scripts/trazabilidad.ts"],
     },
     {
         "id": "config", "name": "Build y configuración",

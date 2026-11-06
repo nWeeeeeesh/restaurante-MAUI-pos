@@ -63,7 +63,7 @@ describe('traslados', () => {
     expect(daily.body.items[0]).toMatchObject({ transfer: 2, transferMode: 'typed' })
   })
 
-  it('el local 2 registra recepciones del local 1, con costo opcional, y su propio local_id', async () => {
+  it('[RD06] el local 2 registra recepciones del local 1, con costo opcional, y su propio local_id', async () => {
     process.env.MAUI_LOCAL_ID = '2'
     const day = addDays(today, -2)
     await openSecondLocal(day)

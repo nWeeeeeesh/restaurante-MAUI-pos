@@ -16,7 +16,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:migrate": "tsx src/db/migrate-cli.ts",
     "db:sim": "tsx scripts/load-sim.ts",
-    "perf": "tsx scripts/perf.ts"
+    "perf": "tsx scripts/perf.ts",
+    "report:tesis": "tsx scripts/trazabilidad.ts"
   },
   "keywords": [],
   "author": "",

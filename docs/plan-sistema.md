@@ -296,7 +296,7 @@ Amplía `npm run perf`: `generarPronosticos` de una noche con las 12 semanas y `
 ### - [x] T21. Documentación técnica
 Actualiza `docs/architecture/api.md`, `data-model.md`, `modules.md` y `architecture.md` (capas reales después de este plan) y el vault si existe el script. Agrega un diagrama de secuencia de la rentabilidad en Mermaid que coincida con el código.
 
-### - [ ] T22. Evidencias para el Capítulo IV
+### - [x] T22. Evidencias para el Capítulo IV
 `server/scripts/trazabilidad.ts` (`npm run report:tesis`):
 1. Ejecuta Vitest con el reporter JSON.
 2. Agrupa las pruebas por las etiquetas `[RFxx]`, `[RNFxx]`, `[RDxx]`, `[PU-xx]`, `[PI-xx]` y `[PP-xx]`.
@@ -557,3 +557,15 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **`modules.md`.** Módulos S17 (Rentabilidad), S18 (Pronóstico) y S19 (datos simulados).
   - **`CLAUDE.md`.** Estructura con `repositories/`, `jobs/`, `domain/` y `hooks/`, los scripts `db:sim` y `perf`, el evento nuevo y `NIGHTLY_JOBS`.
   - **Vault.** Regenerado. Es el mismo de cada tarea: grafo con `graphify update .` y vault con `build_vault.py`, sin archivos sin módulo.
+- **2026-11-06 · T22.** `npm run report:tesis` (`server/scripts/trazabilidad.ts`) corre Vitest con el reporter JSON y escribe `docs/tesis/evidencias.md`: resumen por nivel, matriz de los 19 RF, los 10 RNF y las reglas RD, rendimiento, requisitos sin prueba y pruebas por archivo.
+  - **Resultado.** 241 pruebas en verde: 26 unitarias, 209 de integración y 6 de paridad. Cubren PU-01 a PU-18, PI-02 y PI-06 a PI-15, y PP-01 a PP-03.
+  - **Cobertura de los RF.** Los RF02 y RF05 a RF19 tienen pruebas en verde. RF01, RF03 y RF04 (incremento 1) quedan como «aceptación manual: PA-01». Sus pruebas existen sin la etiqueta, porque el repositorio no define a qué corresponde cada uno; al etiquetarlas, el informe las cuenta.
+  - **Cobertura de los RNF.** RNF06, RNF07 y RNF09 tienen pruebas. Los demás quedan como revisión manual de T20; el script solo nombra los que se conocen.
+  - **Reglas RD.** RD03 no está definida en el repositorio. RD06 ya tiene la etiqueta en la prueba de los traslados del local 2.
+  - **Código de salida.** El script termina con 2 si alguna prueba no está en verde o si un RF queda sin prueba ni aceptación manual.
+- **2026-11-06 · Cierre del plan.** T1 a T22 hechas en `feat/sistema-completo`, sin merge a `main` ni despliegue.
+  - **Pendiente del despliegue:**
+    - PA-01, PA-07 y PA-08 en el local.
+    - Marcar mixtura y limón como críticos, y pulpo, langostino y conchas como no críticos (T7).
+    - Cargar las recetas reales y calibrar con al menos 4 semanas de conteos.
+    - Correr `npm run report:tesis` otra vez antes de redactar el Capítulo IV.
