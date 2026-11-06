@@ -13,6 +13,8 @@ import { salesSummary } from '../services/report.service'
 import { audit } from '../services/audit'
 import { withWriteLock } from '../db/write-lock'
 import { DomainError } from '../errors'
+import { ExpenseKindSchema, type ExpenseKindInput } from '../schemas/profitability'
+import { listExpenseCategories, setExpenseKind } from '../services/recipes.service'
 
 const router = Router()
 
@@ -22,6 +24,17 @@ router.get('/summary', requireAuth, requireRole('owner', 'manager'), validateQue
   const start = periodStart(period)
 
   res.json(await salesSummary(db, start))
+})
+
+// Tipo de cada categoría de gasto (RF06): los fijos entran en las ventas de equilibrio
+router.get('/expense-categories', requireAuth, requireRole('owner'), async (_req, res) => {
+  res.json(await listExpenseCategories(db))
+})
+
+router.put('/expense-categories/:category', requireAuth, requireRole('owner'), validateBody(ExpenseKindSchema), async (req, res) => {
+  const category = String(req.params.category).trim()
+  if (category === '' || category.length > 40) throw new DomainError('Categoría inválida', 400, 'INVALID_CATEGORY')
+  res.json(await setExpenseKind(db, category, req.body as ExpenseKindInput, req.user!.id))
 })
 
 // GET /api/reports/expenses?period=today|week|month

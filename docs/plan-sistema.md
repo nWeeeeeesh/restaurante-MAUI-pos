@@ -184,7 +184,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** prueba de paridad `[PP-01][RF12]`: con `sim12` cargado, la rentabilidad semanal y mensual, los factores, los costos por plato y las categorías coinciden con `esperado.json` (tolerancia de S/ 0.01 y 0.0001 en los factores). Prueba `[PI-09][RF14]`: los totales coinciden con la suma de los registros del periodo.
 
-### - [ ] T10. API del incremento 2
+### - [x] T10. API del incremento 2
 - `GET /api/profitability?from&to&groupBy` (propietario).
 - `GET /api/recipes`, `PUT /api/recipes/:dishId` (propietario; cuerpo: lista de `{ variant, supplyId, gramsClean }`; reemplaza la receta del plato y audita).
 - `POST /api/recipes/calibrate` con `{ from, to }` (propietario).
@@ -446,3 +446,10 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Defecto en la referencia.** La paridad encontró un defecto en `referencia.py`: un `defaultdict` daba «receta» vacía a las bebidas, y quedaban sin la marca de plato sin receta. Se corrigió en Python y se regeneró `esperado.json` (solo cambió `sin_receta` de 7 platos). La referencia también define ahora el primer registro como la primera venta, conteo o compra; el resultado no cambia.
   - **Paridad.** PP-01 coincide en las 12 semanas, los 4 meses, los 4 factores (±0.0001) y los 51 platos (costo, margen, categoría).
   - **Pureza.** La prueba de pureza revisa todos los archivos de `domain/`. Pruebas: 196.
+- **2026-11-06 · T10.** API del incremento 2:
+  - **Rutas nuevas.** `routes/profitability.ts` y `routes/recipes.ts`. Los tipos de gasto van en `routes/reports.ts`. Recetas y tipos de gasto están en `services/recipes.service.ts`.
+  - **`PUT /api/recipes/:dishId`.** El cuerpo es la lista de ítems, como dice el plan. Solo acepta insumos críticos (400 `SUPPLY_NOT_CRITICAL`: los demás van en «otros insumos») y rechaza un insumo repetido en la misma variante.
+  - **`GET /api/recipes`.** Devuelve la carta sin archivados, cada ítem con su `kgPerPortion` (en la unidad de compra) y el factor vigente de cada crítico con su periodo y si está fuera de rango.
+  - **Tipos de gasto.** `PUT /expense-categories/:category` también acepta una categoría que todavía no tiene gastos, para clasificarla antes de usarla.
+  - **Insumos.** `PATCH /supplies/:id` admite rendimiento en (0, 1], vida útil de 1 a 365 días (null la borra) y nivel de servicio de 0.50 a 0.999.
+  - **Pruebas.** Las de API usan `sim12`. PI-06: pasar «luz» a variable baja GF de 12 800 a 12 300 y baja las ventas de equilibrio. PI-08: 180 g limpios con rendimiento 0.80 dan 0.225 kg. PI-15: 401 sin sesión y 403 para los roles sin permiso en las seis rutas y en el PATCH de parámetros. Pruebas: 206.

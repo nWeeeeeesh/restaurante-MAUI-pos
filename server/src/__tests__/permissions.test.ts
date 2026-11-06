@@ -109,6 +109,34 @@ describe('matriz de permisos', () => {
     await expectMatrix(only(...ROLES), a => request(ctx.app).post('/api/inventory/lost-sales').set('Authorization', a).send({ dishId }))
   })
 
+  // Incremento 2 (plan-sistema T10): rentabilidad, recetas, calibración y tipo de gasto
+  const increment2: [string, string, unknown?][] = [
+    ['get', '/api/profitability?from=2026-07-01&to=2026-07-31'],
+    ['get', '/api/recipes'],
+    ['put', '/api/recipes/99999', []],
+    ['post', '/api/recipes/calibrate', { from: '2026-07-01', to: '2026-07-31' }],
+    ['get', '/api/reports/expense-categories'],
+    ['put', '/api/reports/expense-categories/gas', { kind: 'variable' }],
+  ]
+
+  it('[PI-15][RNF06] incremento 2: sin sesión, 401', async () => {
+    for (const [method, url, body] of increment2) {
+      const req = (request(ctx.app) as unknown as Record<string, (u: string) => request.Test>)[method](url)
+      const res = body === undefined ? await req : await req.send(body as object)
+      expect(res.status, `${method} ${url}`).toBe(401)
+    }
+  })
+
+  it('[PI-15][RNF06] incremento 2: solo el dueño', async () => {
+    for (const [method, url, body] of increment2) {
+      await expectMatrix(only('owner'), a => {
+        const req = (request(ctx.app) as unknown as Record<string, (u: string) => request.Test>)[method](url).set('Authorization', a)
+        return body === undefined ? req : req.send(body as object)
+      })
+    }
+    await expectMatrix(only('owner'), a => request(ctx.app).patch('/api/inventory/supplies/99999').set('Authorization', a).send({ yield: 0.8 }))
+  })
+
   it('historial: encargado y dueño eligen el rango; cajero y mozo solo ven hoy', async () => {
     for (const role of ROLES) {
       const res = await request(ctx.app).get('/api/bills?from=2020-01-01&to=2020-01-31').set('Authorization', auth[role])

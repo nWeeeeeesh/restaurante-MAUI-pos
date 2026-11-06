@@ -49,6 +49,10 @@ export const UpdateSupplySchema = z.object({
   critical: z.boolean().optional(),
   active: z.boolean().optional(),
   sortOrder: sortOrder.optional(),
+  // Incremento 2 y 3: kg limpios por kg comprado, vida útil y nivel de servicio
+  yield: z.number().gt(0, 'El rendimiento debe ser mayor a 0').max(1, 'El rendimiento no puede superar 1').optional(),
+  shelfLifeDays: z.number().int().min(1).max(365).nullable().optional(),
+  serviceLevel: z.number().min(0.5, 'El nivel de servicio va de 0.50 a 0.999').max(0.999, 'El nivel de servicio va de 0.50 a 0.999').nullable().optional(),
 }).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
 
 export const SuppliesQuerySchema = z.object({
