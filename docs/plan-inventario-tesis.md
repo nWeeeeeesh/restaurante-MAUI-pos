@@ -1,3 +1,5 @@
+> **Superado por docs/plan-sistema.md (2026-11-05).**
+
 # Plan: Inventario de insumos perecibles (tesis de rentabilidad) · v3
 
 > Encargo para Claude Code. Léelo completo junto con `CLAUDE.md` antes de tocar código.

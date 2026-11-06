@@ -70,3 +70,13 @@ export function addDays(date: string, days: number): string {
   d.setDate(d.getDate() + days)
   return localDateString(d)
 }
+
+const LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+// Fecha de Lima 'YYYY-MM-DD'. Un string 'YYYY-MM-DD' ya es una fecha de Lima; un
+// instante se convierte con la zona explícita (no con la del proceso): a las 04:30 UTC
+// del 11 de enero en Lima todavía es 10 de enero.
+export function limaDate(d: Date | string = new Date()): string {
+  if (typeof d === 'string') return d.slice(0, 10)
+  return LIMA.format(d)
+}

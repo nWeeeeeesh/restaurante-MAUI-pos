@@ -13,6 +13,7 @@ import tablesRoutes from './routes/tables'
 import splitRoutes from './routes/split'
 import usersRoutes from './routes/users'
 import inventoryRoutes from './routes/inventory'
+import settingsRoutes from './routes/settings'
 import { errorHandler } from './middleware/error'
 
 export type AllowedOrigins = string[] | '*'
@@ -39,6 +40,7 @@ export function createApp(opts: { allowedOrigins: AllowedOrigins; serveClient?: 
   app.use('/api/tables', tablesRoutes)
   app.use('/api/users', usersRoutes)
   app.use('/api/inventory', inventoryRoutes)
+  app.use('/api/settings', settingsRoutes)
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', app: 'MauiDesk' }))
 

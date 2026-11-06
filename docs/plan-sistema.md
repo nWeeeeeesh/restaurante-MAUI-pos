@@ -72,7 +72,7 @@ Reglas:
 
 **Acepta:** rama creada; CI en verde.
 
-### - [ ] T2. Retirar el estudio por grupos
+### - [x] T2. Retirar el estudio por grupos
 **Objetivo:** que el código ya no dependa del diseño cuasi experimental.
 
 Pasos:
@@ -393,3 +393,4 @@ Actualiza `docs/architecture/api.md`, `data-model.md`, `modules.md` y `architect
 _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión que tomaste y por qué; y la línea base de T1.)_
 
 - **2026-11-05 · T1.** Rama `feat/sistema-completo` creada desde `feat/inventario-fase0` (`d77aab2`). Línea base de `npm run ci`: servidor 23 archivos y **174 pruebas** en verde (14 warnings de lint previos); cliente sin errores (65 warnings previos). Coincide con lo esperado.
+- **2026-11-05 · T2.** `limaDate` pasó de `utils/study.ts` (eliminado) a `utils/dates.ts`, porque la tarea nocturna de T15 la necesitará. La migración ya no asigna `study_group` por código (queda vacío en las bases nuevas). Hasta T19 el export conserva la tabla `study_config` y la columna `grupo` de `supplies` (vacía), para no tocar el dataset dos veces; T19 las quita al subir a v2. Se retira la prueba del invariante de activación; la de RD01 frente al pronóstico llega en T15. La sección «Ajustes» queda en la pestaña Insumos (solo el dueño). Pruebas: 168 en verde.

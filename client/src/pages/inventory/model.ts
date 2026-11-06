@@ -6,7 +6,6 @@ export type WasteReason = 'deterioro' | 'sobra_comensal' | 'preparacion' | 'otro
 export type DayNoteKind = 'feriado' | 'cerrado' | 'evento' | 'proveedor' | 'otro' | 'dueno_ausente'
 // Trazabilidad (invariante 5): escrito, copiado de la referencia o sin tocar
 export type EntryMode = 'typed' | 'copied' | 'default'
-export type StudyGroup = 'calamar' | 'pescado' | 'mariscos'
 
 // Versión de esta pantalla en daily_parts: permite saber con qué interfaz se registró
 export const CLIENT_VERSION = 'inventario-v3'
@@ -21,7 +20,6 @@ export interface Supply {
   critical: boolean | null
   active: boolean | null
   sortOrder: number | null
-  studyGroup: StudyGroup | null
 }
 
 export interface Purchase {
@@ -97,18 +95,10 @@ export interface DailyDay {
   notes: { id: number; kind: DayNoteKind; text: string | null }[]
 }
 
-// Configuración del estudio (GET /inventory/study)
-export interface StudyOverview {
-  today: string
-  config: Partial<Record<StudyKey, string>>
-  groups: { group: StudyGroup; activates_on: string | null; active_today: boolean; supplies: string[] }[]
+// Ajustes del local (GET /api/settings)
+export interface AppSettings {
+  second_local_opened_on?: string
 }
-
-export type StudyKey =
-  | 'baseline_starts_on' | 'study_ends_on' | 'activation_order' | 'activates_calamar' | 'activates_pescado'
-  | 'activates_mariscos' | 'second_local_opens_on' | 'protocol_url'
-
-export const GROUP_LABEL: Record<StudyGroup, string> = { calamar: 'Calamar', pescado: 'Pescado', mariscos: 'Mariscos' }
 
 export const UNIT_LABEL: Record<Unit, string> = { kg: 'kg', unit: 'unid.', l: 'L' }
 

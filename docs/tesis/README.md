@@ -1,3 +1,5 @@
+> **Superado por docs/plan-sistema.md (2026-11-05).**
+
 # Tesis: documentación
 
 | Archivo | Qué es |

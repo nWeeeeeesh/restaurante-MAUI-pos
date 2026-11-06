@@ -181,7 +181,8 @@ const SOURCES = ['manual', 'daily'] as const
 // 'copied' = vino de [Usar] o del precio prellenado sin cambiar; 'default' = no se
 // tocó (Botaste en 0). Null en los registros anteriores a la v3.
 export const ENTRY_MODES = ['typed', 'copied', 'default'] as const
-// Grupos del estudio (activación escalonada; mariscos es el grupo de comparación)
+// Obsoleto desde T2: el estudio por grupos se retiró (plan-sistema.md). Se conserva
+// solo para describir la columna supplies.study_group, que queda sin uso.
 export const STUDY_GROUPS = ['calamar', 'pescado', 'mariscos'] as const
 
 export const supplies = sqliteTable('supplies', {
@@ -196,7 +197,7 @@ export const supplies = sqliteTable('supplies', {
   code: text('code').unique(),
   // Orden en la «Compra del día»
   sortOrder: integer('sort_order').default(0),
-  // Grupo del estudio; null = fuera del estudio. No se edita desde la UI
+  // Obsoleto desde T2: el estudio por grupos se retiró. Columna sin uso (RNF07: no se borra)
   studyGroup: text('study_group', { enum: STUDY_GROUPS }),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })
@@ -285,8 +286,8 @@ export const dayNotes = sqliteTable('day_notes', {
 
 // ── Plan v3 (E1): configuración del estudio y trazabilidad del registro ──────
 
-// Configuración del estudio, clave → valor (fechas 'YYYY-MM-DD' de Lima). La escribe
-// solo el dueño (PUT /inventory/study) y queda en audit_log.
+// Obsoleto desde T2: el estudio por grupos se retiró. Tabla sin uso (RNF07: no se
+// borra); la fecha de apertura del segundo local pasó a app_settings.
 export const studyConfig = sqliteTable('study_config', {
   key: text('key').primaryKey(),
   value: text('value'),
@@ -342,3 +343,12 @@ export const otherSupplyCosts = sqliteTable('other_supply_costs', {
 }, (t) => [
   uniqueIndex('uq_other_supply_costs_day').on(t.date, t.localId, t.source),
 ])
+
+// Ajustes del local, clave → valor (fechas 'YYYY-MM-DD' de Lima). Los escribe solo el
+// dueño (PUT /api/settings) y quedan en audit_log. Claves: second_local_opened_on.
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedBy: integer('updated_by').references(() => users.id),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+})

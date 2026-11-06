@@ -36,7 +36,7 @@ beforeAll(async () => {
   ctx = await setupHttpApp()
   owner = (await ctx.as('owner', 'Dueño')).auth
   manager = (await ctx.as('manager', 'Encargada')).auth
-  const [s] = await ctx.db.insert(ctx.schema.supplies).values({ name: 'Calamar', code: 'CALAMAR', unit: 'kg', critical: true, sortOrder: 2, studyGroup: 'calamar' }).returning()
+  const [s] = await ctx.db.insert(ctx.schema.supplies).values({ name: 'Calamar', code: 'CALAMAR', unit: 'kg', critical: true, sortOrder: 2 }).returning()
   calamar = s.id
   const [cat] = await ctx.db.insert(ctx.schema.categories).values({ name: 'Chicharrones' }).returning()
   catId = cat.id
@@ -118,11 +118,9 @@ describe('export: contenido', () => {
     expect((await csv('sales', today, today)).slice(2)).toHaveLength(0)
   })
 
-  it('study_config, supplies (grupo), notas y otros insumos', async () => {
-    await request(ctx.app).put('/api/inventory/study').set('Authorization', owner).send({ study_ends_on: addDays(today, 100) })
-    const study = (await csv('study_config')).slice(2)
-    expect(study[0]).toMatch(new RegExp(`^study_ends_on,${addDays(today, 100)},Dueño,\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$`))
-    expect((await csv('supplies'))[2]).toBe(`${calamar},CALAMAR,Calamar,kg,1,1,1,2,calamar`)
+  it('supplies, notas y otros insumos', async () => {
+    // El grupo del estudio quedó sin uso desde T2 (la columna sale vacía hasta el dataset v2)
+    expect((await csv('supplies'))[2]).toBe(`${calamar},CALAMAR,Calamar,kg,1,1,1,2,`)
 
     await request(ctx.app).post('/api/inventory/daily').set('Authorization', manager).send({
       part: 'apertura', date: today, items: [{ supplyId: calamar, opening: 1.5 }], notes: [{ kind: 'otro', text: 'Inicio de la línea base' }],

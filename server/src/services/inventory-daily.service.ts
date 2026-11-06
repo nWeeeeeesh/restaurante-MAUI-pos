@@ -6,19 +6,19 @@ import {
 import { withWriteLock } from '../db/write-lock'
 import { DomainError } from '../errors'
 import { audit } from './audit'
-import { readStudyConfig } from './study.service'
+import { readSettings } from './settings.service'
 import { addDays, localDateString, parseDayBoundary, sqliteLocalOffset } from '../utils/dates'
 import { roundMoney } from '../utils/math'
 import { currentLocalId, otherLocalId } from '../utils/local'
-import { transfersEnabledIn } from '../utils/study'
+import { transfersEnabled } from '../domain/settings'
 import type { SaveDailyInput } from '../schemas/inventory'
 
 // «Compra del día» (plan v3 §2.2): la única rutina obligatoria de la tesis, en dos
 // partes que se guardan por separado.
 //   A «Al abrir»: quedaba (obligatorio) y botaste por insumo crítico, y notas del día.
 //   B «Al volver de comprar»: compras con precio, proveedor, otros insumos y traslados.
-// Invariante 1: nada de la fase 2 pasa por aquí; la respuesta es la misma antes y
-// después de activar un grupo. Definiciones en docs/diccionario-datos-tesis.md.
+// RD01: nada del pronóstico pasa por aquí; la respuesta es la misma con o sin
+// pronósticos. Definiciones en docs/diccionario-datos-tesis.md.
 
 type Part = 'apertura' | 'compra'
 
@@ -144,7 +144,7 @@ async function partStatus(ex: Executor, date: string, part: Part) {
 export async function getDaily(date: string) {
   const a = await aperturaRows(db, date)
   const c = await compraRows(db, date)
-  const config = await readStudyConfig()
+  const settings = await readSettings(db)
   const touched = new Set([...a.counts, ...a.waste, ...c.purchases, ...c.transfers].map(r => r.supplyId))
   // Los críticos activos, más cualquier insumo que ya tenga datos ese día
   const list = (await db.select().from(supplies).orderBy(asc(supplies.sortOrder), asc(supplies.name)))
@@ -185,7 +185,7 @@ export async function getDaily(date: string) {
     minDate: addDays(localDateString(), -DAILY_MAX_DAYS_BACK),
     wasteDate: await previousOperativeDay(db, date),
     parts: { apertura: await partStatus(db, date, 'apertura'), compra: await partStatus(db, date, 'compra') },
-    transfers: { enabled: transfersEnabledIn(config, date), direction: currentLocalId() === 1 ? 'envio' : 'recepcion' },
+    transfers: { enabled: transfersEnabled(settings, date), direction: currentLocalId() === 1 ? 'envio' : 'recepcion' },
     items,
     otherCost: c.other[0] ? { amount: c.other[0].amount, mode: c.other[0].entryMode } : null,
     otherCostReference: await otherCostReference(db, date),
@@ -253,7 +253,7 @@ export async function saveDaily(input: SaveDailyInput, userId: number) {
     } else {
       // Los traslados existen desde la apertura del segundo local; cada local registra
       // solo su lado: el principal envía y el segundo recibe
-      const enabled = transfersEnabledIn(await readStudyConfig(tx), date)
+      const enabled = transfersEnabled(await readSettings(tx), date)
       if (!enabled && input.items.some(i => (i.transfer ?? 0) > 0)) {
         throw new DomainError('Los traslados se habilitan con la apertura del segundo local', 400, 'TRANSFERS_NOT_ENABLED')
       }

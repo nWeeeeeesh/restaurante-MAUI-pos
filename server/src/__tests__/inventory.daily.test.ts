@@ -201,18 +201,6 @@ describe('GET /api/inventory/daily/:date', () => {
     expect(t.otherCost).toBeNull()
     expect(t.transfers).toEqual({ enabled: false, direction: 'envio' })
   })
-
-  it('invariante 1: responde idéntico antes y después de activar un grupo', async () => {
-    const before = (await getDaily(today)).body
-    await ctx.db.insert(ctx.schema.studyConfig).values([
-      { key: 'activates_pescado', value: addDays(today, -1) },
-      { key: 'activates_calamar', value: today },
-      { key: 'study_ends_on', value: addDays(today, 100) },
-    ])
-    const after = (await getDaily(today)).body
-    expect(after).toEqual(before)
-    await ctx.db.delete(ctx.schema.studyConfig)
-  })
 })
 
 describe('GET /api/inventory/daily/pending', () => {

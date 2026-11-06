@@ -25,8 +25,8 @@ const compra = (date: string, items: object[], extra: object = {}) =>
   request(ctx.app).post('/api/inventory/daily').set('Authorization', owner).send({ part: 'compra', date, items, ...extra })
 const transfersOn = (date: string) => ctx.db.select().from(ctx.schema.supplyTransfers).where(eq(ctx.schema.supplyTransfers.date, date))
 const openSecondLocal = async (date: string) => {
-  await ctx.db.delete(ctx.schema.studyConfig)
-  await ctx.db.insert(ctx.schema.studyConfig).values({ key: 'second_local_opens_on', value: date })
+  await ctx.db.delete(ctx.schema.appSettings)
+  await ctx.db.insert(ctx.schema.appSettings).values({ key: 'second_local_opened_on', value: date })
 }
 
 describe('otros insumos del día', () => {

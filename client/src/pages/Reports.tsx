@@ -99,6 +99,7 @@ const AUDIT_LABELS: Record<string, string> = {
   'count.update': 'Conteo corregido',
   'daily.update': 'Compra del día corregida',
   'study.configure': 'Estudio configurado',
+  'settings.update': 'Ajustes modificados',
 }
 
 function auditLabel(e: AuditEntry): string {

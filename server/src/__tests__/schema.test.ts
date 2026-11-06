@@ -111,7 +111,7 @@ describe('esquema de tests', () => {
 
   // Plan v3 §2.1: la BD de la v2 pasa a la v3 con el grupo del estudio asignado por
   // código, los modos de entrada y las tablas nuevas, sin tocar los datos.
-  it('migra el inventario v2 a la v3 (grupos por código, modos de entrada, tablas nuevas)', async () => {
+  it('migra el inventario v2 a la v3 (modos de entrada, tablas nuevas)', async () => {
     const client = createClient({ url: tempDbUrl() })
     await createSchema(client)
     for (const t of ['study_config', 'daily_parts', 'supply_transfers', 'other_supply_costs']) await client.execute(`DROP TABLE ${t}`)
@@ -129,8 +129,8 @@ describe('esquema de tests', () => {
     await applyStartupMigrations(client) // idempotente
 
     const db = drizzle(client, { schema })
-    const groups = Object.fromEntries((await db.select().from(schema.supplies)).map(s => [s.code, s.studyGroup]))
-    expect(groups).toEqual({ CALAMAR: 'calamar', PESCADO: 'pescado', PULPO: 'mariscos', LANGOSTINO: 'mariscos', CONCHAS: 'mariscos', LIMON: null })
+    // Desde T2 el estudio por grupos se retiró: la columna existe pero queda vacía
+    expect((await db.select().from(schema.supplies)).every(s => s.studyGroup === null)).toBe(true)
     const [purchase] = await db.select().from(schema.supplyPurchases)
     expect(purchase).toMatchObject({ quantity: 2, entryMode: null, priceEntryMode: null })
     await db.insert(schema.studyConfig).values({ key: 'study_ends_on', value: '2027-04-04' })
@@ -141,4 +141,27 @@ describe('esquema de tests', () => {
     await db.insert(schema.dayNotes).values({ date: '2026-11-09', kind: 'dueno_ausente' })
     client.close()
   })
+
+  // plan-sistema T2: la fecha de apertura del segundo local pasa de study_config a
+  // app_settings una sola vez, sin pisar lo que ya esté en los ajustes
+  it('[RNF07] crea app_settings y copia la apertura del segundo local desde study_config', async () => {
+    const client = createClient({ url: tempDbUrl() })
+    await createSchema(client)
+    await client.execute('DROP TABLE app_settings')
+    await client.execute("INSERT INTO study_config (key, value) VALUES ('second_local_opens_on', '2026-12-28'), ('study_ends_on', '2027-04-04')")
+
+    await applyStartupMigrations(client)
+    await applyStartupMigrations(client) // idempotente
+
+    const db = drizzle(client, { schema })
+    expect(await db.select({ key: schema.appSettings.key, value: schema.appSettings.value }).from(schema.appSettings))
+      .toEqual([{ key: 'second_local_opened_on', value: '2026-12-28' }])
+    // Lo que el dueño cambie después no se pisa con el valor viejo
+    await client.execute("UPDATE app_settings SET value = '2027-01-04' WHERE key = 'second_local_opened_on'")
+    await applyStartupMigrations(client)
+    const [row] = await db.select().from(schema.appSettings)
+    expect(row.value).toBe('2027-01-04')
+    client.close()
+  })
 })
+

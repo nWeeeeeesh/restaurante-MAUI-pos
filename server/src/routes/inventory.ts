@@ -14,7 +14,6 @@ import {
   RangeQuerySchema,
   SaveCountsSchema,
   SaveDailySchema,
-  StudyConfigSchema,
   SuppliesQuerySchema,
   UpdatePurchaseSchema,
   UpdateSupplySchema,
@@ -25,7 +24,6 @@ import {
   type CreateWasteInput,
   type SaveCountsInput,
   type SaveDailyInput,
-  type StudyConfigInput,
   type UpdatePurchaseInput,
   type UpdateSupplyInput,
   type UpdateWasteInput,
@@ -33,7 +31,6 @@ import {
 import * as inventory from '../services/inventory.service'
 import { dailyPending, getDaily, saveDaily } from '../services/inventory-daily.service'
 import { exportCsv } from '../services/inventory-export.service'
-import { saveStudyConfig, studyOverview } from '../services/study.service'
 import { localDateString } from '../utils/dates'
 import { DomainError } from '../errors'
 
@@ -120,16 +117,6 @@ router.get('/daily/:date', requireAuth, managers, async (req, res) => {
   const parsed = LocalDateSchema.safeParse(req.params.date)
   if (!parsed.success) throw new DomainError('Fecha inválida (YYYY-MM-DD)', 400, 'INVALID_DATE')
   res.json(await getDaily(parsed.data))
-})
-
-// ── Configuración del estudio (plan v3 §2.3) ─────────────────────────────────
-// El encargado la ve (fechas de activación en solo lectura); solo el dueño la cambia.
-router.get('/study', requireAuth, managers, async (_req, res) => {
-  res.json(await studyOverview())
-})
-
-router.put('/study', requireAuth, requireRole('owner'), validateBody(StudyConfigSchema), async (req, res) => {
-  res.json(await saveStudyConfig(req.body as StudyConfigInput, req.user!.id))
 })
 
 // ── Conteos sueltos (cierre); la apertura va por /daily ─────────────────────

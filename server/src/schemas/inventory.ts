@@ -180,20 +180,6 @@ export const SaveDailySchema = z.discriminatedUnion('part', [
   }),
 ])
 
-// ── Configuración del estudio (solo el dueño, plan v3 §2.3) ──────────────────
-const studyDate = LocalDateSchema.nullable().optional()
-export const StudyConfigSchema = z.object({
-  baseline_starts_on: studyDate,
-  study_ends_on: studyDate,
-  // Resultado del sorteo: qué grupo se activa primero
-  activation_order: z.enum(['calamar,pescado', 'pescado,calamar']).nullable().optional(),
-  activates_calamar: studyDate,
-  activates_pescado: studyDate,
-  activates_mariscos: studyDate,
-  second_local_opens_on: studyDate,
-  protocol_url: z.string().trim().url('Debe ser una URL').max(500).nullable().optional(),
-}).refine(d => Object.keys(d).length > 0, { message: 'Sin cambios para aplicar' })
-
 export const DailyQuerySchema = z.object({
   date: LocalDateSchema.optional(),
 })
@@ -229,5 +215,4 @@ export type UpdateWasteInput    = z.infer<typeof UpdateWasteSchema>
 export type SaveCountsInput     = z.infer<typeof SaveCountsSchema>
 export type CreateLostSaleInput = z.infer<typeof CreateLostSaleSchema>
 export type SaveDailyInput      = z.infer<typeof SaveDailySchema>
-export type StudyConfigInput    = z.infer<typeof StudyConfigSchema>
 export type ExportTable         = typeof EXPORT_TABLES[number]

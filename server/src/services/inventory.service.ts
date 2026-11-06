@@ -7,8 +7,6 @@ import { audit } from './audit'
 import { localDateString, parseDayBoundary } from '../utils/dates'
 import { supplyCodeFrom, uniqueCode } from '../utils/codes'
 import { currentLocalId } from '../utils/local'
-import { studyRunningIn } from '../utils/study'
-import { readStudyConfig } from './study.service'
 import type {
   CreateLostSaleInput, CreatePurchaseInput, CreateSupplyInput, CreateWasteInput,
   SaveCountsInput, UpdatePurchaseInput, UpdateSupplyInput, UpdateWasteInput,
@@ -73,11 +71,6 @@ export function updateSupply(id: number, input: UpdateSupplyInput, userId: numbe
   return withWriteLock(() => db.transaction(async (tx) => {
     const [before] = await tx.select().from(supplies).where(eq(supplies.id, id))
     if (!before) throw new DomainError('Insumo no encontrado', 404, 'SUPPLY_NOT_FOUND')
-    // Un insumo del estudio que deja de ser crítico o se desactiva sale de la «Compra
-    // del día»: el registro cambiaría a mitad de la medición (invariante 1)
-    if (before.studyGroup && (input.critical === false || input.active === false) && studyRunningIn(await readStudyConfig(tx))) {
-      throw new DomainError(`"${before.name}" está en el estudio: no puede dejar de ser crítico ni desactivarse hasta que termine`, 409, 'study.supply_locked')
-    }
     if (input.name) await assertNameFree(tx, input.name, id)
     const [after] = await tx.update(supplies).set(input).where(eq(supplies.id, id)).returning()
     await audit(tx, { userId, action: 'supply.update', entity: 'supply', entityId: id, data: { before, changes: input } })

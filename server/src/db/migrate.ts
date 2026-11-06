@@ -166,8 +166,8 @@ export async function applyStartupMigrations(existing?: Client) {
     // 7) Inventario v3 del plan (E1, instrumento final de la tesis): grupo del estudio,
     // modo de entrada de cada valor, configuración del estudio, partes del registro,
     // traslados y otros insumos. Todo aditivo.
+    // Obsoleto desde T2: study_group y study_config quedan sin uso
     await addColumn(client, 'supplies', 'study_group', 'text')
-    await fillStudyGroups(client)
     await addColumn(client, 'supply_counts', 'entry_mode', 'text')
     await addColumn(client, 'supply_waste', 'entry_mode', 'text')
     await addColumn(client, 'supply_purchases', 'entry_mode', 'text')
@@ -224,13 +224,26 @@ export async function applyStartupMigrations(existing?: Client) {
     ]
     for (const ddl of v3Ddl) await client.execute(ddl)
 
+    // 8) Ajustes del local (plan-sistema T2): reemplazan la configuración del estudio.
+    // La fecha de apertura del segundo local se copia una sola vez si ya existía.
+    await client.execute(`CREATE TABLE IF NOT EXISTS \`app_settings\` (
+      \`key\` text PRIMARY KEY NOT NULL,
+      \`value\` text,
+      \`updated_by\` integer,
+      \`updated_at\` text DEFAULT (datetime('now')),
+      FOREIGN KEY (\`updated_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+    )`)
+    await client.execute(`INSERT OR IGNORE INTO app_settings (key, value, updated_by, updated_at)
+      SELECT 'second_local_opened_on', value, updated_by, updated_at FROM study_config
+      WHERE key = 'second_local_opens_on' AND value IS NOT NULL`)
+
     // ── Opcionales ────────────────────────────────────────────────────────────
-    // 8) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
+    // 9) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
     // esperan al escritor. Es persistente en el archivo; `sqlite3 .backup` lo soporta.
     await optional('journal_mode=WAL', () => client.execute('PRAGMA journal_mode=WAL'))
 
-    // 9) Índices — también declarados en schema.ts con los mismos nombres: si no lo
+    // 10) Índices — también declarados en schema.ts con los mismos nombres: si no lo
     // estuvieran, `drizzle-kit push` los borraría (verificado).
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id)`,
@@ -247,7 +260,7 @@ export async function applyStartupMigrations(existing?: Client) {
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 
-    // 10) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
+    // 11) Un solo pedido activo por mesa (T4). Si la BD ya tiene mesas con dos
     // pedidos activos, el índice no se puede crear: se avisa con los ids y se sigue,
     // porque la creación de pedidos ya está serializada en la app.
     await optional('uq_orders_active_table', async () => {
@@ -283,22 +296,6 @@ async function addColumn(client: Client, table: string, column: string, ddl: str
 }
 
 // Genera el código de los insumos que no lo tienen (los creados con la v1)
-// Grupo del estudio de los insumos que no lo tienen, por su código estable. Solo
-// estos cinco entran al estudio; el resto queda fuera (null).
-const STUDY_GROUP_BY_CODE: Record<string, string> = {
-  CALAMAR: 'calamar',
-  PESCADO: 'pescado',
-  PULPO: 'mariscos',
-  LANGOSTINO: 'mariscos',
-  CONCHAS: 'mariscos',
-}
-
-async function fillStudyGroups(client: Client) {
-  for (const [code, group] of Object.entries(STUDY_GROUP_BY_CODE)) {
-    await client.execute({ sql: 'UPDATE supplies SET study_group = ? WHERE code = ? AND study_group IS NULL', args: [group, code] })
-  }
-}
-
 async function fillSupplyCodes(client: Client) {
   const rows = await client.execute('SELECT id, name, code FROM supplies ORDER BY id')
   const taken = new Set(rows.rows.map(r => r.code).filter((c): c is string => typeof c === 'string'))
