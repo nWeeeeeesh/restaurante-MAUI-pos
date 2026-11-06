@@ -178,7 +178,7 @@ router.patch(
   requireAuth, requireRole('owner', 'manager', 'cashier'), validateBody(DishAvailabilitySchema),
   async (req, res) => {
     const id = Number(req.params.id)
-    const { available } = req.body as { available: boolean }
+    const { available, source } = req.body as { available: boolean; source: 'manual' | 'propuesta_confirmada' }
     const updated = await withWriteLock(() => db.transaction(async (tx) => {
       const [before] = await tx.select().from(dishes).where(eq(dishes.id, id))
       if (!before) throw new DomainError('Plato no encontrado', 404, 'DISH_NOT_FOUND')
@@ -188,7 +188,7 @@ router.patch(
       await audit(tx, {
         userId: req.user!.id, action: 'dish.availability', entity: 'dish', entityId: id,
         // 'manual': lo decidió una persona (invariante 3); la fase 2 solo propondrá
-        data: { name: after.name, available, source: 'manual' },
+        data: { name: after.name, available, source },
       })
       return { dish: after, changed: true }
     }))

@@ -10,6 +10,8 @@ import { getFullOrder } from '../services/order.serializer'
 import { localDayStart, localDayEnd, parseDayBoundary } from '../utils/dates'
 import { createBill } from '../services/billing.service'
 import { buildReceipt } from '../services/receipt.service'
+import { avisosNuevos } from '../services/forecast.service'
+import { currentLocalId } from '../utils/local'
 import { validateQuery } from '../middleware/validate'
 import { DateRangeQuerySchema } from '../schemas/bills'
 
@@ -114,6 +116,12 @@ router.post('/', requireAuth, requireRole('owner', 'manager', 'cashier'), valida
     const full = await getFullOrder(db, orderId)
     if (full) emit('order:updated', full)
   }
+
+  // Platos con pocas porciones (RF18): después del commit y sin demorar la respuesta.
+  // Solo avisa; marcar agotado lo confirma una persona (RD02).
+  void avisosNuevos(db, { localId: currentLocalId(), at: new Date() })
+    .then(list => { for (const a of list) emit('inventory:low-portions', { dishId: a.dishId, portionsLeft: a.portionsLeft, supplyCode: a.supplyCode }) })
+    .catch(() => { /* el aviso es opcional: un error no afecta el cobro */ })
 
   // La vista previa de la boleta sale de lo registrado, no del estado del cliente (TD-14).
   const receipt = await buildReceipt(db, bill.id)

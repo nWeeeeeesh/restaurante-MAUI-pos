@@ -34,6 +34,9 @@ export const UpdateDishSchema = z.object({
 
 export const DishAvailabilitySchema = z.object({
   available: z.boolean(),
+  // 'propuesta_confirmada': la persona confirmó el aviso de pocas porciones (RF19). En
+  // ambos casos la decide una persona (RD02); el sistema nunca marca agotado solo.
+  source: z.enum(['manual', 'propuesta_confirmada']).default('manual'),
 })
 
 export const CreateModifierOptionSchema = z.object({

@@ -5,15 +5,17 @@ import { db as defaultDb, type DB, type Executor } from '../db'
 import { demandForecasts, forecastRuns, purchaseSuggestions } from '../db/schema'
 import { withWriteLock } from '../db/write-lock'
 import {
-  leerDatosPronostico, pronosticosDeNoche, ultimosConteos, ventasHasta, platosDisponibles, type ParametrosInsumo,
+  leerDatosPronostico, pronosticosDeNoche, pronosticosDeInsumo, ultimosConteos, ventasHasta, platosDisponibles, type ParametrosInsumo,
 } from '../repositories/forecast.repo'
 import { anteriorAtencion } from '../domain/calendar'
-import { pronosticoNoche, HORIZONTES } from '../domain/demand'
+import { pronosticoNoche, serieDemanda, HORIZONTES } from '../domain/demand'
 import { cantidadSugerida, cobertura, MODEL_VERSION, redondearMedioKilo, stockTeorico as f6, zNormal } from '../domain/forecast'
 import { claveVariante, costearInsumo } from '../domain/profitability'
 import { suma } from '../domain/costing'
 import { limaDate } from '../utils/dates'
 
+// Un plato con esta cantidad de porciones o menos genera un aviso (RF18)
+export const UMBRAL_PORCIONES = 5
 // Nivel de servicio cuando el insumo no lo tiene configurado
 export const NIVEL_POR_DEFECTO = 0.95
 export const COBERTURA_POR_DEFECTO = 2
@@ -184,10 +186,52 @@ export async function avisos(ex: Executor = defaultDb, { localId, at, umbralPorc
     for (const [supplyId, kgPorcion] of receta) {
       const s = stock.get(supplyId)
       if (!s || s.stockKg === null || kgPorcion <= 0) continue
-      const portions = Math.max(0, Math.floor(s.stockKg / (kgPorcion * s.factor)))
+      // Tolerancia: 1.2 / 0.2 da 5.999… en coma flotante y son 6 porciones
+      const portions = Math.max(0, Math.floor(s.stockKg / (kgPorcion * s.factor) + 1e-9))
       if (min === null || portions < min.portions) min = { portions, code: s.code }
     }
     if (min !== null && min.portions <= umbralPorciones) out.push({ dishId: d.id, name: d.name, portionsLeft: min.portions, supplyCode: min.code })
   }
   return out.sort((a, b) => a.portionsLeft - b.portionsLeft || a.name.localeCompare(b.name, 'es'))
 }
+
+// Avisos que conviene emitir después de un cobro: los platos bajo el umbral cuya
+// cantidad de porciones cambió desde el último aviso del día (en memoria del proceso)
+const avisados = new Map<string, number>()
+let diaAvisos = ''
+
+export async function avisosNuevos(ex: Executor, { localId, at }: { localId: number; at: Date }): Promise<Aviso[]> {
+  const dia = limaDate(at)
+  if (dia !== diaAvisos) {
+    avisados.clear()
+    diaAvisos = dia
+  }
+  const list = await avisos(ex, { localId, at, umbralPorciones: UMBRAL_PORCIONES })
+  return list.filter(a => {
+    const key = `${localId}|${a.dishId}`
+    if (avisados.get(key) === a.portionsLeft) return false
+    avisados.set(key, a.portionsLeft)
+    return true
+  })
+}
+
+// Pronóstico frente a demanda de un insumo, solo para consulta (RF16)
+export async function historial(ex: Executor, { localId, supplyId, from, to }: { localId: number; supplyId: number; from: string; to: string }) {
+  const datos = await leerDatosPronostico(ex, { localId, hasta: to })
+  const insumo = datos.insumos.find(i => i.id === supplyId)
+  if (!insumo) return null
+  const f = datos.demanda.costeo.factores.get(supplyId) ?? 1
+  const serie = serieDemanda(datos.demanda, supplyId, to, f)
+  const guardados = await pronosticosDeInsumo(ex, localId, supplyId, from, to)
+  const dias = serie.filas.map((x, k) => ({ date: x.fecha, demandKg: kg(serie.y[k])!, imputed: serie.imputado[k] }))
+    .filter(d => d.date >= from && d.date <= to)
+  return {
+    supply: { id: insumo.id, code: insumo.code, name: insumo.name },
+    days: dias.map(d => ({
+      ...d,
+      forecasts: guardados.filter(g => g.targetDate === d.date)
+        .map(g => ({ madeOn: g.madeOn, horizon: g.horizon, kg: kg(g.valueKg)!, method: g.method })),
+    })),
+  }
+}
+

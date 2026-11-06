@@ -252,7 +252,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 - `[PP-03][RF17]`: lo mismo con σ_H y la cantidad sugerida.
 - `[PI-11][RD01]`: `GET /api/inventory/daily/:date` responde idéntico antes y después de generar pronósticos.
 
-### - [ ] T16. API del incremento 3
+### - [x] T16. API del incremento 3
 - `GET /api/forecast/purchase-list?date&coverageDays` (propietario y encargado).
 - `POST /api/forecast/purchase-list/print` (propietario y encargado): imprime en la ticketera con una nueva plantilla `printPurchaseList` en `utils/printer.ts`.
 - `POST /api/forecast/run` con `{ madeOn }` (propietario): ejecución a pedido.
@@ -493,3 +493,15 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - **PI-11:** `GET /daily/:date` responde idéntico antes y después de pronosticar y de pedir la lista.
     - **Tarea:** hora de la próxima ejecución, puesta al día y lunes cerrado.
     - Pruebas: 227.
+- **2026-11-06 · T16.** API del incremento 3 (`routes/forecast.ts`, `schemas/forecast.ts`):
+  - **Lista de compra.** La fecha por defecto es hoy en Lima. La cobertura va de 1 a 3 días (ver T15) y puede ser una para todos (`coverageDays`) o una por insumo (`coverage=id:días,…` en la URL, un objeto en el cuerpo). La impresión arma la lista en el servidor con `printPurchaseList` (502 `PRINTER_UNAVAILABLE` sin impresora). `run` rechaza noches futuras.
+  - **Evento `inventory:low-portions`.** Se emite desde la ruta del cobro, junto a los otros emits posteriores al commit, sin esperar: un error del aviso no afecta el cobro. Así lo hace el resto del código (los emits viven en las rutas); el plan decía «desde el servicio de cobro». Para no repetir, solo se emite cuando cambian las porciones de ese plato desde el último aviso del día (memoria del proceso). El umbral es 5.
+  - **Propuesta de agotado.** `PATCH /availability` acepta `source: 'manual' | 'propuesta_confirmada'` (por defecto `manual`) y lo guarda en la auditoría. El aviso nunca cambia la disponibilidad (RD02).
+  - **Defecto encontrado por la prueba.** `floor(1.2 / 0.2)` daba 5 porciones en vez de 6 por coma flotante; se suma 1e-9 antes del `floor`.
+  - **Pruebas.**
+    - **PI-12:** la lista con un servidor TCP como impresora simulada, y el 502.
+    - **PI-13:** los avisos al cruzar el umbral, con 6, 5 y 4 porciones.
+    - **PI-14:** sin confirmación no cambia nada; con confirmación queda `propuesta_confirmada`.
+    - **PI-15:** 401 y 403 en las cinco rutas.
+    - Además: idempotencia de `run` y el historial.
+    - Pruebas: 234.

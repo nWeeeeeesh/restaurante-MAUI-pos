@@ -101,6 +101,14 @@ export async function ventasHasta(ex: Executor, desde: string, hastaUtc: string,
   return out
 }
 
+// Pronósticos guardados de un insumo para los días objetivo del rango
+export async function pronosticosDeInsumo(ex: Executor, localId: number, supplyId: number, from: string, to: string) {
+  return ex.select().from(demandForecasts)
+    .where(and(eq(demandForecasts.localId, localId), eq(demandForecasts.supplyId, supplyId),
+      gte(demandForecasts.targetDate, from), lte(demandForecasts.targetDate, to)))
+    .orderBy(asc(demandForecasts.targetDate), asc(demandForecasts.horizon))
+}
+
 export async function platosDisponibles(ex: Executor) {
   return ex.select({ id: dishes.id, name: dishes.name }).from(dishes)
     .where(and(eq(dishes.available, true), eq(dishes.archived, false)))

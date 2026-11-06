@@ -467,6 +467,55 @@ export async function printPreReceipt(data: PreReceiptData): Promise<void> {
   await sendToPrinter(Buffer.concat(chunks))
 }
 
+// ── Lista de compra (incremento 3, plan-sistema T16) ────────────────────────
+export interface PurchaseListData {
+  date: string          // día de la compra (local)
+  printedAt: string
+  printedBy: string
+  items: Array<{
+    name: string
+    toBuy: number       // kg a comprar, al alza en medios kilos
+    coverageDays: number
+    forecastSum: number
+    available: number
+    availableSource: 'conteo' | 'teorico'
+    safetyStock: number
+  }>
+}
+
+export async function printPurchaseList(data: PurchaseListData): Promise<void> {
+  const kg = (n: number) => `${n.toFixed(1)} kg`
+  const chunks: Buffer[] = [
+    CMD.INIT,
+    CMD.ALIGN_CENTER,
+    CMD.BOLD_ON, CMD.DOUBLE_ON,
+    txt('LISTA DE COMPRA\n'),
+    CMD.DOUBLE_OFF, CMD.BOLD_OFF,
+    txt(`${data.date}\n`),
+    CMD.ALIGN_LEFT,
+    divider(),
+  ]
+  for (const it of data.items) {
+    chunks.push(
+      CMD.BOLD_ON, CMD.DOUBLE_ON, row(it.name, it.toBuy > 0 ? kg(it.toBuy) : 'no comprar'), CMD.DOUBLE_OFF, CMD.BOLD_OFF,
+      row(`  Para ${it.coverageDays} dia${it.coverageDays === 1 ? '' : 's'}:`, kg(it.forecastSum)),
+      row(`  Hay (${it.availableSource === 'conteo' ? 'conteo' : 'estimado'}):`, kg(it.available)),
+      row('  Seguridad:', kg(it.safetyStock)),
+      line(''),
+    )
+  }
+  chunks.push(
+    divider(),
+    row('Impreso:', data.printedAt),
+    row('Por:', data.printedBy),
+    CMD.ALIGN_CENTER,
+    txt('Sugerencia: decide tu segun el mercado\n'),
+    CMD.FEED3,
+    CMD.CUT,
+  )
+  await sendToPrinter(Buffer.concat(chunks))
+}
+
 // ── Comanda de cocina ────────────────────────────────────────────────────────
 export interface KitchenTicketData {
   orderId: number
