@@ -38,6 +38,7 @@ describe('[T6] datos simulados sim12', () => {
     const ventas = readSim('ventas_items')
     expect(await count('dishes')).toBe(readSim('carta').length)
     expect(await count('supplies')).toBe(readSim('insumos').length)
+    expect(await count('recipe_items')).toBe(readSim('recetas').length)
     expect(await count('bills')).toBe(new Set(ventas.map(v => v.boleta)).size)
     expect(await count('order_items')).toBe(ventas.length)
     expect(await count('supply_purchases')).toBe(readSim('purchases').length)

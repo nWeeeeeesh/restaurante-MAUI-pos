@@ -9,12 +9,15 @@ async function seedSupplies() {
   const existing = await db.select({ id: supplies.id }).from(supplies).limit(1)
   if (existing.length > 0) return
   await db.insert(supplies).values([
-    { code: 'PESCADO', name: 'Pescado', unit: 'kg', critical: true, sortOrder: 1 },
-    { code: 'CALAMAR', name: 'Calamar', unit: 'kg', critical: true, sortOrder: 2 },
-    { code: 'PULPO', name: 'Pulpo', unit: 'kg', critical: true, sortOrder: 3 },
-    { code: 'LANGOSTINO', name: 'Langostino', unit: 'kg', critical: true, sortOrder: 4 },
-    { code: 'CONCHAS', name: 'Conchas', unit: 'unit', critical: true, sortOrder: 5 },
-    { code: 'LIMON', name: 'Limón', unit: 'kg', sortOrder: 6 },
+    // Los cuatro críticos de la tesis con rendimiento, vida útil y nivel de servicio
+    // (plan-sistema T5); pulpo, langostino y conchas van en «otros insumos»
+    { code: 'PESCADO', name: 'Pescado', unit: 'kg', critical: true, sortOrder: 1, yield: 0.80, shelfLifeDays: 7, serviceLevel: 0.99 },
+    { code: 'CALAMAR', name: 'Calamar', unit: 'kg', critical: true, sortOrder: 2, yield: 1, shelfLifeDays: 6, serviceLevel: 0.90 },
+    { code: 'MIXTURA', name: 'Mixtura de mariscos', unit: 'kg', critical: true, sortOrder: 3, yield: 1, shelfLifeDays: 3, serviceLevel: 0.95 },
+    { code: 'LIMON', name: 'Limón', unit: 'kg', critical: true, sortOrder: 4, yield: 1, shelfLifeDays: 10, serviceLevel: 0.95 },
+    { code: 'PULPO', name: 'Pulpo', unit: 'kg', sortOrder: 5 },
+    { code: 'LANGOSTINO', name: 'Langostino', unit: 'kg', sortOrder: 6 },
+    { code: 'CONCHAS', name: 'Conchas', unit: 'unit', sortOrder: 7 },
     { code: 'CEBOLLA', name: 'Cebolla', unit: 'kg', sortOrder: 7 },
     { code: 'CAMOTE', name: 'Camote', unit: 'kg', sortOrder: 8 },
     { code: 'CHOCLO', name: 'Choclo', unit: 'kg', sortOrder: 9 },

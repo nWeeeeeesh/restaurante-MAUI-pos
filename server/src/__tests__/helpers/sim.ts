@@ -94,8 +94,18 @@ export async function loadSim(db: Db, opts: SimLoadOptions = {}) {
   const supplyRows = await db.insert(schema.supplies).values(read('insumos').map(s => ({
     code: s.codigo, name: s.nombre, unit: s.unidad as 'kg', perishable: s.perecible === '1',
     critical: s.critico === '1', active: s.activo === '1', sortOrder: num(s.orden),
+    yield: num(s.rendimiento), shelfLifeDays: s.vida_util_dias ? num(s.vida_util_dias) : null,
+    serviceLevel: s.nivel_servicio ? num(s.nivel_servicio) : null,
   }))).returning()
   const supplyId = new Map(supplyRows.map(s => [s.code!, s.id]))
+
+  // ── Recetas: gramos limpios por plato; cada variante es un plato (variant = '') ──
+  const recipes = read('recetas')
+  const owner = by('Dueño')
+  await insertAll(recipes, chunk => db.insert(schema.recipeItems).values(chunk.map(r => ({
+    dishId: dishId.get(r.sku)!, supplyId: supplyId.get(r.insumo_codigo)!, gramsClean: num(r.gramos_limpios),
+    updatedBy: owner, updatedAt: limaToUtc('2026-06-15', '08:00:00'),
+  }))))
 
   // ── Ventas: una boleta pagada por número de boleta, en efectivo, sin mesa ──
   const items = read('ventas_items')
@@ -186,7 +196,7 @@ export async function loadSim(db: Db, opts: SimLoadOptions = {}) {
   return {
     users: userId, dishId, supplyId,
     counts: {
-      dishes: dishRows.length, supplies: supplyRows.length, bills: bills.length, orderItems: orderItems.length,
+      dishes: dishRows.length, supplies: supplyRows.length, recipeItems: recipes.length, bills: bills.length, orderItems: orderItems.length,
       purchases: purchases.length, waste: waste.length, counts: counts.length, lostSales: lost.length,
       availabilityEvents: events.length, dayNotes: notes.length, otherCosts: other.length, expenses: expenses.length,
     },

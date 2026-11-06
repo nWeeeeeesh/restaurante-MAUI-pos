@@ -152,7 +152,7 @@ Salidas: un CSV por tabla con las columnas del export (T21), más `ventas_items.
 
 ## Fase C. Incremento 2: cálculo de la rentabilidad operativa
 
-### - [ ] T7. Esquema del incremento 2
+### - [x] T7. Esquema del incremento 2
 Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 - `supplies`: `yield REAL NOT NULL DEFAULT 1` (rendimiento), `shelf_life_days INTEGER`, `service_level REAL`.
 - `recipe_items (id, dish_id → dishes, variant TEXT NULL, supply_id → supplies, grams_clean REAL NOT NULL, updated_by, updated_at)`, con un índice único (`dish_id`, `variant`, `supply_id`). Si la carta modela las variantes como modificadores, `variant` guarda el nombre de la opción; revisa `modifier_options` antes de decidir y anota la decisión.
@@ -427,3 +427,9 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Saltos de línea.** `.gitattributes` fija LF en los fixtures, para que el hash no cambie al hacer checkout en Windows.
   - **Corrección al simulador.** `duracion_min` truncaba los minutos y el export los redondea. Se corrigió el simulador: solo cambió `stockouts.csv`; `esperado.json` quedó igual.
   - **Prueba.** `sim.test.ts` compara las filas por tabla, las ventas por día local y el export de compras, conteos, merma y agotados contra los CSV. Pruebas: 174.
+- **2026-11-05 · T7.** Esquema del incremento 2:
+  - **`recipe_items.variant`.** Es `TEXT NOT NULL DEFAULT ''`, no `NULL`: en SQLite un índice único trata cada NULL como distinto y permitiría dos recetas base del mismo plato e insumo. `''` es la receta del plato; un texto es el nombre de la opción de modificador (`modifier_options.name`, guardado como `optionName` en `order_items.modifiers`) que reemplaza esa receta. Así sirve si la carta real modela «pescado/calamar» como modificador. En `sim12` cada variante es un plato y todas sus recetas llevan `''`.
+  - **Parámetros de los críticos.** La migración pone rendimiento, vida útil y nivel de servicio a PESCADO, CALAMAR, MIXTURA y LIMON solo si siguen sin configurar (`yield = 1` y los otros dos en null), así que no pisa lo que cambie el dueño. **No cambia `critical`:** en el local, el dueño debe marcar mixtura y limón como críticos y desmarcar pulpo, langostino y conchas en Insumos (pendiente para el despliegue). `seed.ts` (desarrollo) ya los crea así.
+  - **`expense_categories`.** Se siembra con las categorías existentes como `fijo`, gas y descartables como `variable`, y siempre con filas para `gas` y `descartables`. Una categoría sin fila cuenta como fija (T9). La restricción CHECK se declara con `check()` de drizzle. Ojo para T9: los gastos de la categoría `ingredientes` duplicarían las compras de insumos.
+  - **Migración probada en copias.** Probé con una copia de `server/mauidisk.db` (anterior al inventario) y de `mauidisk-sim.db` (versión T6): ninguna tabla existente perdió filas y migrar dos veces no cambia nada.
+  - **Cargador.** `loadSim` carga ahora las recetas y los parámetros de los insumos. Pruebas: 175.

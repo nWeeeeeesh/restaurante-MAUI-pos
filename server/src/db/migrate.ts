@@ -240,6 +240,61 @@ export async function applyStartupMigrations(existing?: Client) {
       SELECT 'second_local_opened_on', value, updated_by, updated_at FROM study_config
       WHERE key = 'second_local_opens_on' AND value IS NOT NULL`)
 
+    // 8b) Incremento 2: rentabilidad operativa (plan-sistema T7). Aditivo (RNF07).
+    await addColumn(client, 'supplies', 'yield', 'real DEFAULT 1 NOT NULL')
+    await addColumn(client, 'supplies', 'shelf_life_days', 'integer')
+    await addColumn(client, 'supplies', 'service_level', 'real')
+    const v4Ddl = [
+      `CREATE TABLE IF NOT EXISTS \`recipe_items\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`dish_id\` integer NOT NULL,
+        \`variant\` text DEFAULT '' NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`grams_clean\` real NOT NULL,
+        \`updated_by\` integer,
+        \`updated_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`dish_id\`) REFERENCES \`dishes\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`updated_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      // Requerido: reemplazar la receta de un plato depende de él
+      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_recipe_items_dish_variant_supply` ON `recipe_items` (`dish_id`,`variant`,`supply_id`)',
+      `CREATE TABLE IF NOT EXISTS \`recipe_calibrations\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`factor\` real NOT NULL,
+        \`from_date\` text NOT NULL,
+        \`to_date\` text NOT NULL,
+        \`computed_at\` text DEFAULT (datetime('now')),
+        \`computed_by\` integer,
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`computed_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`expense_categories\` (
+        \`category\` text PRIMARY KEY NOT NULL,
+        \`kind\` text DEFAULT 'fijo' NOT NULL,
+        \`updated_by\` integer,
+        \`updated_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`updated_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        CONSTRAINT "ck_expense_categories_kind" CHECK("expense_categories"."kind" IN ('fijo', 'variable'))
+      )`,
+    ]
+    for (const ddl of v4Ddl) await client.execute(ddl)
+    // Parámetros de los cuatro críticos de la tesis (Tablas 1 y 20), solo si el dueño
+    // todavía no los configuró: volver a migrar no pisa lo que él cambie
+    for (const [code, yieldRatio, shelfLife, level] of CRITICAL_PARAMS) {
+      await client.execute({
+        sql: 'UPDATE supplies SET yield = ?, shelf_life_days = ?, service_level = ? WHERE code = ? AND yield = 1 AND shelf_life_days IS NULL AND service_level IS NULL',
+        args: [yieldRatio, shelfLife, level, code],
+      })
+    }
+    // Tipo de gasto: las categorías existentes son fijas, salvo gas y descartables
+    await client.execute(`INSERT OR IGNORE INTO expense_categories (category, kind)
+      SELECT DISTINCT category, CASE WHEN lower(category) IN ('gas', 'descartables') THEN 'variable' ELSE 'fijo' END
+      FROM expenses WHERE category IS NOT NULL AND trim(category) <> ''`)
+    await client.execute("INSERT OR IGNORE INTO expense_categories (category, kind) VALUES ('gas', 'variable'), ('descartables', 'variable')")
+
     // ── Opcionales ────────────────────────────────────────────────────────────
     // 9) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
@@ -260,6 +315,7 @@ export async function applyStartupMigrations(existing?: Client) {
       'CREATE INDEX IF NOT EXISTS `idx_day_notes_date` ON `day_notes` (`date`)',
       'CREATE INDEX IF NOT EXISTS `idx_daily_parts_date_part` ON `daily_parts` (`date`,`local_id`,`part`)',
       'CREATE INDEX IF NOT EXISTS `idx_supply_transfers_date` ON `supply_transfers` (`date`)',
+      'CREATE INDEX IF NOT EXISTS `idx_recipe_calibrations_local_supply` ON `recipe_calibrations` (`local_id`,`supply_id`)',
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 
@@ -286,6 +342,14 @@ export async function applyStartupMigrations(existing?: Client) {
     if (!existing) client.close()
   }
 }
+
+// Rendimiento, vida útil (días) y nivel de servicio de los críticos (plan-sistema T5)
+const CRITICAL_PARAMS: [string, number, number, number][] = [
+  ['PESCADO', 0.80, 7, 0.99],
+  ['CALAMAR', 1.00, 6, 0.90],
+  ['MIXTURA', 1.00, 3, 0.95],
+  ['LIMON', 1.00, 10, 0.95],
+]
 
 async function hasColumn(client: Client, table: string, column: string) {
   const cols = await client.execute(`PRAGMA table_info(${table})`)

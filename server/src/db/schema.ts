@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 export const users = sqliteTable('users', {
@@ -200,6 +200,12 @@ export const supplies = sqliteTable('supplies', {
   // Obsoleto desde T2: el estudio por grupos se retiró. Columna sin uso (RNF07: no se borra)
   studyGroup: text('study_group', { enum: STUDY_GROUPS }),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
+  // Incremento 2 (plan-sistema T7). Rendimiento: kg de producto limpio por kg comprado
+  // (la receta va en gramos limpios). Vida útil y nivel de servicio: los usa la
+  // cantidad sugerida del incremento 3. Sin configurar = null.
+  yield: real('yield').notNull().default(1),
+  shelfLifeDays: integer('shelf_life_days'),
+  serviceLevel: real('service_level'),
 })
 
 export const supplyPurchases = sqliteTable('supply_purchases', {
@@ -355,3 +361,46 @@ export const appSettings = sqliteTable('app_settings', {
   updatedBy: integer('updated_by').references(() => users.id),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
+
+// ── Incremento 2: rentabilidad operativa (plan-sistema T7) ────────────────────
+
+// Receta: gramos de producto limpio de cada insumo crítico por porción. `variant` = ''
+// es la receta del plato; si no, el nombre de la opción de modificador que la
+// reemplaza (por ejemplo «Calamar»). No es NULL porque en SQLite un índice único
+// trata cada NULL como distinto y permitiría filas repetidas.
+export const recipeItems = sqliteTable('recipe_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dishId: integer('dish_id').notNull().references(() => dishes.id),
+  variant: text('variant').notNull().default(''),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  gramsClean: real('grams_clean').notNull(),
+  updatedBy: integer('updated_by').references(() => users.id),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  uniqueIndex('uq_recipe_items_dish_variant_supply').on(t.dishId, t.variant, t.supplyId),
+])
+
+// Factor de calibración (Fórmula 12) por local e insumo; el vigente es el último
+export const recipeCalibrations = sqliteTable('recipe_calibrations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  localId: integer('local_id').notNull().default(1),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  factor: real('factor').notNull(),
+  fromDate: text('from_date').notNull(),
+  toDate: text('to_date').notNull(),
+  computedAt: text('computed_at').default(sql`(datetime('now'))`),
+  computedBy: integer('computed_by').references(() => users.id),
+}, (t) => [
+  index('idx_recipe_calibrations_local_supply').on(t.localId, t.supplyId),
+])
+
+// Tipo de cada categoría de gasto: los fijos entran en las ventas de equilibrio. Una
+// categoría sin fila cuenta como fija.
+export const expenseCategories = sqliteTable('expense_categories', {
+  category: text('category').primaryKey(),
+  kind: text('kind', { enum: ['fijo', 'variable'] }).notNull().default('fijo'),
+  updatedBy: integer('updated_by').references(() => users.id),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  check('ck_expense_categories_kind', sql`${t.kind} IN ('fijo', 'variable')`),
+])

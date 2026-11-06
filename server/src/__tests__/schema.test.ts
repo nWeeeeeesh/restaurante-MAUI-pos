@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createClient } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
+import { eq } from 'drizzle-orm'
 import { createTestDb, createSchema, tempDbUrl } from './helpers/db'
 import * as schema from '../db/schema'
 import { orderItems } from '../db/schema'
@@ -163,5 +164,54 @@ describe('esquema de tests', () => {
     expect(row.value).toBe('2027-01-04')
     client.close()
   })
-})
 
+  // plan-sistema T7: incremento 2, aditivo. Una base de la versión anterior gana las
+  // columnas y tablas nuevas, conserva sus datos y recibe los parámetros de los críticos
+  it('[RNF07] migra al incremento 2 (receta, calibración, tipo de gasto) sin perder datos', async () => {
+    const client = createClient({ url: tempDbUrl() })
+    await createSchema(client)
+    for (const t of ['recipe_items', 'recipe_calibrations', 'expense_categories']) await client.execute(`DROP TABLE ${t}`)
+    for (const c of ['yield', 'shelf_life_days', 'service_level']) await client.execute(`ALTER TABLE supplies DROP COLUMN ${c}`)
+    for (const [name, code] of [['Pescado', 'PESCADO'], ['Calamar', 'CALAMAR'], ['Limón', 'LIMON'], ['Pulpo', 'PULPO']]) {
+      await client.execute({ sql: "INSERT INTO supplies (name, code, unit, critical) VALUES (?, ?, 'kg', 1)", args: [name, code] })
+    }
+    await client.execute("INSERT INTO supply_purchases (supply_id, quantity, total_cost, purchased_at) VALUES (1, 12, 120, '2026-10-01')")
+    await client.execute(`INSERT INTO expenses (description, amount, category, date) VALUES
+      ('Alquiler', 3000, 'alquiler', '2026-10-01'), ('Balón', 70, 'Gas', '2026-10-02'), ('Luz', 500, 'servicios', '2026-10-03')`)
+
+    await applyStartupMigrations(client)
+    await applyStartupMigrations(client) // idempotente
+
+    const db = drizzle(client, { schema })
+    const supplies = await db.select().from(schema.supplies).orderBy(schema.supplies.id)
+    expect(supplies.map(s => [s.code, s.yield, s.shelfLifeDays, s.serviceLevel])).toEqual([
+      ['PESCADO', 0.8, 7, 0.99], ['CALAMAR', 1, 6, 0.9], ['LIMON', 1, 10, 0.95], ['PULPO', 1, null, null],
+    ])
+    expect((await db.select().from(schema.supplyPurchases))[0]).toMatchObject({ quantity: 12, totalCost: 120 })
+    const kinds = await db.select({ category: schema.expenseCategories.category, kind: schema.expenseCategories.kind })
+      .from(schema.expenseCategories).orderBy(schema.expenseCategories.category)
+    expect(kinds).toEqual([
+      { category: 'Gas', kind: 'variable' }, { category: 'alquiler', kind: 'fijo' }, { category: 'descartables', kind: 'variable' },
+      { category: 'gas', kind: 'variable' }, { category: 'servicios', kind: 'fijo' },
+    ])
+    await expect(client.execute("INSERT INTO expense_categories (category, kind) VALUES ('otro', 'mixto')")).rejects.toThrow()
+
+    // Lo que el dueño configure después no se pisa al volver a migrar
+    await client.execute("UPDATE supplies SET yield = 0.75, shelf_life_days = 5 WHERE code = 'PESCADO'")
+    await client.execute("UPDATE expense_categories SET kind = 'variable' WHERE category = 'servicios'")
+    await applyStartupMigrations(client)
+    const [pescado] = await db.select().from(schema.supplies).where(eq(schema.supplies.code, 'PESCADO'))
+    expect([pescado.yield, pescado.shelfLifeDays]).toEqual([0.75, 5])
+    const [servicios] = await db.select().from(schema.expenseCategories).where(eq(schema.expenseCategories.category, 'servicios'))
+    expect(servicios.kind).toBe('variable')
+
+    // Receta: una fila por plato, variante e insumo
+    await client.execute("INSERT INTO categories (name) VALUES ('Ceviches')")
+    await client.execute("INSERT INTO dishes (category_id, name, price) VALUES (1, 'Ceviche clásico', 18)")
+    await db.insert(schema.recipeItems).values({ dishId: 1, supplyId: 1, gramsClean: 180 })
+    await db.insert(schema.recipeItems).values({ dishId: 1, variant: 'Calamar', supplyId: 1, gramsClean: 90 })
+    await expect(db.insert(schema.recipeItems).values({ dishId: 1, supplyId: 1, gramsClean: 200 })).rejects.toThrow()
+    await db.insert(schema.recipeCalibrations).values({ supplyId: 1, factor: 1.04, fromDate: '2026-06-16', toDate: '2026-07-12' })
+    client.close()
+  })
+})
