@@ -162,7 +162,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** migrar dos veces no cambia nada; una base de la versión anterior migra sin perder datos (prueba con una copia).
 
-### - [ ] T8. Dominio de costeo (funciones puras)
+### - [x] T8. Dominio de costeo (funciones puras)
 `server/src/domain/costing.ts` implementa, con tipos explícitos, las fórmulas de la sección 4.1. Pruebas en `__tests__/domain.costing.test.ts` con los casos **PU-01 a PU-12 y PU-17** de la sección 5 (tolerancia de 0.01).
 
 **Acepta:** todas las funciones son puras (no importan `db`); los casos PU pasan.
@@ -433,3 +433,4 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **`expense_categories`.** Se siembra con las categorías existentes como `fijo`, gas y descartables como `variable`, y siempre con filas para `gas` y `descartables`. Una categoría sin fila cuenta como fija (T9). La restricción CHECK se declara con `check()` de drizzle. Ojo para T9: los gastos de la categoría `ingredientes` duplicarían las compras de insumos.
   - **Migración probada en copias.** Probé con una copia de `server/mauidisk.db` (anterior al inventario) y de `mauidisk-sim.db` (versión T6): ninguna tabla existente perdió filas y migrar dos veces no cambia nada.
   - **Cargador.** `loadSim` carga ahora las recetas y los parámetros de los insumos. Pruebas: 175.
+- **2026-11-05 · T8.** `domain/costing.ts` replica `scripts/tesis/formulas.py` función por función, con las mismas sumas de izquierda a derecha (`suma`). Además de las de §4.1 tiene `consumoTeorico` (el respaldo de F7) y `RANGO_FACTOR`. Las entradas por insumo o plato son `Map`, para no atar el dominio a ids o códigos. `costoPromedio` devuelve `null` si nunca hubo compra; el servicio decide qué hacer. Una prueba verifica que el archivo no importa `db`, servicios ni `utils/local`, y que no usa el reloj ni `process.env`. Pruebas: 189.

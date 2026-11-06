@@ -155,6 +155,17 @@ MODULES = [
                   "client/src/pages/inventory/ui.tsx"],
     },
     {
+        "id": "rentabilidad", "name": "Rentabilidad",
+        "summary": "Incremento 2 de la tesis: costo de lo vendido, utilidad, merma, ventas de equilibrio, calibración de recetas y costo y margen por plato con ingeniería de menú.",
+        "rules": [
+            "Las fórmulas (plan-sistema §4.1) son funciones puras en `domain/costing.ts`: sin BD, entorno ni reloj; su contraparte en Python es `scripts/tesis/formulas.py`.",
+            "Se calcula en precisión completa; `roundMoney` solo al responder. Con V = 0, food cost y ventas de equilibrio son null.",
+            "Sumas de izquierda a derecha (`suma`), en el mismo orden que la referencia, para la paridad con `fixtures/sim12/esperado.json`.",
+        ],
+        "docs": [("plan-sistema", "§4.1 Costeo, T7 a T12")],
+        "files": ["server/src/domain/costing.ts", "server/src/__tests__/domain.costing.test.ts"],
+    },
+    {
         "id": "impresion", "name": "Impresión",
         "summary": "Impresora térmica ESC/POS por TCP: comanda de cocina, pre-cuenta, boleta y reimpresiones; estado de la impresora.",
         "rules": [
