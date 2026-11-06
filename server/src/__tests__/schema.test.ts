@@ -214,4 +214,30 @@ describe('esquema de tests', () => {
     await db.insert(schema.recipeCalibrations).values({ supplyId: 1, factor: 1.04, fromDate: '2026-06-16', toDate: '2026-07-12' })
     client.close()
   })
+
+  // plan-sistema T13: incremento 3, aditivo e idempotente
+  it('[RNF07] migra al incremento 3 (pronósticos, sugerencias y ejecuciones)', async () => {
+    const client = createClient({ url: tempDbUrl() })
+    await createSchema(client)
+    for (const t of ['demand_forecasts', 'purchase_suggestions', 'forecast_runs']) await client.execute(`DROP TABLE ${t}`)
+    await client.execute("INSERT INTO supplies (name, code, unit, critical) VALUES ('Pescado', 'PESCADO', 'kg', 1)")
+
+    await applyStartupMigrations(client)
+    await applyStartupMigrations(client) // idempotente
+
+    const db = drizzle(client, { schema })
+    const base = { supplyId: 1, madeOn: '2026-08-11', method: 'holt_winters', modelVersion: 'mauidesk-forecast-1' }
+    await db.insert(schema.demandForecasts).values({ ...base, targetDate: '2026-08-12', horizon: 1, valueKg: 10.5, sigmaH: 2.1 })
+    // Un pronóstico por local, insumo, noche y día objetivo
+    await expect(db.insert(schema.demandForecasts).values({ ...base, targetDate: '2026-08-12', horizon: 1, valueKg: 11 })).rejects.toThrow()
+    await db.insert(schema.demandForecasts).values({ ...base, localId: 2, targetDate: '2026-08-12', horizon: 1, valueKg: 11 })
+    await db.insert(schema.purchaseSuggestions).values({
+      supplyId: 1, date: '2026-08-12', coverageDays: 2, forecastSum: 22, safetyStock: 4.9, available: 5, availableSource: 'conteo',
+      quantity: 21.9, serviceLevel: 0.99, modelVersion: 'mauidesk-forecast-1',
+    })
+    await db.insert(schema.forecastRuns).values({ madeOn: '2026-08-11', status: 'ok', finishedAt: '2026-08-12 04:30:01' })
+    const indexes = await client.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('uq_demand_forecasts_night', 'idx_purchase_suggestions_date', 'idx_forecast_runs_made_on') ORDER BY name")
+    expect(indexes.rows.map(r => r.name)).toEqual(['idx_forecast_runs_made_on', 'idx_purchase_suggestions_date', 'uq_demand_forecasts_night'])
+    client.close()
+  })
 })

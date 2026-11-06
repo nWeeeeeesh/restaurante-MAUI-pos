@@ -404,3 +404,57 @@ export const expenseCategories = sqliteTable('expense_categories', {
 }, (t) => [
   check('ck_expense_categories_kind', sql`${t.kind} IN ('fijo', 'variable')`),
 ])
+
+// ── Incremento 3: pronóstico de demanda y cantidad sugerida (plan-sistema T13) ──
+
+// Pronóstico por insumo hecho la noche `made_on` para el día de atención
+// `target_date` (horizonte 1 a 3). RD04: una vez guardado no se modifica.
+export const demandForecasts = sqliteTable('demand_forecasts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  localId: integer('local_id').notNull().default(1),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  madeOn: text('made_on').notNull(),
+  targetDate: text('target_date').notNull(),
+  horizon: integer('horizon').notNull(),
+  method: text('method').notNull(),
+  valueKg: real('value_kg').notNull(),
+  sigmaH: real('sigma_h'),
+  modelVersion: text('model_version').notNull(),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  uniqueIndex('uq_demand_forecasts_night').on(t.localId, t.supplyId, t.madeOn, t.targetDate),
+])
+
+// Cada cantidad sugerida que se mostró (Fórmula 2), con sus componentes
+export const purchaseSuggestions = sqliteTable('purchase_suggestions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  localId: integer('local_id').notNull().default(1),
+  supplyId: integer('supply_id').notNull().references(() => supplies.id),
+  date: text('date').notNull(),
+  coverageDays: integer('coverage_days').notNull(),
+  forecastSum: real('forecast_sum').notNull(),
+  safetyStock: real('safety_stock').notNull(),
+  available: real('available').notNull(),
+  // 'conteo' = apertura del día; 'teorico' = stock teórico al cierre anterior (F6)
+  availableSource: text('available_source', { enum: ['conteo', 'teorico'] }),
+  quantity: real('quantity').notNull(),
+  serviceLevel: real('service_level').notNull(),
+  modelVersion: text('model_version').notNull(),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+}, (t) => [
+  index('idx_purchase_suggestions_date').on(t.localId, t.date),
+])
+
+// Ejecuciones de la tarea nocturna (o a pedido)
+export const forecastRuns = sqliteTable('forecast_runs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  localId: integer('local_id').notNull().default(1),
+  madeOn: text('made_on').notNull(),
+  startedAt: text('started_at').default(sql`(datetime('now'))`),
+  finishedAt: text('finished_at'),
+  status: text('status', { enum: ['running', 'ok', 'error'] }).notNull(),
+  error: text('error'),
+}, (t) => [
+  index('idx_forecast_runs_made_on').on(t.localId, t.madeOn),
+])

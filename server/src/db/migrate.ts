@@ -295,6 +295,54 @@ export async function applyStartupMigrations(existing?: Client) {
       FROM expenses WHERE category IS NOT NULL AND trim(category) <> ''`)
     await client.execute("INSERT OR IGNORE INTO expense_categories (category, kind) VALUES ('gas', 'variable'), ('descartables', 'variable')")
 
+    // 8c) Incremento 3: pronóstico y cantidad sugerida (plan-sistema T13). Aditivo.
+    const v5Ddl = [
+      `CREATE TABLE IF NOT EXISTS \`demand_forecasts\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`made_on\` text NOT NULL,
+        \`target_date\` text NOT NULL,
+        \`horizon\` integer NOT NULL,
+        \`method\` text NOT NULL,
+        \`value_kg\` real NOT NULL,
+        \`sigma_h\` real,
+        \`model_version\` text NOT NULL,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      // Requerido: la idempotencia del pronóstico de cada noche (RD04) depende de él
+      'CREATE UNIQUE INDEX IF NOT EXISTS `uq_demand_forecasts_night` ON `demand_forecasts` (`local_id`,`supply_id`,`made_on`,`target_date`)',
+      `CREATE TABLE IF NOT EXISTS \`purchase_suggestions\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`supply_id\` integer NOT NULL,
+        \`date\` text NOT NULL,
+        \`coverage_days\` integer NOT NULL,
+        \`forecast_sum\` real NOT NULL,
+        \`safety_stock\` real NOT NULL,
+        \`available\` real NOT NULL,
+        \`available_source\` text,
+        \`quantity\` real NOT NULL,
+        \`service_level\` real NOT NULL,
+        \`model_version\` text NOT NULL,
+        \`created_by\` integer,
+        \`created_at\` text DEFAULT (datetime('now')),
+        FOREIGN KEY (\`supply_id\`) REFERENCES \`supplies\`(\`id\`) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (\`created_by\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
+      )`,
+      `CREATE TABLE IF NOT EXISTS \`forecast_runs\` (
+        \`id\` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        \`local_id\` integer DEFAULT 1 NOT NULL,
+        \`made_on\` text NOT NULL,
+        \`started_at\` text DEFAULT (datetime('now')),
+        \`finished_at\` text,
+        \`status\` text NOT NULL,
+        \`error\` text
+      )`,
+    ]
+    for (const ddl of v5Ddl) await client.execute(ddl)
+
     // ── Opcionales ────────────────────────────────────────────────────────────
     // 9) WAL (M5): con el journal por defecto ('delete'), un commit bloquea a los
     // lectores y una consulta puede recibir SQLITE_BUSY. En WAL los lectores no
@@ -316,6 +364,8 @@ export async function applyStartupMigrations(existing?: Client) {
       'CREATE INDEX IF NOT EXISTS `idx_daily_parts_date_part` ON `daily_parts` (`date`,`local_id`,`part`)',
       'CREATE INDEX IF NOT EXISTS `idx_supply_transfers_date` ON `supply_transfers` (`date`)',
       'CREATE INDEX IF NOT EXISTS `idx_recipe_calibrations_local_supply` ON `recipe_calibrations` (`local_id`,`supply_id`)',
+      'CREATE INDEX IF NOT EXISTS `idx_purchase_suggestions_date` ON `purchase_suggestions` (`local_id`,`date`)',
+      'CREATE INDEX IF NOT EXISTS `idx_forecast_runs_made_on` ON `forecast_runs` (`local_id`,`made_on`)',
     ]
     for (const sql of indexes) await optional('índice', () => client.execute(sql))
 

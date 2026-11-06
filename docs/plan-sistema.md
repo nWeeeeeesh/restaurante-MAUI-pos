@@ -218,7 +218,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 ## Fase D. Incremento 3: pronóstico de demanda y cantidad sugerida
 
-### - [ ] T13. Esquema del incremento 3
+### - [x] T13. Esquema del incremento 3
 - `demand_forecasts (id, local_id, supply_id, made_on TEXT, target_date TEXT, horizon INTEGER, method TEXT, value_kg REAL, sigma_h REAL NULL, model_version TEXT, created_at)`, con un índice único (`local_id`, `supply_id`, `made_on`, `target_date`).
 - `purchase_suggestions (id, local_id, supply_id, date, coverage_days, forecast_sum, safety_stock, available, quantity, service_level, model_version, created_by, created_at)`.
 - `forecast_runs (id, local_id, made_on, started_at, finished_at, status, error)`.
@@ -471,3 +471,4 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - Las 12 semanas: mediana 26.8 ms, p95 30.0 ms.
     - Límite: 3 000 ms; cumple con amplio margen.
   - **Pendiente.** La medición en la Raspberry Pi sigue siendo PA-07.
+- **2026-11-06 · T13.** Tablas `demand_forecasts` (índice único `uq_demand_forecasts_night`, requerido porque de él depende RD04), `purchase_suggestions` y `forecast_runs`, cada una con su índice. Se agregó la columna nulable `purchase_suggestions.available_source` (`conteo` | `teorico`): guarda de dónde salió el disponible A, para la trazabilidad de cada valor. `forecast_runs.status` es `running` | `ok` | `error`. La migración es idempotente y tiene prueba. Pruebas: 207.
