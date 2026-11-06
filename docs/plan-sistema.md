@@ -293,7 +293,7 @@ Amplía `npm run perf`: `generarPronosticos` de una noche con las 12 semanas y `
 ### - [x] T20. Pruebas de aceptación documentadas
 `docs/tesis/aceptacion.md`: guion para el propietario con los criterios de aceptación de los tres incrementos y una tabla para anotar el resultado y la fecha. Cubre PA-01 a PA-08 y la revisión de cada pantalla. Las pruebas manuales que se puedan hacer en la PC (PA-02, PA-03, PA-04, PA-05 y PA-06) se ejecutan ahora y se anotan con su evidencia (comando o captura).
 
-### - [ ] T21. Documentación técnica
+### - [x] T21. Documentación técnica
 Actualiza `docs/architecture/api.md`, `data-model.md`, `modules.md` y `architecture.md` (capas reales después de este plan) y el vault si existe el script. Agrega un diagrama de secuencia de la rentabilidad en Mermaid que coincida con el código.
 
 ### - [ ] T22. Evidencias para el Capítulo IV
@@ -545,3 +545,15 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - PA-07: `npm run perf` en la Pi.
     - PA-08: una semana de tarea nocturna, la ticketera real y los menús por rol en los celulares.
   - **Revisión de pantallas.** Incluye una tabla por pantalla; la de «Hoy» y el menú inferior del celular quedan para el local.
+- **2026-11-06 · T21.** Documentación técnica:
+  - **`architecture.md`.**
+    - §3.1, capas de los incrementos 2 y 3: client api, hooks y pages; routes, services, repositories, domain y jobs, con diagrama y reglas.
+    - §12, diagrama de secuencia en Mermaid de la consulta de la rentabilidad, con los nombres del código y su correspondencia con la Figura 12.
+  - **`api.md`.**
+    - §6 al día: se fueron `/inventory/study` y el bloqueo `study.supply_locked`; entraron `/api/settings`, el export v2, los parámetros del insumo y el `source` de la disponibilidad.
+    - Eventos `menu:availability` e `inventory:low-portions`.
+    - §7 (incremento 2) y §8 (incremento 3), nuevas.
+  - **`data-model.md`.** `study_group` y `study_config` quedan marcados como obsoletos, y la §10 nueva trae las tablas de T2, T3, T7 y T13 con su diagrama ER.
+  - **`modules.md`.** Módulos S17 (Rentabilidad), S18 (Pronóstico) y S19 (datos simulados).
+  - **`CLAUDE.md`.** Estructura con `repositories/`, `jobs/`, `domain/` y `hooks/`, los scripts `db:sim` y `perf`, el evento nuevo y `NIGHTLY_JOBS`.
+  - **Vault.** Regenerado. Es el mismo de cada tarea: grafo con `graphify update .` y vault con `build_vault.py`, sin archivos sin módulo.

@@ -67,8 +67,12 @@ server/src/
     auth.ts          requireAuth (JWT + usuario activo en BD), requireRole
     validate.ts      validateBody / validateQuery (Zod)
     error.ts         errores → JSON (DomainError, SQLITE_BUSY → 503, JSON inválido → 400)
-  routes/            controladores delgados (auth, menu, orders, bills, split, tables, reports, print, users, inventory, settings)
-  domain/            funciones PURAS (sin db, entorno ni reloj): settings, y las fórmulas de la tesis desde T8
+  routes/            controladores delgados (auth, menu, orders, bills, split, tables, reports, print, users, inventory, settings,
+                     profitability, recipes, forecast)
+  domain/            funciones PURAS (sin db, entorno ni reloj): settings, daily, calendar; fórmulas de la tesis en
+                     costing + profitability (incremento 2) y forecast + demand (incremento 3), espejo de scripts/tesis/formulas.py
+  repositories/      profitability.repo, forecast.repo: únicos que conocen el esquema en los incrementos 2 y 3 (lectura por lote)
+  jobs/nightly.ts    pronóstico de cada noche de atención a las 23:30 de Lima; lo arranca index.ts (NIGHTLY_JOBS=off lo apaga)
   services/
     order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
     billing.service.ts   cobro atómico (lecturas dentro de la tx, guardia bill_id IS NULL)
@@ -81,6 +85,9 @@ server/src/
     inventory-daily.service.ts   «Compra del día»: apertura + merma + compras + notas en una tx
     inventory-export.service.ts  CSV del instrumento de la tesis (columnas congeladas)
     settings.service.ts  ajustes del local (app_settings): apertura del segundo local
+    profitability.service.ts  rentabilidad (obtenerRentabilidad) y calibración de recetas (calibrar)
+    recipes.service.ts   recetas y tipo de gasto (fijo/variable)
+    forecast.service.ts  pronóstico (idempotente, RD04), lista de compra, stock teórico y avisos de pocas porciones
   schemas/           Schemas Zod por recurso
   db/
     schema.ts        tablas drizzle (incluye índices declarados)
@@ -94,17 +101,23 @@ server/src/
     tickets.ts       etiqueta de pedido, datos de comanda, selección de reimpresión
     dates.ts / math.ts / csv.ts / codes.ts (código estable de insumo); limaDate en dates.ts
     local.ts         currentLocalId() desde MAUI_LOCAL_ID
-  __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol)
+  __tests__/         Vitest; helpers/db.ts (esquema real), helpers/http.ts (app + usuarios por rol), helpers/sim.ts (loadSim:
+                     12 semanas simuladas de fixtures/sim12, paridad con scripts/tesis)
 
 server/scripts/
   restore-backup.sh  restaura un backup en otra ruta sin pisar nada (ver DEPLOYMENT.md)
+  load-sim.ts        npm run db:sim: crea mauidisk-sim.db (solo URLs que terminan en -sim.db)
+  perf.ts            npm run perf: tiempos de los incrementos 2 y 3 → docs/tesis/rendimiento.json
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
-                     inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, SettingsSection, model, ui}
-  components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, etc.
+                     inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, SettingsSection, model, ui},
+                     profitability/{Profitability, Recipes, ExpenseKinds}, forecast/PurchaseList
+  components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, LowPortionsBanner, etc.
+  hooks/             useProfitability, useRecipes, usePurchaseList (carga, error y datos)
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
-  api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners)
+  api/               client.ts (axios + interceptor 401), socket.ts (auth handshake, listeners);
+                     profitability.ts, recipes.ts, forecast.ts (HTTP tipado, sin lógica)
   utils/             dates.ts (parseDbUtc), reportHTML.ts (escapeHtml)
 ```
 
@@ -152,7 +165,7 @@ client/src/
 - `GET /api/menu` devuelve los agotados (el POS los muestra con "No había") y excluye los archivados.
 
 ### Socket
-- Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`, `menu:availability` (`{dishId, available}`, solo en transiciones reales; el POS actualiza el menú y quita el plato agotado del borrador). Se emiten con `emit()` de `realtime.ts`, después del commit.
+- Eventos del server: `order:new`, `order:updated`, `order:removed`, `kitchen:print-result`, `menu:availability` (`{dishId, available}`, solo en transiciones reales; el POS actualiza el menú y quita el plato agotado del borrador), `inventory:low-portions` (`{dishId, portionsLeft, supplyCode}`, tras un cobro, solo cuando cambian las porciones; aviso del POS). Se emiten con `emit()` de `realtime.ts`, después del commit.
 - El cliente vuelve a pedir `/orders/active` al reconectar y al volver la app al frente (más de 30 s).
 - Estado de conexión en `client/src/store/connection.ts`; banner en [ReconnectBanner.tsx](client/src/components/ReconnectBanner.tsx).
 - Todos los eventos van a todos los sockets autenticados (segmentar por rol queda para el producto).
@@ -193,6 +206,7 @@ Ver [server/.env.example](server/.env.example) — variables documentadas una po
 - `ALLOWED_ORIGINS` (CORS allowlist; vacío = defaults de dev)
 - `DATABASE_URL` (en Pi: ruta absoluta al SSD)
 - `MAUI_LOCAL_ID` (1 = local principal; 2 = segundo local; inválido → no arranca)
+- `NIGHTLY_JOBS` (`off` apaga la tarea nocturna del pronóstico; los tests la apagan en `vitest.config.ts`)
 - `PRINTER_TYPE` + (`PRINTER_HOST`/`PRINTER_PORT` o `PRINTER_NAME`)
 - Zona horaria del proceso: `TZ=America/Lima` (en la unidad systemd)
 

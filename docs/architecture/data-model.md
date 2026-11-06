@@ -321,9 +321,9 @@ erDiagram
 
 | Cambio | Detalle |
 |---|---|
-| `supplies.study_group` | `calamar`, `pescado`, `mariscos` o null. La migración lo asigna por código (CALAMAR, PESCADO; PULPO, LANGOSTINO y CONCHAS → mariscos). No se edita desde la UI |
+| `supplies.study_group` | **Obsoleto desde T2** (el estudio por grupos se retiró): la columna sigue en la base, sin uso (RNF07) |
 | `entry_mode` | `typed`, `copied` o `default` en `supply_counts`, `supply_waste` y `supply_purchases`; `price_entry_mode` en `supply_purchases`. Null en los registros anteriores a la v3 |
-| `study_config` | `key` (PK), `value`, `updated_by`, `updated_at`. Fechas del estudio en hora de Lima |
+| `study_config` | **Obsoleta desde T2**: la tabla sigue en la base, sin uso. La apertura del segundo local pasó a `app_settings` |
 | `daily_parts` | Una fila por guardado de cada parte de la «Compra del día» (`apertura`, `compra`): autor, hora, `duration_ms`, `is_correction`, `client_version`. Índice `idx_daily_parts_date_part (date, local_id, part)` |
 | `supply_transfers` | Traslados: cada local registra su lado (`envio` / `recepcion`), con `other_local_id` y costo unitario opcional en la recepción |
 | `other_supply_costs` | Monto del día en insumos no críticos; único `uq_other_supply_costs_day (date, local_id, source)` |
@@ -334,3 +334,34 @@ La «Compra del día» guarda «Botaste» también en 0 (`supply_waste` con `qua
 
 **Migración:** pasos **requeridos** de `migrate.ts`: 5 (tablas v1), 6 (v2: columnas, códigos, `moment` + marcado `cierre` en una sola transacción, cambio del índice único y `day_notes`) y 7 (v3: `study_group` por código, modos de entrada, `study_config`, `daily_parts`, `supply_transfers`, `other_supply_costs` y su índice único). Los índices por fecha son opcionales. El único cambio no aditivo es el reemplazo del índice único de conteos. Todo aditivo: la versión anterior del código funciona con la BD nueva. `seed.ts` carga 9 insumos iniciales solo si `supplies` está vacía, aunque el menú ya exista.
 
+## 10. Incrementos 2 y 3 de la tesis (plan-sistema T2, T3, T7 y T13)
+
+Todo aditivo (RNF07) y con pasos idempotentes en `migrate.ts` (8, 8b y 8c). Cada local tiene su base (RD06); las tablas nuevas que registran hechos llevan `local_id`.
+
+```mermaid
+erDiagram
+    dishes ||--o{ recipe_items : "dish_id"
+    supplies ||--o{ recipe_items : "supply_id"
+    supplies ||--o{ recipe_calibrations : "supply_id"
+    supplies ||--o{ demand_forecasts : "supply_id"
+    supplies ||--o{ purchase_suggestions : "supply_id"
+    users |o--o{ recipe_items : "updated_by"
+    users |o--o{ recipe_calibrations : "computed_by"
+    users |o--o{ purchase_suggestions : "created_by"
+    users |o--o{ expense_categories : "updated_by"
+    users |o--o{ app_settings : "updated_by"
+```
+
+| Tabla o columna | Propósito | Notas |
+|---|---|---|
+| `app_settings` (T2) | Ajustes del local, clave → valor | `second_local_opened_on` habilita los traslados. Solo el dueño (`settings.update`) |
+| `daily_parts.no_purchase` (T3) | «Hoy no compré» | No crea compras en 0: la «Compra del día» muestra 0 con modo `default` |
+| `supplies.yield`, `shelf_life_days`, `service_level` (T7) | Rendimiento (kg limpios por kg comprado, 1 por defecto), vida útil y nivel de servicio | La migración los pone a los cuatro críticos solo si no están configurados |
+| `recipe_items` (T7) | Gramos de producto limpio por porción de cada insumo crítico | Único `uq_recipe_items_dish_variant_supply (dish_id, variant, supply_id)`. `variant` = `''` para la receta del plato o el nombre de la opción de modificador que la reemplaza (no NULL: SQLite trataría cada NULL como distinto) |
+| `recipe_calibrations` (T7) | Factor de la Fórmula 12 por local e insumo, con su periodo | El vigente es el de mayor `id`. Índice `idx_recipe_calibrations_local_supply` |
+| `expense_categories` (T7) | Tipo de cada categoría de gasto | `CHECK (kind IN ('fijo','variable'))`. Sin fila = fija. Gas y descartables, variables |
+| `demand_forecasts` (T13) | Pronóstico por local, insumo, noche y día objetivo (horizonte 1 a 3) | Único `uq_demand_forecasts_night (local_id, supply_id, made_on, target_date)`: requerido, garantiza RD04. `sigma_h` = σ del error acumulado de su horizonte |
+| `purchase_suggestions` (T13) | Cada cantidad sugerida mostrada, con sus componentes | `available_source` (`conteo`/`teorico`). Índice `idx_purchase_suggestions_date` |
+| `forecast_runs` (T13) | Ejecuciones de la tarea nocturna o a pedido | `status` `running`/`ok`/`error`. Índice `idx_forecast_runs_made_on` |
+
+La rentabilidad **no se guarda**: se calcula al consultarla desde las tablas de registro. Las ventas salen de `order_items` de boletas pagadas (por `bill_id`), sin los pedidos cancelados, en el día local `date(paid_at, '-5 hours')`.

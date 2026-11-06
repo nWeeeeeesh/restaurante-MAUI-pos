@@ -192,6 +192,22 @@
 - **Ubicación:** `server/scripts/convert-logo.mjs` (Logo.jpg → `logo_bitmap.ts`), `scripts/generate-pwa-icons.js` (iconos PWA)
 - **Externas:** jimp. **Estado:** **Completo** (se ejecutan a mano). **Observaciones:** `jimp` está en las dependencias de runtime del servidor (TD-30).
 
+### S17. Rentabilidad (incremento 2, plan-sistema T7–T12)
+- **Ubicación:** `routes/profitability.ts`, `routes/recipes.ts`, `services/profitability.service.ts`, `services/recipes.service.ts`, `repositories/profitability.repo.ts`, `domain/costing.ts`, `domain/profitability.ts`, `domain/calendar.ts`, `schemas/profitability.ts`, `schemas/recipes.ts`
+- **Responsabilidad:** costo de lo vendido, utilidades, merma, ventas de equilibrio, calibración de recetas, costo y margen por plato e ingeniería de menú. Tipo de gasto (fijo o variable).
+- **Consumidores:** páginas Rentabilidad, Recetas y Reportes (tipo de gasto); `forecast.repo.ts` reutiliza `leerPeriodo`.
+- **Estado:** **Completo**. Paridad con la referencia en Python (`[PP-01]`); `npm run perf` mide un mes en ~30 ms en la PC.
+
+### S18. Pronóstico y lista de compra (incremento 3, plan-sistema T13–T18)
+- **Ubicación:** `routes/forecast.ts`, `services/forecast.service.ts`, `repositories/forecast.repo.ts`, `domain/forecast.ts`, `domain/demand.ts`, `jobs/nightly.ts`, `schemas/forecast.ts`, plantilla `printPurchaseList` en `utils/printer.ts`
+- **Responsabilidad:** demanda no censurada, cuatro métodos elegidos por MAE con origen móvil, σ por horizonte, cantidad sugerida, stock teórico, avisos de pocas porciones y tarea nocturna.
+- **Consumidores:** página Lista de compra, `LowPortionsBanner` del POS, cobro (evento `inventory:low-portions`).
+- **Estado:** **Completo**. Paridad (`[PP-02]`, `[PP-03]`) en las 24 noches de las semanas 9 a 12.
+
+### S19. Datos simulados y referencia (plan-sistema T5–T6)
+- **Ubicación:** `scripts/tesis/` (simulador, fórmulas y referencia en Python estándar), `server/src/__tests__/fixtures/sim12/`, `__tests__/helpers/sim.ts`, `server/scripts/load-sim.ts` (`npm run db:sim`), `server/scripts/perf.ts` (`npm run perf`).
+- **Estado:** **Completo**. Deterministas (semilla 20260610).
+
 ---
 
 ## 3. Módulos técnicos: cliente

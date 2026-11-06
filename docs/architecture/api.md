@@ -124,6 +124,8 @@ Autenticación en el handshake con el mismo JWT (`index.ts:74-86`). Todos los ev
 | `order:updated` | `orders.ts:225`, `304`, `331`, `341`; `split.ts:24`; `bills.ts:132` | Pedido completo | `store/orders.ts:133-139` |
 | `order:removed` | `orders.ts:302`, `353`; `bills.ts:128` | `orderId` | `store/orders.ts:141-143` |
 | `kitchen:print-result` | `orders.ts:63-81`, `268-276` | `{orderId, ok, isAddition, label, itemCount, reason?, manual?}` | `store/orders.ts:145-162` (toast) |
+| `menu:availability` | `menu.ts` (`/availability` y edición del dueño), solo en transiciones reales | `{dishId, available}` | `pages/POS.tsx`, `components/LowPortionsBanner.tsx` |
+| `inventory:low-portions` | `bills.ts` después de cada cobro (sin esperar), solo si cambian las porciones del plato desde el último aviso del día | `{dishId, portionsLeft, supplyCode}` | `components/LowPortionsBanner.tsx` |
 
 No hay números de versión ni resincronización al reconectar (TD-12).
 
@@ -178,18 +180,42 @@ Reglas comunes: escrituras con `withWriteLock` + transacción; fechas de compra,
 | PUT | `/api/inventory/counts/:date` | owner, manager | Conteo suelto `{moment?, items}` (por defecto `cierre`); upsert por insumo, día y momento | `count.update` (solo si cambia el valor) |
 | POST | `/api/inventory/lost-sales` | todos | "No había" desde el POS: `dishId` y/o `supplyId`, `quantity` (1 por defecto) | — |
 | GET | `/api/inventory/lost-sales?from&to` | owner, manager | Ventas perdidas del rango (límites del día local convertidos a UTC) | — |
-| GET | `/api/inventory/study` | owner, manager | Configuración del estudio y, por grupo, `{group, activates_on, active_today, supplies}` | — |
-| PUT | `/api/inventory/study` | owner | Escribe claves de `study_config` (null borra). Bloquea activaciones que ya llegaron (`study.activation_locked`) y la línea base iniciada (`study.baseline_locked`); rechaza activaciones pasadas, mariscos ≤ fin y un orden sorteado que no coincide con las fechas | `study.configure` |
-| GET | `/api/inventory/export?table&from&to` | owner, manager | Dataset v1 de la tesis: `daily`, `purchases`, `waste`, `counts`, `transfers`, `other_costs`, `sales`, `stockouts` (intervalos con origen), `lost_sales`, `day_notes`, `daily_parts`, `study_config`, `supplies`. Primera línea `# maui-tesis dataset v1 · …`; columnas congeladas el 2026-11-09 en el [diccionario](../diccionario-datos-tesis.md) | — |
+| GET | `/api/settings` | owner, manager | Ajustes del local (`app_settings`): `second_local_opened_on` | — |
+| PUT | `/api/settings` | owner | Escribe ajustes (null borra) | `settings.update` |
+| GET | `/api/inventory/export?table&from&to` | owner, manager | Dataset **v2** de la tesis: `daily`, `purchases`, `waste`, `counts`, `transfers`, `other_costs`, `sales`, `stockouts` (intervalos con origen), `lost_sales`, `day_notes`, `daily_parts`, `supplies`, `recipe_items`, `recipe_calibrations`, `demand_forecasts`, `purchase_suggestions`, `expense_categories`, `app_settings`. Primera línea `# maui-tesis dataset v2 · …`; columnas en el [diccionario v2](../diccionario-datos-tesis.md) | — |
 
 **Cambios en el menú (Capa 0, TD-31):**
 - `DELETE /api/menu/dishes/:id` con historial pone `archived=true` (no toca `available`), responde `{archived:true}` y audita `dish.archive`. Sin historial sigue siendo borrado físico (ahora en una transacción).
 - `GET /api/menu` excluye los archivados e **incluye los agotados** (`available=false`): el POS los muestra deshabilitados con el botón "No había". `resolveItems` rechaza archivados y agotados con 409 `DISH_UNAVAILABLE`.
 - `PATCH /api/menu/dishes/:id` acepta `{archived:false}` para restaurar (archivar es solo `DELETE`).
 - Desde la v2 del plan, el **cajero** también puede marcar agotado (`PATCH /dishes/:id/availability`, `GET /dishes`).
-- Desde la v3, `dish.availability` guarda `source: 'manual'` (la fase 2 agregará `propuesta_confirmada`).
-- `PATCH /api/inventory/supplies/:id`: mientras corre el estudio, un insumo con grupo no puede pasar a `critical: false` ni `active: false` (409 `study.supply_locked`).
+- `dish.availability` guarda `source`: `manual`, o `propuesta_confirmada` cuando `PATCH /availability` llega con ese `source` desde el aviso de pocas porciones (plan-sistema T16).
+- `PATCH /api/inventory/supplies/:id` acepta también `yield` (0–1], `shelfLifeDays` (1–365 o null) y `serviceLevel` (0.50–0.999 o null). El bloqueo del estudio por grupos (`study.supply_locked`) se retiró en T2.
 - **Evento Socket.io `menu:availability`** (`{dishId, available}`, v2.1): se emite después del commit en cada transición real de disponibilidad, desde `/availability` o desde `PATCH /dishes/:id`. El POS actualiza el menú sin recargar y quita el plato agotado de los borradores.
 - `GET /api/inventory/daily`: `suggestion.fromDate` indica de qué compra sale la cantidad de referencia; la pantalla la ofrece con [Usar] y no la prellena (plan §2.9).
 - **Quiebres:** `dish.availability` en `audit_log` se escribe solo en transiciones reales (marcar agotado dos veces cuenta como un solo quiebre), venga de `PATCH /dishes/:id/availability` o de la edición del dueño (`PATCH /dishes/:id` con `available`).
 
+## 7. Incremento 2: rentabilidad operativa (plan-sistema T10)
+
+Routers `routes/profitability.ts`, `routes/recipes.ts` y los tipos de gasto en `routes/reports.ts`. Servicios `profitability.service.ts` y `recipes.service.ts`; repositorio `repositories/profitability.repo.ts`; fórmulas en `domain/costing.ts` y `domain/profitability.ts`. El periodo máximo es de 366 días (400 si no).
+
+| Método | Endpoint | Roles | Descripción | Auditoría |
+|---|---|---|---|---|
+| GET | `/api/profitability?from&to&groupBy=day\|week\|month` | owner | `period`, `totals` (`sales`, `cogs`, `otherSupplies`, `expenses`, `fixedExpenses`, `grossProfit`, `operatingProfit`, `foodCostPct`, `breakEvenSales`, `waste{kg,cost,pct}`), `series` (los mismos por grupo), `supplies` (consumo, merma, costo promedio, factor, días imputados), `dishes` (costo, margen, categoría de ingeniería de menú, `noRecipe`), `imputedDays`, `warnings` (`NO_RECIPE`, `FACTOR_OUT_OF_RANGE`, `NOT_CALIBRATED`, `MISSING_COUNT`, `NO_PURCHASE_PRICE`). `foodCostPct` y `breakEvenSales` son `null` sin ventas | — |
+| GET | `/api/recipes` | owner | Carta sin archivados con su receta (`variant`, `supplyId`, `gramsClean`, `kgPerPortion`), insumos críticos con su factor vigente y `factorRange` | — |
+| PUT | `/api/recipes/:dishId` | owner | Cuerpo: lista de `{variant?, supplyId, gramsClean}`; reemplaza la receta completa. Solo insumos críticos (400 `SUPPLY_NOT_CRITICAL`); 404 `DISH_NOT_FOUND` | `recipe.update` (antes y después) |
+| POST | `/api/recipes/calibrate` | owner | `{from, to}`: Fórmula 12 por insumo con los días que tienen conteo ese día y el siguiente; guarda en `recipe_calibrations` (pasa a ser el vigente) | `recipe.calibrate` |
+| GET | `/api/reports/expense-categories` | owner | Categorías con su tipo (`fijo`/`variable`), si están clasificadas y cuántos gastos tienen | — |
+| PUT | `/api/reports/expense-categories/:category` | owner | `{kind}`; también para una categoría sin gastos todavía | `expense_category.update` |
+
+## 8. Incremento 3: pronóstico y lista de compra (plan-sistema T16)
+
+Router `routes/forecast.ts`; servicio `forecast.service.ts`; repositorio `repositories/forecast.repo.ts`; fórmulas en `domain/forecast.ts` y `domain/demand.ts`; tarea nocturna `jobs/nightly.ts`. La «Compra del día» no usa nada de esto (RD01).
+
+| Método | Endpoint | Roles | Descripción |
+|---|---|---|---|
+| GET | `/api/forecast/purchase-list?date&coverageDays&coverage=id:días,…` | owner, manager | Lista de compra de `date` (hoy en Lima por defecto) con los pronósticos de la noche anterior (si faltan, los genera). Cobertura de 1 a 3 días, limitada por la vida útil. Por insumo: `forecast`, `forecastSum`, `sigmaH`, `z`, `safetyStock`, `available` y `availableSource` (`conteo`/`teorico`), `quantity` (F2) y `toBuy` (al alza en medios kilos). Guarda cada sugerencia en `purchase_suggestions` |
+| POST | `/api/forecast/purchase-list/print` | owner, manager | `{date?, coverageDays?, coverage?}`; el servidor arma la lista y la imprime (`printPurchaseList`). 502 `PRINTER_UNAVAILABLE` sin impresora |
+| POST | `/api/forecast/run` | owner | `{madeOn}`: pronóstico de esa noche a pedido. Idempotente (RD04): lo ya guardado no cambia. 400 `FUTURE_NIGHT` |
+| GET | `/api/forecast/history?supplyId&from&to` | owner | Demanda no censurada por día y los pronósticos guardados para esos días (solo consulta) |
+| GET | `/api/forecast/alerts` | todos | `{threshold: 5, alerts: [{dishId, name, portionsLeft, supplyCode}]}`: platos disponibles cuya receta no alcanza para más del umbral con el stock teórico (F6). Solo avisa (RD02) |

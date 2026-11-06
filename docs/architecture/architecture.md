@@ -75,6 +75,43 @@ graph TD
 | `utils/` | ESC/POS y transporte a la impresora; fechas; dinero | `printer.ts` mezcla plantillas y transporte |
 | `db/` | Esquema Drizzle, cliente libsql, migraciones al arrancar, seed | Dos fuentes de verdad del esquema (TD-18) |
 
+### 3.1 Capas de los incrementos 2 y 3 (plan-sistema, 2026-11)
+
+Los módulos nuevos (rentabilidad, recetas, pronóstico) y la «Compra del día» desde T4 siguen esta separación. Los módulos anteriores (pedidos, menú, mesas) mantienen el patrón de la tabla de arriba.
+
+```mermaid
+graph TD
+    subgraph C["Cliente"]
+      CP["pages/profitability · pages/forecast<br/>solo presentación"]
+      CH["hooks/useProfitability · useRecipes · usePurchaseList<br/>carga, error y datos"]
+      CA["api/profitability · recipes · forecast<br/>HTTP tipado, sin lógica"]
+      CP --> CH --> CA
+    end
+    subgraph S["Servidor"]
+      R["routes/profitability · recipes · forecast<br/>requireAuth → requireRole → Zod → servicio"]
+      SV["services/profitability · recipes · forecast<br/>coordinan; reciben ejecutor y localId"]
+      RP["repositories/profitability.repo · forecast.repo<br/>únicos que conocen el esquema; lectura por lote"]
+      D["domain/costing · profitability · calendar · forecast · demand<br/>funciones puras (fórmulas de la tesis)"]
+      J["jobs/nightly.ts<br/>23:30 Lima, lo arranca index.ts"]
+      R --> SV
+      SV --> RP
+      SV --> D
+      J --> SV
+    end
+    CA -- "REST /api + JWT" --> R
+    RP --> DB[("SQLite")]
+```
+
+| Capa | Responsabilidad | Regla |
+|---|---|---|
+| `client/src/api/<módulo>.ts` | Llamadas HTTP tipadas | Sin lógica; el servidor es la única autoridad de cálculo |
+| `client/src/hooks/use<Módulo>.ts` | Estado de carga, error y datos | «Cargando» se deriva de la consulta pendiente |
+| `routes/` | Autenticación, rol, validación Zod, `localId` con `currentLocalId()` | No calcula |
+| `services/` | Coordina repositorio y dominio; escrituras con `withWriteLock` y auditoría | No lee `process.env` |
+| `repositories/` | Consultas por lote para todo el periodo (una por tabla) | Sin consultas dentro de bucles |
+| `domain/` | Fórmulas de la tesis (plan-sistema §4), una función por fórmula | Puras: sin BD, entorno ni reloj; espejo de `scripts/tesis/formulas.py` |
+| `jobs/` | Tarea nocturna del pronóstico | `NIGHTLY_JOBS=off` la apaga |
+
 ## 4. Flujo de una petición
 
 ```mermaid
@@ -246,3 +283,42 @@ graph TD
 ```
 
 Lectura del mapa: la única pieza de "backend" separada del transporte HTTP es el servicio de cobro. Las demás reglas viven dentro de los routers. Ningún módulo toca inventario ni caja porque no existen.
+
+## 12. Secuencia: consulta de la rentabilidad
+
+Corresponde a la Figura 12 de la tesis (`PanelRentabilidad → ProfitabilityRouter → ProfitabilityService → ProfitabilityRepository → Base de datos`, y `ProfitabilityService → Calculadora`). Los nombres son los del código.
+
+```mermaid
+sequenceDiagram
+    actor Dueño
+    participant Panel as Profitability.tsx<br/>(PanelRentabilidad)
+    participant Hook as useProfitability
+    participant Api as api/profitability.ts
+    participant Router as routes/profitability.ts
+    participant Svc as profitability.service.ts<br/>obtenerRentabilidad
+    participant Repo as profitability.repo.ts<br/>leerPeriodo
+    participant Dom as domain/profitability.ts<br/>+ domain/costing.ts
+    participant DB as SQLite
+
+    Dueño->>Panel: elige periodo y agrupación
+    Panel->>Hook: from, to, groupBy
+    Hook->>Api: getProfitability(q)
+    Api->>Router: GET /api/profitability?from&to&groupBy
+    Router->>Router: requireAuth → requireRole('owner') → validateQuery (≤ 366 días)
+    Router->>Svc: obtenerRentabilidad(db, {localId, from, to, groupBy})
+    Svc->>Repo: leerPeriodo(ex, {localId, from, to})
+    Repo->>DB: una consulta por tabla (insumos, conteos, compras, traslados, merma,<br/>ventas por día local, otros insumos, gastos y su tipo, notas,<br/>recetas, platos, factores)
+    DB-->>Repo: filas
+    Repo-->>Svc: DatosRentabilidad (indexados por insumo y día)
+    loop cada insumo crítico
+      Svc->>Dom: costearInsumo (F7, F8; consumo teórico si falta un conteo)
+    end
+    Svc->>Dom: calcularPeriodo (F9, F10, F11, F15) del total y de cada grupo
+    Svc->>Dom: analizarCarta (F13, F14, ingeniería de menú)
+    Dom-->>Svc: resultados en precisión completa
+    Svc-->>Router: totales, serie, insumos, platos, advertencias (roundMoney al responder)
+    Router-->>Api: 200 JSON
+    Api-->>Hook: Profitability
+    Hook-->>Panel: data
+    Panel-->>Dueño: tarjetas, gráfico, tablas y «Revisa»
+```
