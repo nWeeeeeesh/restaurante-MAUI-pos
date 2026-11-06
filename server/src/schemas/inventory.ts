@@ -177,6 +177,8 @@ export const SaveDailySchema = z.discriminatedUnion('part', [
     items: z.array(CompraItemSchema).max(100).refine(uniqueSupplies, 'Insumo repetido'),
     // Monto en S/ de todo lo no crítico del día; null = no se registró
     otherCost: z.object({ amount: z.number().min(0).max(999999), mode: entryMode.optional() }).nullable().optional(),
+    // «Hoy no compré»: el día queda registrado sin compras (no exige ítems)
+    noPurchase: z.boolean().optional(),
   }),
 ])
 

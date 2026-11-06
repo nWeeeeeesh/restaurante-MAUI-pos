@@ -17,7 +17,7 @@ const HEADERS: Record<string, string> = {
   day_notes: 'local_id,id,fecha,tipo,texto,registrado_por,registrado_en',
   supplies: 'id,codigo,nombre,unidad,perecible,critico,activo,orden,grupo',
   study_config: 'clave,valor,actualizado_por,actualizado_en',
-  daily_parts: 'local_id,id,fecha,parte,registrado_por,registrado_en,duracion_ms,es_correccion,version_cliente',
+  daily_parts: 'local_id,id,fecha,parte,registrado_por,registrado_en,duracion_ms,es_correccion,version_cliente,no_compro',
   transfers: 'local_id,id,fecha,insumo_id,insumo_codigo,insumo,unidad,direccion,cantidad,costo_unitario,otro_local_id,origen,modo_entrada,registrado_por,registrado_en',
   other_costs: 'local_id,id,fecha,monto,origen,modo_entrada,registrado_por,registrado_en',
   sales: 'local_id,fecha,hora,boleta_id,plato_id,plato,categoria_id,categoria,cantidad,precio_unitario,total,anulado',

@@ -159,13 +159,14 @@ export async function exportCsv(table: ExportTable, range: DateRange): Promise<s
       const rows = await db.select({
         localId: dailyParts.localId, id: dailyParts.id, date: dailyParts.date, part: dailyParts.part, by: users.name,
         at: localTs(dailyParts.completedAt), durationMs: dailyParts.durationMs, correction: dailyParts.isCorrection, version: dailyParts.clientVersion,
+        noPurchase: dailyParts.noPurchase,
       }).from(dailyParts)
         .leftJoin(users, eq(dailyParts.completedBy, users.id))
         .where(and(gte(dailyParts.date, range.from), lte(dailyParts.date, range.to)))
         .orderBy(asc(dailyParts.date), asc(dailyParts.id))
       return toCsv(
-        ['local_id', 'id', 'fecha', 'parte', 'registrado_por', 'registrado_en', 'duracion_ms', 'es_correccion', 'version_cliente'],
-        rows.map(r => [r.localId, r.id, r.date, r.part, r.by, r.at, r.durationMs, r.correction, r.version]),
+        ['local_id', 'id', 'fecha', 'parte', 'registrado_por', 'registrado_en', 'duracion_ms', 'es_correccion', 'version_cliente', 'no_compro'],
+        rows.map(r => [r.localId, r.id, r.date, r.part, r.by, r.at, r.durationMs, r.correction, r.version, r.noPurchase]),
         pre,
       )
     }

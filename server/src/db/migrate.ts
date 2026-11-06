@@ -224,6 +224,9 @@ export async function applyStartupMigrations(existing?: Client) {
     ]
     for (const ddl of v3Ddl) await client.execute(ddl)
 
+    // «Hoy no compré» (plan-sistema T3)
+    await addColumn(client, 'daily_parts', 'no_purchase', 'integer DEFAULT false NOT NULL')
+
     // 8) Ajustes del local (plan-sistema T2): reemplazan la configuración del estudio.
     // La fecha de apertura del segundo local se copia una sola vez si ya existía.
     await client.execute(`CREATE TABLE IF NOT EXISTS \`app_settings\` (

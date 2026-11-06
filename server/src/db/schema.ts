@@ -307,6 +307,9 @@ export const dailyParts = sqliteTable('daily_parts', {
   durationMs: integer('duration_ms'),
   isCorrection: integer('is_correction', { mode: 'boolean' }).notNull().default(false),
   clientVersion: text('client_version'),
+  // «Hoy no compré» (RF02): la parte «compra» se guardó sin compras a propósito. El
+  // último guardado de la parte manda: una compra posterior la vuelve a 0
+  noPurchase: integer('no_purchase', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [
   index('idx_daily_parts_date_part').on(t.date, t.localId, t.part),
 ])

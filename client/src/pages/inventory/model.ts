@@ -80,6 +80,8 @@ export interface PartStatus {
   at: string | null
   corrections: number
   lastAt: string | null
+  // Solo en la parte «compra»: el último guardado fue «Hoy no compré»
+  noPurchase: boolean
 }
 
 export interface DailyDay {

@@ -85,7 +85,7 @@ Pasos:
 
 **Acepta:** `grep -rn "isGroupActive\|studyOverview\|study_group" server/src client/src` solo encuentra comentarios de obsolescencia o el esquema; los traslados siguen rechazándose antes de la fecha de apertura; CI en verde.
 
-### - [ ] T3. «Hoy no compré» (RF02, PI-02)
+### - [x] T3. «Hoy no compré» (RF02, PI-02)
 1. Agrega `daily_parts.no_purchase INTEGER NOT NULL DEFAULT 0` (aditivo).
 2. En la parte «compra» de `saveDaily`, acepta `noPurchase: boolean`. Si es `true`, no exige ítems, guarda la fila de `daily_parts` con `no_purchase = 1` y deja los ítems críticos en 0 con modo `default`. Una compra posterior del mismo día (otro guardado) vuelve `no_purchase` a 0.
 3. En el cliente, un botón «Hoy no compré» en la tarjeta «Al volver de comprar».
@@ -394,3 +394,4 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
 
 - **2026-11-05 · T1.** Rama `feat/sistema-completo` creada desde `feat/inventario-fase0` (`d77aab2`). Línea base de `npm run ci`: servidor 23 archivos y **174 pruebas** en verde (14 warnings de lint previos); cliente sin errores (65 warnings previos). Coincide con lo esperado.
 - **2026-11-05 · T2.** `limaDate` pasó de `utils/study.ts` (eliminado) a `utils/dates.ts`, porque la tarea nocturna de T15 la necesitará. La migración ya no asigna `study_group` por código (queda vacío en las bases nuevas). Hasta T19 el export conserva la tabla `study_config` y la columna `grupo` de `supplies` (vacía), para no tocar el dataset dos veces; T19 las quita al subir a v2. Se retira la prueba del invariante de activación; la de RD01 frente al pronóstico llega en T15. La sección «Ajustes» queda en la pestaña Insumos (solo el dueño). Pruebas: 168 en verde.
+- **2026-11-05 · T3.** «Dejar los ítems críticos en 0 con modo `default`» se implementa sin crear filas de compra en 0: `GET /daily/:date` devuelve `purchased = 0` y `purchasedMode = 'default'` cuando el último guardado de la parte fue «no compré»; el dato queda en `daily_parts.no_purchase`. «No compré» junto con compras u otros insumos responde 400 `NO_PURCHASE_CONFLICT`; los traslados sí se aceptan. La columna se exporta como `no_compro` en `daily_parts`; la versión del dataset sube en T19 (el número de tarea que cita T3, «T21», es el de la documentación). Pruebas: 169.

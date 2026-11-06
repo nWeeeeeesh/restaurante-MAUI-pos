@@ -131,20 +131,24 @@ async function otherCostReference(ex: Executor, date: string) {
   return last ? { amount: last.amount, fromDate: last.date } : null
 }
 
-// Quién guardó cada parte y cuándo (el primer guardado) y cuántas correcciones tuvo
+// Quién guardó cada parte y cuándo (el primer guardado), cuántas correcciones tuvo y
+// si el último guardado de la compra fue «Hoy no compré»
 async function partStatus(ex: Executor, date: string, part: Part) {
-  const rows = await ex.select({ by: users.name, at: dailyParts.completedAt, durationMs: dailyParts.durationMs })
+  const rows = await ex.select({ by: users.name, at: dailyParts.completedAt, durationMs: dailyParts.durationMs, noPurchase: dailyParts.noPurchase })
     .from(dailyParts).leftJoin(users, eq(dailyParts.completedBy, users.id))
     .where(and(eq(dailyParts.date, date), eq(dailyParts.localId, currentLocalId()), eq(dailyParts.part, part)))
     .orderBy(asc(dailyParts.id))
   if (rows.length === 0) return null
-  return { by: rows[0].by, at: rows[0].at, corrections: rows.length - 1, lastAt: rows[rows.length - 1].at }
+  const last = rows[rows.length - 1]
+  return { by: rows[0].by, at: rows[0].at, corrections: rows.length - 1, lastAt: last.at, noPurchase: last.noPurchase }
 }
 
 export async function getDaily(date: string) {
   const a = await aperturaRows(db, date)
   const c = await compraRows(db, date)
   const settings = await readSettings(db)
+  const compraStatus = await partStatus(db, date, 'compra')
+  const noPurchase = compraStatus?.noPurchase === true
   const touched = new Set([...a.counts, ...a.waste, ...c.purchases, ...c.transfers].map(r => r.supplyId))
   // Los críticos activos, más cualquier insumo que ya tenga datos ese día
   const list = (await db.select().from(supplies).orderBy(asc(supplies.sortOrder), asc(supplies.name)))
@@ -168,7 +172,8 @@ export async function getDaily(date: string) {
       wasted: waste.reduce((t, w) => t + w.quantity, 0),
       wastedMode: waste[0]?.entryMode ?? null,
       purchased,
-      purchasedMode: purchases[0]?.entryMode ?? null,
+      // «Hoy no compré»: cada crítico queda en 0 sin tocar
+      purchasedMode: purchases[0]?.entryMode ?? (noPurchase ? 'default' : null),
       unitPrice: purchased > 0 ? roundMoney(totalCost / purchased) : null,
       priceMode: purchases[0]?.priceEntryMode ?? null,
       totalCost: purchases.length > 0 ? roundMoney(totalCost) : null,
@@ -184,7 +189,7 @@ export async function getDaily(date: string) {
     date,
     minDate: addDays(localDateString(), -DAILY_MAX_DAYS_BACK),
     wasteDate: await previousOperativeDay(db, date),
-    parts: { apertura: await partStatus(db, date, 'apertura'), compra: await partStatus(db, date, 'compra') },
+    parts: { apertura: await partStatus(db, date, 'apertura'), compra: compraStatus },
     transfers: { enabled: transfersEnabled(settings, date), direction: currentLocalId() === 1 ? 'envio' : 'recepcion' },
     items,
     otherCost: c.other[0] ? { amount: c.other[0].amount, mode: c.other[0].entryMode } : null,
@@ -253,6 +258,9 @@ export async function saveDaily(input: SaveDailyInput, userId: number) {
     } else {
       // Los traslados existen desde la apertura del segundo local; cada local registra
       // solo su lado: el principal envía y el segundo recibe
+      if (input.noPurchase && (input.items.some(i => (i.purchased ?? 0) > 0) || (input.otherCost?.amount ?? 0) > 0)) {
+        throw new DomainError('«Hoy no compré» no puede llevar compras', 400, 'NO_PURCHASE_CONFLICT')
+      }
       const enabled = transfersEnabled(await readSettings(tx), date)
       if (!enabled && input.items.some(i => (i.transfer ?? 0) > 0)) {
         throw new DomainError('Los traslados se habilitan con la apertura del segundo local', 400, 'TRANSFERS_NOT_ENABLED')
@@ -298,6 +306,7 @@ export async function saveDaily(input: SaveDailyInput, userId: number) {
     await tx.insert(dailyParts).values({
       date, localId: local, part: input.part, completedBy: userId,
       durationMs: input.durationMs ?? null, isCorrection, clientVersion: input.clientVersion ?? null,
+      noPurchase: input.part === 'compra' && input.noPurchase === true,
     })
     await audit(tx, {
       userId, action: isCorrection ? 'daily.update' : 'daily.save', entity: 'daily', entityId: null,

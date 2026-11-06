@@ -172,6 +172,32 @@ describe('parte B · «Al volver de comprar»', () => {
   })
 })
 
+describe('«Hoy no compré»', () => {
+  it('[PI-02][RF02] marca el día sin compra y una compra posterior la revierte', async () => {
+    const day = addDays(today, -5)
+    // Una compra previa del mismo día se reemplaza por «no compré»
+    await compra(day, [{ supplyId: pescado, purchased: 2, unitPrice: 25 }], { otherCost: { amount: 20 } })
+    const res = await compra(day, [], { noPurchase: true })
+    expect(res.status).toBe(200)
+    expect(res.body.parts.compra).toMatchObject({ noPurchase: true })
+    expect(res.body.items.map((i: { purchased: number; purchasedMode: string }) => [i.purchased, i.purchasedMode]))
+      .toEqual([[0, 'default'], [0, 'default'], [0, 'default']])
+    let r = await rowsFor(day)
+    expect(r.purchases).toHaveLength(0)
+    expect(r.other).toHaveLength(0)
+    expect(r.parts.filter(p => p.part === 'compra').map(p => p.noPurchase)).toEqual([false, true])
+
+    // Marcar «no compré» y a la vez una compra es contradictorio
+    expect((await compra(day, [{ supplyId: pescado, purchased: 1, unitPrice: 25 }], { noPurchase: true })).status).toBe(400)
+
+    const again = await compra(day, [{ supplyId: calamar, purchased: 1.5, unitPrice: 24 }])
+    expect(again.body.parts.compra.noPurchase).toBe(false)
+    r = await rowsFor(day)
+    expect(r.purchases).toHaveLength(1)
+    expect(r.parts.filter(p => p.part === 'compra').map(p => p.noPurchase)).toEqual([false, true, false])
+  })
+})
+
 describe('GET /api/inventory/daily/:date', () => {
   it('devuelve lo guardado, el estado de cada parte y la compra de referencia', async () => {
     const day = addDays(today, -3)

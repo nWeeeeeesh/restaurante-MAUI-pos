@@ -40,7 +40,7 @@ function NumberCell({ label, hint, value, onChange, unit, highlight }: {
 function PartLine({ label, status }: { label: string; status: PartStatus | null }) {
   return status ? (
     <span className="inline-flex items-center gap-1 text-emerald-700">
-      <Check size={13} /> {label} ({status.by ?? '—'}, {hhmm(status.at)}{status.corrections > 0 ? ` · corregido ${hhmm(status.lastAt)}` : ''})
+      <Check size={13} /> {label} ({status.by ?? '—'}, {hhmm(status.at)}{status.corrections > 0 ? ` · corregido ${hhmm(status.lastAt)}` : ''}{status.noPurchase ? ' · no compró' : ''})
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 text-[#94A3B8]"><Clock size={13} /> {label}: pendiente</span>
@@ -265,7 +265,10 @@ function PurchaseCard({ day, onSaved }: { day: DailyDay; onSaved: (d: DailyDay) 
     return []
   }).concat(other.trim() !== '' && ((parseNumber(other) ?? -1) < 0) ? ['Otros insumos: revisa el monto'] : [])
 
-  const save = async () => {
+  // «Hoy no compré»: registra el día sin compras (los traslados escritos sí se guardan)
+  const anyPurchase = day.items.some(i => (parseNumber(rows[i.supplyId]?.purchased ?? '') ?? 0) > 0) || (parseNumber(other) ?? 0) > 0
+
+  const save = async (noPurchase = false) => {
     if (errors.length > 0) return
     setSaving(true)
     try {
@@ -291,15 +294,16 @@ function PurchaseCard({ day, onSaved }: { day: DailyDay; onSaved: (d: DailyDay) 
         date: day.date,
         durationMs: duration.elapsed(),
         clientVersion: CLIENT_VERSION,
-        items,
-        otherCost: amount === null ? null : { amount, mode: otherMode },
+        items: noPurchase ? items.filter(i => i.transfer > 0) : items,
+        otherCost: noPurchase || amount === null ? null : { amount, mode: otherMode },
+        noPurchase,
       })
       const bought = items.filter(i => i.purchased > 0)
       const spent = bought.reduce((t, i) => t + (i.totalCost ?? 0), 0) + (amount ?? 0)
       pushToast({
         variant: 'success',
-        title: day.parts.compra ? 'Compra: corregida' : 'Compra: guardada',
-        message: `${bought.length} insumos críticos · S/ ${money(spent)} en total`,
+        title: noPurchase ? 'Registrado: hoy no compraste' : day.parts.compra ? 'Compra: corregida' : 'Compra: guardada',
+        message: noPurchase ? undefined : `${bought.length} insumos críticos · S/ ${money(spent)} en total`,
       })
       setRows(purchaseRows(data))
       setOther(num(data.otherCost?.amount))
@@ -381,10 +385,15 @@ function PurchaseCard({ day, onSaved }: { day: DailyDay; onSaved: (d: DailyDay) 
       </div>
 
       {errors.length > 0 && <p className="text-xs font-semibold text-red-600">{errors[0]}</p>}
-      <button onClick={save} disabled={saving || errors.length > 0}
+      <button onClick={() => save()} disabled={saving || errors.length > 0}
         className="w-full bg-[#0077B6] hover:bg-[#005a8a] text-white font-bold py-4 rounded-xl shadow-md disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
         {saving && <Loader2 size={16} className="animate-spin" />}
         Guardar «Al volver de comprar»
+      </button>
+      <button onClick={() => save(true)} disabled={saving || anyPurchase}
+        title={anyPurchase ? 'Borra las compras escritas para marcar que no compraste' : undefined}
+        className="w-full font-semibold py-3 rounded-xl border-2 border-[#E2E8F0] text-[#64748B] hover:border-[#0077B6] hover:text-[#0077B6] disabled:opacity-40 transition-colors">
+        Hoy no compré
       </button>
     </div>
   )
