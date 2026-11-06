@@ -225,7 +225,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** migración idempotente con prueba.
 
-### - [ ] T14. Dominio de pronóstico (funciones puras)
+### - [x] T14. Dominio de pronóstico (funciones puras)
 `server/src/domain/forecast.ts`, sección 4.2 de este plan. Pruebas en `__tests__/domain.forecast.test.ts`:
 - casos **PU-13 a PU-16 y PU-18**;
 - **casos de resultado conocido:**
@@ -472,3 +472,9 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - Límite: 3 000 ms; cumple con amplio margen.
   - **Pendiente.** La medición en la Raspberry Pi sigue siendo PA-07.
 - **2026-11-06 · T13.** Tablas `demand_forecasts` (índice único `uq_demand_forecasts_night`, requerido porque de él depende RD04), `purchase_suggestions` y `forecast_runs`, cada una con su índice. Se agregó la columna nulable `purchase_suggestions.available_source` (`conteo` | `teorico`): guarda de dónde salió el disponible A, para la trazabilidad de cada valor. `forecast_runs.status` es `running` | `ok` | `error`. La migración es idempotente y tiene prueba. Pruebas: 207.
+- **2026-11-06 · T14.** `domain/forecast.ts` replica `formulas.py` con el mismo orden de operaciones:
+  - **Rejilla y empates.** Se arma con `k·5/100`, que da los mismos doubles que `round(0.05·k, 2)`. El pivote de Gauss toma el primero en empate, como el `max` de Python. El método elegido es el primero con el MAE menor.
+  - **Funciones agregadas.** `demandaNoCensurada` (F5), `redondearMedioKilo` (al alza, solo para mostrar), `beneficioPotencial` (PU-18), `MODEL_VERSION` y `gauss`, exportada para probarla.
+  - **Pruebas.** Cubren PU-13 a PU-16 y PU-18, los casos de resultado conocido (demanda constante, patrón semanal con MAE 0 y elección del ingenuo en empate, respaldo con historia corta, demanda cero, z con 4 decimales) y dos más: un día imputado no entra en el error, y Gauss con un sistema singular.
+  - **Corrección a mi propia prueba.** El caso de respaldo esperaba un promedio de dos semanas, pero con menos de 12 días solo hay una semana previa por día. Corregí la expectativa; el código ya hacía lo correcto.
+  - Pruebas: 219.

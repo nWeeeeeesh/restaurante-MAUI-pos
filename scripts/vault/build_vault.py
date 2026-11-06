@@ -177,6 +177,16 @@ MODULES = [
                   "server/scripts/perf.ts"],
     },
     {
+        "id": "pronostico", "name": "Pronóstico",
+        "summary": "Incremento 3 de la tesis: demanda no censurada por insumo, cuatro métodos de pronóstico elegidos por MAE con origen móvil, σ_H y cantidad sugerida (lista de compra).",
+        "rules": [
+            "Las fórmulas (plan-sistema §4.2) son funciones puras en `domain/forecast.ts`, espejo de `scripts/tesis/formulas.py` con el mismo orden de operaciones (los empates del método elegido deben coincidir).",
+            "RD01: la «Compra del día» nunca muestra el pronóstico. RD04: un pronóstico guardado no se modifica (`uq_demand_forecasts_night`).",
+        ],
+        "docs": [("plan-sistema", "§4.2 Pronóstico, T13 a T18")],
+        "files": ["server/src/domain/forecast.ts", "server/src/__tests__/domain.forecast.test.ts"],
+    },
+    {
         "id": "impresion", "name": "Impresión",
         "summary": "Impresora térmica ESC/POS por TCP: comanda de cocina, pre-cuenta, boleta y reimpresiones; estado de la impresora.",
         "rules": [
