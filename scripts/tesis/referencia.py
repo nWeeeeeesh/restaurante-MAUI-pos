@@ -56,6 +56,8 @@ class Datos:
         for r in leer('recetas.csv'):
             c = r['insumo_codigo']
             self.receta[r['sku']][c] = F.kg_por_porcion(float(r['gramos_limpios']), self.insumos[c]['rendimiento'])
+        # dict normal: con defaultdict, consultar un plato sin receta le crearía una vacía
+        self.receta = dict(self.receta)
         self.vendidas = defaultdict(lambda: defaultdict(int))   # fecha → sku → porciones
         self.venta = defaultdict(float)                         # fecha → S/
         for r in leer('ventas_items.csv'):
@@ -83,7 +85,8 @@ class Datos:
         self.agotados = defaultdict(set)                        # fecha → skus marcados ese día
         for r in leer('stockouts.csv'):
             self.agotados[r['inicio'][:10]].add(r['plato'])
-        self.primer_dia = min(self.venta)
+        # Primer registro: la primera venta, conteo o compra
+        self.primer_dia = min([*self.venta, *(f for _c, f in self.conteo), *(f for _c, f in self.compra_q)])
 
     # Día de atención: con ventas, o martes a domingo sin nota «cerrado»
     def atiende(self, fecha, hasta=None):
@@ -106,7 +109,7 @@ class Datos:
 
     def consumo_receta(self, codigo, fecha):
         """Σ porciones vendidas × kg por porción, sin factor."""
-        return suma(q * self.receta[s].get(codigo, 0.0) for s, q in sorted(self.vendidas[fecha].items()))
+        return suma(q * self.receta.get(s, {}).get(codigo, 0.0) for s, q in sorted(self.vendidas[fecha].items()))
 
 
 def diario(datos, codigo, hasta, f, conteos_hasta=None):

@@ -100,9 +100,12 @@ describe('dominio de costeo (incremento 2)', () => {
     expect(kgPorPorcion(180, 0.80)).toBeCloseTo(0.225, 4)
   })
 
-  it('el dominio es puro: no importa la BD, el entorno ni el reloj', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'domain', 'costing.ts'), 'utf-8')
-    expect(src).not.toMatch(/from '\.\.\/(db|services|repositories|routes|utils\/local)/)
-    expect(src).not.toMatch(/process\.env|new Date\(\)|Date\.now/)
+  it('domain/ es puro: no importa la BD, el entorno ni el reloj', () => {
+    const dir = path.join(__dirname, '..', 'domain')
+    for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.ts'))) {
+      const src = fs.readFileSync(path.join(dir, file), 'utf-8')
+      expect(src, file).not.toMatch(/from '\.\.\/(db|services|repositories|routes|utils\/local)/)
+      expect(src, file).not.toMatch(/process\.env|new Date\(\)|Date\.now/)
+    }
   })
 })

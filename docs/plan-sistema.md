@@ -167,7 +167,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** todas las funciones son puras (no importan `db`); los casos PU pasan.
 
-### - [ ] T9. Repositorio y servicio de rentabilidad
+### - [x] T9. Repositorio y servicio de rentabilidad
 1. `repositories/profitability.repo.ts`: `leerPeriodo(ex, { localId, from, to })` devuelve `DatosPeriodo` con lecturas por lote:
    - conteos de apertura de `[from, siguienteDíaDeAtención(to)]`;
    - compras e ingresos netos por traslados;
@@ -434,3 +434,15 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Migración probada en copias.** Probé con una copia de `server/mauidisk.db` (anterior al inventario) y de `mauidisk-sim.db` (versión T6): ninguna tabla existente perdió filas y migrar dos veces no cambia nada.
   - **Cargador.** `loadSim` carga ahora las recetas y los parámetros de los insumos. Pruebas: 175.
 - **2026-11-05 · T8.** `domain/costing.ts` replica `scripts/tesis/formulas.py` función por función, con las mismas sumas de izquierda a derecha (`suma`). Además de las de §4.1 tiene `consumoTeorico` (el respaldo de F7) y `RANGO_FACTOR`. Las entradas por insumo o plato son `Map`, para no atar el dominio a ids o códigos. `costoPromedio` devuelve `null` si nunca hubo compra; el servicio decide qué hacer. Una prueba verifica que el archivo no importa `db`, servicios ni `utils/local`, y que no usa el reloj ni `process.env`. Pruebas: 189.
+- **2026-11-06 · T9.** Repositorio y servicio de rentabilidad:
+  - **Estructura.** Además del repositorio y el servicio hay dos módulos puros: `domain/calendar.ts` (días de atención, semanas y meses) y `domain/profitability.ts`. Este último tiene `costearInsumo`, `calcularPeriodo` y `analizarCarta`, que son los «costearInsumos, calcularResultado y analizarCarta» del plan, más la resolución de variantes y el consumo según receta.
+  - **Lecturas.** El repositorio lee de una vez la historia hasta el fin del periodo (más 31 días de conteos, notas y ventas, para hallar el siguiente día de atención y los días de cada mes). Así lo exige F8, que se recorre desde el primer registro. Son 14 consultas, ninguna dentro de un bucle.
+  - **Ventas.** Son los ítems de boletas pagadas por `bill_id`, sin los pedidos cancelados. El día local es `date(paid_at, '-5 hours')`: Lima con zona explícita, como `limaDate`.
+  - **Gastos.** Son de la instancia: `expenses` no tiene `local_id`, y cada local tiene su propia base (RD06).
+  - **Variantes por modificador.** Si la opción elegida tiene receta propia, se usa esa receta; si no, la del plato. El precio de la variante es el promedio cobrado en el periodo.
+  - **Traslados.** Las recepciones entran a F8 a su costo (o al último precio de compra); los envíos solo restan stock.
+  - **Advertencias.** Además de las del plan: `NOT_CALIBRATED` (insumo sin factor, se usa 1) y `NO_PURCHASE_PRICE` (consumo sin precio de compra).
+  - **Respuesta.** Las claves de la API van en inglés, como el resto. El dinero se redondea con `roundMoney`, los kg a 3 decimales y los factores a 6.
+  - **Defecto en la referencia.** La paridad encontró un defecto en `referencia.py`: un `defaultdict` daba «receta» vacía a las bebidas, y quedaban sin la marca de plato sin receta. Se corrigió en Python y se regeneró `esperado.json` (solo cambió `sin_receta` de 7 platos). La referencia también define ahora el primer registro como la primera venta, conteo o compra; el resultado no cambia.
+  - **Paridad.** PP-01 coincide en las 12 semanas, los 4 meses, los 4 factores (±0.0001) y los 51 platos (costo, margen, categoría).
+  - **Pureza.** La prueba de pureza revisa todos los archivos de `domain/`. Pruebas: 196.

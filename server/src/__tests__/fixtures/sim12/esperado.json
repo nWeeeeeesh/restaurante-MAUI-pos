@@ -1491,7 +1491,7 @@
    "costo": 1.079168,
    "MC": 4.920832,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Chicha morada 1/2 L": {
@@ -1501,7 +1501,7 @@
    "costo": 0.719446,
    "MC": 3.280554,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Coca Cola 1 L": {
@@ -1511,7 +1511,7 @@
    "costo": 1.079168,
    "MC": 4.920832,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Coca Cola 600 ml": {
@@ -1521,7 +1521,7 @@
    "costo": 0.719446,
    "MC": 3.280554,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Inka Cola 1 L": {
@@ -1531,7 +1531,7 @@
    "costo": 1.079168,
    "MC": 4.920832,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Inka Cola 600 ml": {
@@ -1541,7 +1541,7 @@
    "costo": 0.719446,
    "MC": 3.280554,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   },
   "Cerveza Pilsen": {
@@ -1551,7 +1551,7 @@
    "costo": 1.438891,
    "MC": 6.561109,
    "MC_pct": 82.01386,
-   "sin_receta": false,
+   "sin_receta": true,
    "categoria": "Caballo de batalla"
   }
  },
