@@ -1,0 +1,29 @@
+fecha,categoria,descripcion,monto,tipo
+2026-06-01,alquiler,Alquiler del local,3000.00,fijo
+2026-06-01,sueldos,Sueldos,9000.00,fijo
+2026-06-01,luz,Luz,500.00,fijo
+2026-06-01,agua,Agua,200.00,fijo
+2026-06-01,internet,Internet,100.00,fijo
+2026-06-01,gas,Gas,700.00,variable
+2026-06-01,descartables,Descartables,500.00,variable
+2026-07-01,alquiler,Alquiler del local,3000.00,fijo
+2026-07-01,sueldos,Sueldos,9000.00,fijo
+2026-07-01,luz,Luz,500.00,fijo
+2026-07-01,agua,Agua,200.00,fijo
+2026-07-01,internet,Internet,100.00,fijo
+2026-07-01,gas,Gas,700.00,variable
+2026-07-01,descartables,Descartables,500.00,variable
+2026-08-01,alquiler,Alquiler del local,3000.00,fijo
+2026-08-01,sueldos,Sueldos,9000.00,fijo
+2026-08-01,luz,Luz,500.00,fijo
+2026-08-01,agua,Agua,200.00,fijo
+2026-08-01,internet,Internet,100.00,fijo
+2026-08-01,gas,Gas,700.00,variable
+2026-08-01,descartables,Descartables,500.00,variable
+2026-09-01,alquiler,Alquiler del local,3000.00,fijo
+2026-09-01,sueldos,Sueldos,9000.00,fijo
+2026-09-01,luz,Luz,500.00,fijo
+2026-09-01,agua,Agua,200.00,fijo
+2026-09-01,internet,Internet,100.00,fijo
+2026-09-01,gas,Gas,700.00,variable
+2026-09-01,descartables,Descartables,500.00,variable

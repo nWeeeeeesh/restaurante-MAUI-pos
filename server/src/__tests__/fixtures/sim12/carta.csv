@@ -1,0 +1,52 @@
+id,categoria_id,categoria,plato,variante,sku,precio
+1,1,De nuestra carta,Leche de tigre clásica,pescado,Leche de tigre clásica (Pescado),12.00
+2,1,De nuestra carta,Leche de tigre clásica,calamar,Leche de tigre clásica (Calamar),13.00
+3,1,De nuestra carta,Leche de tigre Maui,pescado,Leche de tigre Maui (Pescado),13.00
+4,1,De nuestra carta,Leche de tigre Maui,calamar,Leche de tigre Maui (Calamar),14.00
+5,1,De nuestra carta,Leche de tigre levantamuerto,pescado,Leche de tigre levantamuerto (Pescado),12.00
+6,1,De nuestra carta,Leche de tigre levantamuerto,calamar,Leche de tigre levantamuerto (Calamar),13.00
+7,2,Las Power de Maui,Cevichop clásico,pescado,Cevichop clásico (Pescado),15.00
+8,2,Las Power de Maui,Cevichop clásico,calamar,Cevichop clásico (Calamar),17.00
+9,2,Las Power de Maui,Cevichop levantamuerto,pescado,Cevichop levantamuerto (Pescado),15.00
+10,2,Las Power de Maui,Cevichop levantamuerto,calamar,Cevichop levantamuerto (Calamar),17.00
+11,2,Las Power de Maui,Cevichop Maui,pescado,Cevichop Maui (Pescado),16.00
+12,2,Las Power de Maui,Cevichop Maui,calamar,Cevichop Maui (Calamar),18.00
+13,2,Las Power de Maui,Causita de pescado,,Causita de pescado,10.00
+14,3,Nuestras infaltables,Ceviche clásico de pescado,,Ceviche clásico de pescado,18.00
+15,3,Nuestras infaltables,Ceviche levantamuerto,,Ceviche levantamuerto,18.00
+16,3,Nuestras infaltables,Ceviche carretillero,,Ceviche carretillero,19.00
+17,4,Nuestros arroces,Arrocito de mariscos,,Arrocito de mariscos,16.00
+18,4,Nuestros arroces,Chaufita de mariscos,,Chaufita de mariscos,16.00
+19,4,Nuestros arroces,Chaufita de pescado,,Chaufita de pescado,17.00
+20,5,Nuestros dúos marinos,Ceviche con arrocito de mariscos,,Ceviche con arrocito de mariscos,19.00
+21,5,Nuestros dúos marinos,Ceviche con chaufita de mariscos,,Ceviche con chaufita de mariscos,19.00
+22,5,Nuestros dúos marinos,Ceviche con chicharrón de pescado,,Ceviche con chicharrón de pescado,19.00
+23,5,Nuestros dúos marinos,Ceviche con causita de pescado,,Ceviche con causita de pescado,20.00
+24,5,Nuestros dúos marinos,Ceviche con chicharrón de calamar,,Ceviche con chicharrón de calamar,20.00
+25,5,Nuestros dúos marinos,Ceviche con chaufa de pescado,,Ceviche con chaufa de pescado,20.00
+26,5,Nuestros dúos marinos,Dúo ármalo a tu gusto,,Dúo ármalo a tu gusto,20.00
+27,6,Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,pescado,Ceviche + arroz de mariscos + chicharrón (Pescado),22.00
+28,6,Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,calamar,Ceviche + arroz de mariscos + chicharrón (Calamar),23.00
+29,6,Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,pescado,Ceviche + chaufa de mariscos + chicharrón (Pescado),22.00
+30,6,Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,calamar,Ceviche + chaufa de mariscos + chicharrón (Calamar),23.00
+31,6,Nuestros tríos marinos,Ceviche + causita + chicharrón,pescado,Ceviche + causita + chicharrón (Pescado),22.00
+32,6,Nuestros tríos marinos,Ceviche + causita + chicharrón,calamar,Ceviche + causita + chicharrón (Calamar),23.00
+33,6,Nuestros tríos marinos,Trío ármalo a tu gusto,,Trío ármalo a tu gusto,20.00
+34,7,Las crocantitas,Chicharrón de pescado,,Chicharrón de pescado,16.00
+35,7,Las crocantitas,Chicharrón de calamar,,Chicharrón de calamar,18.00
+36,7,Las crocantitas,Chicharrón a lo Maui,,Chicharrón a lo Maui,22.00
+37,7,Las crocantitas,Filete de pescado,,Filete de pescado,15.00
+38,8,Nuestras calientitas,Parihuela,,Parihuela,20.00
+39,8,Nuestras calientitas,Sudado de pescado,,Sudado de pescado,16.00
+40,8,Nuestras calientitas,Sudado mixto,,Sudado mixto,18.00
+41,8,Nuestras calientitas,Chilcano de pescado,,Chilcano de pescado,14.00
+42,8,Nuestras calientitas,Chilcano acevichado,,Chilcano acevichado,16.00
+43,9,Nuestras rondas,Ronda lechera,,Ronda lechera,65.00
+44,9,Nuestras rondas,Ronda causera,,Ronda causera,65.00
+45,10,Bebidas,Chicha morada 1 L,,Chicha morada 1 L,6.00
+46,10,Bebidas,Chicha morada 1/2 L,,Chicha morada 1/2 L,4.00
+47,10,Bebidas,Coca Cola 1 L,,Coca Cola 1 L,6.00
+48,10,Bebidas,Coca Cola 600 ml,,Coca Cola 600 ml,4.00
+49,10,Bebidas,Inka Cola 1 L,,Inka Cola 1 L,6.00
+50,10,Bebidas,Inka Cola 600 ml,,Inka Cola 600 ml,4.00
+51,10,Bebidas,Cerveza Pilsen,,Cerveza Pilsen,8.00

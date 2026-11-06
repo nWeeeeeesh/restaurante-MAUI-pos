@@ -104,7 +104,7 @@ Pasos:
 
 ## Fase B. Datos simulados e implementación de referencia
 
-### - [ ] T5. Simulador de 12 semanas e implementación de referencia en Python
+### - [x] T5. Simulador de 12 semanas e implementación de referencia en Python
 **Objetivo:** un conjunto de prueba determinista y los resultados esperados para las pruebas de paridad.
 
 Archivos nuevos:
@@ -396,3 +396,24 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
 - **2026-11-05 · T2.** `limaDate` pasó de `utils/study.ts` (eliminado) a `utils/dates.ts`, porque la tarea nocturna de T15 la necesitará. La migración ya no asigna `study_group` por código (queda vacío en las bases nuevas). Hasta T19 el export conserva la tabla `study_config` y la columna `grupo` de `supplies` (vacía), para no tocar el dataset dos veces; T19 las quita al subir a v2. Se retira la prueba del invariante de activación; la de RD01 frente al pronóstico llega en T15. La sección «Ajustes» queda en la pestaña Insumos (solo el dueño). Pruebas: 168 en verde.
 - **2026-11-05 · T3.** «Dejar los ítems críticos en 0 con modo `default`» se implementa sin crear filas de compra en 0: `GET /daily/:date` devuelve `purchased = 0` y `purchasedMode = 'default'` cuando el último guardado de la parte fue «no compré»; el dato queda en `daily_parts.no_purchase`. «No compré» junto con compras u otros insumos responde 400 `NO_PURCHASE_CONFLICT`; los traslados sí se aceptan. La columna se exporta como `no_compro` en `daily_parts`; la versión del dataset sube en T19 (el número de tarea que cita T3, «T21», es el de la documentación). Pruebas: 169.
 - **2026-11-05 · T4.** Siguiendo la convención de `order.service`, los servicios que escriben reciben `db: DB` (necesitan `.transaction` para `withWriteLock`) y los que leen `db: Executor`, ambos con la base por defecto; `settings.service` ya recibía el ejecutor. Las referencias de [Usar] salen de dos consultas por lote (compras y otros insumos anteriores a la fecha) y se calculan en `domain/daily.ts`. Los servicios del incremento 1 siguen leyendo `MAUI_LOCAL_ID` con `currentLocalId()`; recibir el `localId` desde la ruta se aplica a los servicios nuevos (T9 en adelante). Prueba nueva `[RNF09]`: `getDaily` hace las mismas consultas con 3 y con 8 insumos críticos. Pruebas: 170.
+- **2026-11-05 · T5.** Datos y referencia en `scripts/tesis/` (README con el contrato de la paridad):
+  - **Archivos.** Las fórmulas están en `formulas.py`, aparte de `referencia.py`, para que `pruebas_pu.py` las pruebe sin leer datos.
+  - **Variantes como platos.** Cada variante de la carta es un plato propio («Plato (Variante)», como en la referencia anterior). T7 decide si `recipe_items.variant` hace falta para la carta real.
+  - **Columnas.** `ventas_items.csv` lleva además la columna `boleta`. Hay archivos que no son tablas del export: `carta.csv`, `insumos.csv` (con rendimiento, vida útil y nivel de servicio, sin `grupo`), `recetas.csv` y `gastos.csv`. Los gastos usan las categorías alquiler, sueldos, luz, agua, internet, gas y descartables; el seed de T7 debe clasificarlas. No se generan filas de `daily_parts`.
+  - **Regla de compra.** La regla literal («consumo esperado hasta la siguiente compra ± 15 %») no descuenta lo que quedaba: el pescado se acumulaba (59 kg) y la cantidad sugerida daba siempre 0. Se compra lo esperado × (1.15 ± 0.15) menos lo que quedaba. Resultado: 22 de 72 días tienen algún agotado (102 marcas) y hay 14 mermas.
+  - **Días sin conteo.** Uno cae en las semanas 2 a 4, para que la calibración pruebe la exclusión de los días imputados.
+  - **Precisiones de §4 que el plan no fija.**
+    - p̄ (F8) se recorre desde el primer registro. Si falta el conteo, la apertura se estima con el día anterior.
+    - p̄ del periodo para el costo del plato: promedio ponderado por el consumo.
+    - Gastos: el mes calendario completo pone el denominador.
+    - v̄ de F4: d − 7k entre los días con ventas.
+    - Regresión: se omiten las columnas sin variación en la ventana (si no, el sistema es singular), y si no tiene solución se usa el promedio estacional.
+    - Con H > 3, σ_H usa los orígenes cuyos H días caen dentro de la serie.
+    - El pronóstico de la noche N solo usa los conteos hasta N.
+    - Las sumas van de izquierda a derecha (`sum()` de Python 3.12+ es compensada).
+  - **Resultado de la simulación.**
+    - Ventas: S/ 98 845; food cost: 33.6 %.
+    - Factores recuperados: 1.0400, 1.0800, 1.0297 y 1.1000.
+    - Métodos elegidos en las 96 noches × insumo: Holt-Winters 44, promedio estacional 27, regresión 25.
+    - Dos ejecuciones dan los mismos hashes, y los 18 casos PU pasan.
+  - **Para T9.** `expenses` no tiene `local_id`: la rentabilidad por local tendrá que tratar los gastos como del local 1, o T7 agrega la columna.

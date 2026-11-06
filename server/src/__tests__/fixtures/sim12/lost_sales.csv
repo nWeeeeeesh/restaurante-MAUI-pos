@@ -1,0 +1,80 @@
+local_id,id,fecha,hora,plato_id,plato,insumo_id,insumo_codigo,insumo,porciones,registrado_por
+1,1,2026-06-19,14:35:24,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,2,2026-06-19,14:38:33,38,Parihuela,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,3,2026-06-19,15:25:08,43,Ronda lechera,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,4,2026-06-24,16:38:44,16,Ceviche carretillero,1,PESCADO,Pescado,1,Cajero
+1,5,2026-06-24,16:48:48,34,Chicharrón de pescado,1,PESCADO,Pescado,1,Cajero
+1,6,2026-06-24,16:59:55,11,Cevichop Maui (Pescado),1,PESCADO,Pescado,1,Cajero
+1,7,2026-06-26,16:55:15,27,Ceviche + arroz de mariscos + chicharrón (Pescado),3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,8,2026-07-03,16:03:52,38,Parihuela,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,9,2026-07-03,16:56:37,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,10,2026-07-05,16:05:38,14,Ceviche clásico de pescado,1,PESCADO,Pescado,1,Cajero
+1,11,2026-07-05,16:22:26,3,Leche de tigre Maui (Pescado),1,PESCADO,Pescado,1,Cajero
+1,12,2026-07-05,16:23:46,20,Ceviche con arrocito de mariscos,1,PESCADO,Pescado,1,Cajero
+1,13,2026-07-05,16:28:20,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),1,PESCADO,Pescado,1,Cajero
+1,14,2026-07-05,16:29:55,4,Leche de tigre Maui (Calamar),1,PESCADO,Pescado,1,Cajero
+1,15,2026-07-05,16:38:07,5,Leche de tigre levantamuerto (Pescado),1,PESCADO,Pescado,1,Cajero
+1,16,2026-07-05,16:43:06,24,Ceviche con chicharrón de calamar,1,PESCADO,Pescado,1,Cajero
+1,17,2026-07-05,16:45:57,6,Leche de tigre levantamuerto (Calamar),1,PESCADO,Pescado,1,Cajero
+1,18,2026-07-05,16:48:04,13,Causita de pescado,1,PESCADO,Pescado,1,Cajero
+1,19,2026-07-10,16:29:46,20,Ceviche con arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,20,2026-07-17,15:51:58,24,Ceviche con chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,21,2026-07-17,15:58:05,36,Chicharrón a lo Maui,2,CALAMAR,Calamar,1,Cajero
+1,22,2026-07-17,16:45:52,24,Ceviche con chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,23,2026-07-22,16:38:23,18,Chaufita de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,24,2026-07-22,16:49:18,40,Sudado mixto,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,25,2026-07-22,16:49:45,21,Ceviche con chaufita de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,26,2026-07-22,16:56:22,28,Ceviche + arroz de mariscos + chicharrón (Calamar),3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,27,2026-07-26,16:43:02,24,Ceviche con chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,28,2026-07-29,14:03:01,17,Arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,29,2026-07-29,15:09:32,38,Parihuela,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,30,2026-07-29,15:34:28,35,Chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,31,2026-07-29,15:54:17,38,Parihuela,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,32,2026-07-29,16:35:39,20,Ceviche con arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,33,2026-07-31,16:04:09,26,Dúo ármalo a tu gusto,4,LIMON,Limón,1,Cajero
+1,34,2026-07-31,16:29:55,15,Ceviche levantamuerto,4,LIMON,Limón,1,Cajero
+1,35,2026-07-31,16:30:19,40,Sudado mixto,4,LIMON,Limón,1,Cajero
+1,36,2026-07-31,16:33:17,42,Chilcano acevichado,4,LIMON,Limón,1,Cajero
+1,37,2026-07-31,16:39:04,9,Cevichop levantamuerto (Pescado),4,LIMON,Limón,1,Cajero
+1,38,2026-07-31,16:51:13,16,Ceviche carretillero,4,LIMON,Limón,1,Cajero
+1,39,2026-07-31,16:52:03,20,Ceviche con arrocito de mariscos,4,LIMON,Limón,1,Cajero
+1,40,2026-08-05,16:02:30,20,Ceviche con arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,41,2026-08-05,16:22:13,18,Chaufita de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,42,2026-08-05,16:32:13,40,Sudado mixto,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,43,2026-08-05,16:36:00,43,Ronda lechera,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,44,2026-08-05,16:47:37,8,Cevichop clásico (Calamar),2,CALAMAR,Calamar,1,Cajero
+1,45,2026-08-05,16:57:52,24,Ceviche con chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,46,2026-08-07,16:55:19,24,Ceviche con chicharrón de calamar,1,PESCADO,Pescado,1,Cajero
+1,47,2026-08-09,15:16:54,16,Ceviche carretillero,1,PESCADO,Pescado,1,Cajero
+1,48,2026-08-09,15:26:01,25,Ceviche con chaufa de pescado,1,PESCADO,Pescado,1,Cajero
+1,49,2026-08-09,15:27:12,16,Ceviche carretillero,1,PESCADO,Pescado,1,Cajero
+1,50,2026-08-09,15:42:18,3,Leche de tigre Maui (Pescado),1,PESCADO,Pescado,1,Cajero
+1,51,2026-08-09,15:43:04,9,Cevichop levantamuerto (Pescado),1,PESCADO,Pescado,1,Cajero
+1,52,2026-08-09,15:44:51,16,Ceviche carretillero,1,PESCADO,Pescado,1,Cajero
+1,53,2026-08-09,15:47:21,38,Parihuela,1,PESCADO,Pescado,1,Cajero
+1,54,2026-08-09,15:54:02,7,Cevichop clásico (Pescado),1,PESCADO,Pescado,1,Cajero
+1,55,2026-08-09,16:00:35,15,Ceviche levantamuerto,1,PESCADO,Pescado,1,Cajero
+1,56,2026-08-09,16:03:36,42,Chilcano acevichado,1,PESCADO,Pescado,1,Cajero
+1,57,2026-08-09,16:05:41,34,Chicharrón de pescado,1,PESCADO,Pescado,1,Cajero
+1,58,2026-08-09,16:20:16,35,Chicharrón de calamar,4,LIMON,Limón,1,Cajero
+1,59,2026-08-09,16:23:39,2,Leche de tigre clásica (Calamar),1,PESCADO,Pescado,1,Cajero
+1,60,2026-08-09,16:24:55,40,Sudado mixto,1,PESCADO,Pescado,1,Cajero
+1,61,2026-08-09,16:36:19,34,Chicharrón de pescado,1,PESCADO,Pescado,1,Cajero
+1,62,2026-08-09,16:47:40,23,Ceviche con causita de pescado,1,PESCADO,Pescado,1,Cajero
+1,63,2026-08-09,16:51:56,34,Chicharrón de pescado,1,PESCADO,Pescado,1,Cajero
+1,64,2026-08-12,16:20:03,30,Ceviche + chaufa de mariscos + chicharrón (Calamar),4,LIMON,Limón,1,Cajero
+1,65,2026-08-12,16:21:57,36,Chicharrón a lo Maui,4,LIMON,Limón,1,Cajero
+1,66,2026-08-12,16:31:31,36,Chicharrón a lo Maui,4,LIMON,Limón,1,Cajero
+1,67,2026-08-12,16:59:13,26,Dúo ármalo a tu gusto,4,LIMON,Limón,1,Cajero
+1,68,2026-08-19,16:50:00,20,Ceviche con arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,69,2026-08-26,14:37:13,32,Ceviche + causita + chicharrón (Calamar),2,CALAMAR,Calamar,1,Cajero
+1,70,2026-08-28,14:25:12,35,Chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,71,2026-08-28,14:51:40,36,Chicharrón a lo Maui,2,CALAMAR,Calamar,1,Cajero
+1,72,2026-08-28,15:23:49,8,Cevichop clásico (Calamar),2,CALAMAR,Calamar,1,Cajero
+1,73,2026-08-28,16:07:31,35,Chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,74,2026-08-28,16:26:29,4,Leche de tigre Maui (Calamar),2,CALAMAR,Calamar,1,Cajero
+1,75,2026-08-28,16:38:32,8,Cevichop clásico (Calamar),2,CALAMAR,Calamar,1,Cajero
+1,76,2026-08-28,16:38:46,24,Ceviche con chicharrón de calamar,2,CALAMAR,Calamar,1,Cajero
+1,77,2026-09-02,15:30:54,43,Ronda lechera,3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,78,2026-09-02,16:24:08,27,Ceviche + arroz de mariscos + chicharrón (Pescado),3,MIXTURA,Mixtura de mariscos,1,Cajero
+1,79,2026-09-02,16:39:15,17,Arrocito de mariscos,3,MIXTURA,Mixtura de mariscos,1,Cajero

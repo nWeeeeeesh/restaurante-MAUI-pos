@@ -1,0 +1,112 @@
+sku,insumo_codigo,gramos_limpios
+Leche de tigre clásica (Pescado),PESCADO,130
+Leche de tigre clásica (Pescado),LIMON,120
+Leche de tigre clásica (Calamar),PESCADO,70
+Leche de tigre clásica (Calamar),CALAMAR,60
+Leche de tigre clásica (Calamar),LIMON,120
+Leche de tigre Maui (Pescado),PESCADO,110
+Leche de tigre Maui (Pescado),LIMON,120
+Leche de tigre Maui (Calamar),PESCADO,50
+Leche de tigre Maui (Calamar),CALAMAR,60
+Leche de tigre Maui (Calamar),LIMON,120
+Leche de tigre levantamuerto (Pescado),PESCADO,130
+Leche de tigre levantamuerto (Pescado),LIMON,120
+Leche de tigre levantamuerto (Calamar),PESCADO,70
+Leche de tigre levantamuerto (Calamar),CALAMAR,60
+Leche de tigre levantamuerto (Calamar),LIMON,120
+Cevichop clásico (Pescado),PESCADO,170
+Cevichop clásico (Pescado),LIMON,120
+Cevichop clásico (Calamar),PESCADO,110
+Cevichop clásico (Calamar),CALAMAR,60
+Cevichop clásico (Calamar),LIMON,120
+Cevichop levantamuerto (Pescado),PESCADO,170
+Cevichop levantamuerto (Pescado),LIMON,120
+Cevichop levantamuerto (Calamar),PESCADO,110
+Cevichop levantamuerto (Calamar),CALAMAR,60
+Cevichop levantamuerto (Calamar),LIMON,120
+Cevichop Maui (Pescado),PESCADO,140
+Cevichop Maui (Pescado),LIMON,120
+Cevichop Maui (Calamar),PESCADO,80
+Cevichop Maui (Calamar),CALAMAR,60
+Cevichop Maui (Calamar),LIMON,120
+Causita de pescado,PESCADO,70
+Causita de pescado,LIMON,20
+Ceviche clásico de pescado,PESCADO,180
+Ceviche clásico de pescado,LIMON,150
+Ceviche levantamuerto,PESCADO,180
+Ceviche levantamuerto,LIMON,150
+Ceviche carretillero,PESCADO,240
+Ceviche carretillero,LIMON,150
+Arrocito de mariscos,PESCADO,15
+Arrocito de mariscos,MIXTURA,110
+Arrocito de mariscos,LIMON,40
+Chaufita de mariscos,PESCADO,15
+Chaufita de mariscos,MIXTURA,110
+Chaufita de mariscos,LIMON,40
+Chaufita de pescado,PESCADO,165
+Chaufita de pescado,LIMON,40
+Ceviche con arrocito de mariscos,PESCADO,120
+Ceviche con arrocito de mariscos,MIXTURA,70
+Ceviche con arrocito de mariscos,LIMON,100
+Ceviche con chaufita de mariscos,PESCADO,120
+Ceviche con chaufita de mariscos,MIXTURA,70
+Ceviche con chaufita de mariscos,LIMON,100
+Ceviche con chicharrón de pescado,PESCADO,220
+Ceviche con chicharrón de pescado,LIMON,100
+Ceviche con causita de pescado,PESCADO,170
+Ceviche con causita de pescado,LIMON,115
+Ceviche con chicharrón de calamar,PESCADO,120
+Ceviche con chicharrón de calamar,CALAMAR,100
+Ceviche con chicharrón de calamar,LIMON,100
+Ceviche con chaufa de pescado,PESCADO,220
+Ceviche con chaufa de pescado,LIMON,100
+Dúo ármalo a tu gusto,PESCADO,220
+Dúo ármalo a tu gusto,LIMON,100
+Ceviche + arroz de mariscos + chicharrón (Pescado),PESCADO,180
+Ceviche + arroz de mariscos + chicharrón (Pescado),MIXTURA,60
+Ceviche + arroz de mariscos + chicharrón (Pescado),LIMON,80
+Ceviche + arroz de mariscos + chicharrón (Calamar),PESCADO,100
+Ceviche + arroz de mariscos + chicharrón (Calamar),CALAMAR,80
+Ceviche + arroz de mariscos + chicharrón (Calamar),MIXTURA,60
+Ceviche + arroz de mariscos + chicharrón (Calamar),LIMON,80
+Ceviche + chaufa de mariscos + chicharrón (Pescado),PESCADO,180
+Ceviche + chaufa de mariscos + chicharrón (Pescado),MIXTURA,60
+Ceviche + chaufa de mariscos + chicharrón (Pescado),LIMON,80
+Ceviche + chaufa de mariscos + chicharrón (Calamar),PESCADO,100
+Ceviche + chaufa de mariscos + chicharrón (Calamar),CALAMAR,80
+Ceviche + chaufa de mariscos + chicharrón (Calamar),MIXTURA,60
+Ceviche + chaufa de mariscos + chicharrón (Calamar),LIMON,80
+Ceviche + causita + chicharrón (Pescado),PESCADO,230
+Ceviche + causita + chicharrón (Pescado),LIMON,95
+Ceviche + causita + chicharrón (Calamar),PESCADO,150
+Ceviche + causita + chicharrón (Calamar),CALAMAR,80
+Ceviche + causita + chicharrón (Calamar),LIMON,95
+Trío ármalo a tu gusto,PESCADO,230
+Trío ármalo a tu gusto,LIMON,95
+Chicharrón de pescado,PESCADO,215
+Chicharrón de pescado,LIMON,40
+Chicharrón de calamar,PESCADO,15
+Chicharrón de calamar,CALAMAR,230
+Chicharrón de calamar,LIMON,40
+Chicharrón a lo Maui,PESCADO,200
+Chicharrón a lo Maui,CALAMAR,80
+Chicharrón a lo Maui,LIMON,80
+Filete de pescado,PESCADO,180
+Parihuela,PESCADO,150
+Parihuela,MIXTURA,80
+Parihuela,LIMON,20
+Sudado de pescado,PESCADO,200
+Sudado de pescado,LIMON,20
+Sudado mixto,PESCADO,150
+Sudado mixto,MIXTURA,60
+Sudado mixto,LIMON,20
+Chilcano de pescado,PESCADO,120
+Chilcano de pescado,LIMON,20
+Chilcano acevichado,PESCADO,160
+Chilcano acevichado,LIMON,70
+Ronda lechera,PESCADO,400
+Ronda lechera,MIXTURA,250
+Ronda lechera,LIMON,200
+Ronda causera,PESCADO,400
+Ronda causera,MIXTURA,250
+Ronda causera,LIMON,200

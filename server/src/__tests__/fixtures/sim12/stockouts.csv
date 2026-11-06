@@ -1,0 +1,103 @@
+local_id,plato_id,plato,inicio,fin,duracion_min,origen,marcado_por,habilitado_por
+1,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),2026-06-17 16:03:29,2026-06-18 10:00:00,1076,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-06-17 16:39:30,2026-06-18 10:00:00,1040,manual,Cajero,Encargada
+1,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),2026-06-19 14:35:24,2026-06-20 10:00:00,1164,manual,Cajero,Encargada
+1,38,Parihuela,2026-06-19 14:38:33,2026-06-20 10:00:00,1161,manual,Cajero,Encargada
+1,17,Arrocito de mariscos,2026-06-19 15:18:26,2026-06-20 10:00:00,1121,manual,Cajero,Encargada
+1,43,Ronda lechera,2026-06-19 15:25:08,2026-06-20 10:00:00,1114,manual,Cajero,Encargada
+1,16,Ceviche carretillero,2026-06-24 16:38:44,2026-06-25 10:00:00,1041,manual,Cajero,Encargada
+1,34,Chicharrón de pescado,2026-06-24 16:48:48,2026-06-25 10:00:00,1031,manual,Cajero,Encargada
+1,11,Cevichop Maui (Pescado),2026-06-24 16:59:55,2026-06-25 10:00:00,1020,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-06-26 16:15:09,2026-06-27 10:00:00,1064,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-06-26 16:55:15,2026-06-27 10:00:00,1024,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-06-28 16:46:23,2026-06-30 10:00:00,2473,manual,Cajero,Encargada
+1,17,Arrocito de mariscos,2026-07-03 15:31:20,2026-07-04 10:00:00,1108,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-07-03 15:44:03,2026-07-04 10:00:00,1095,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-07-03 16:02:07,2026-07-04 10:00:00,1077,manual,Cajero,Encargada
+1,38,Parihuela,2026-07-03 16:03:52,2026-07-04 10:00:00,1076,manual,Cajero,Encargada
+1,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),2026-07-03 16:56:37,2026-07-04 10:00:00,1023,manual,Cajero,Encargada
+1,14,Ceviche clásico de pescado,2026-07-05 16:05:38,2026-07-07 10:00:00,2514,manual,Cajero,Encargada
+1,11,Cevichop Maui (Pescado),2026-07-05 16:10:18,2026-07-07 10:00:00,2509,manual,Cajero,Encargada
+1,19,Chaufita de pescado,2026-07-05 16:12:43,2026-07-07 10:00:00,2507,manual,Cajero,Encargada
+1,15,Ceviche levantamuerto,2026-07-05 16:14:49,2026-07-07 10:00:00,2505,manual,Cajero,Encargada
+1,36,Chicharrón a lo Maui,2026-07-05 16:20:00,2026-07-07 10:00:00,2500,manual,Cajero,Encargada
+1,3,Leche de tigre Maui (Pescado),2026-07-05 16:22:26,2026-07-07 10:00:00,2497,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-07-05 16:23:46,2026-07-07 10:00:00,2496,manual,Cajero,Encargada
+1,22,Ceviche con chicharrón de pescado,2026-07-05 16:26:40,2026-07-07 10:00:00,2493,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-07-05 16:28:19,2026-07-07 10:00:00,2491,manual,Cajero,Encargada
+1,29,Ceviche + chaufa de mariscos + chicharrón (Pescado),2026-07-05 16:28:20,2026-07-07 10:00:00,2491,manual,Cajero,Encargada
+1,4,Leche de tigre Maui (Calamar),2026-07-05 16:29:55,2026-07-07 10:00:00,2490,manual,Cajero,Encargada
+1,31,Ceviche + causita + chicharrón (Pescado),2026-07-05 16:31:22,2026-07-07 10:00:00,2488,manual,Cajero,Encargada
+1,5,Leche de tigre levantamuerto (Pescado),2026-07-05 16:38:07,2026-07-07 10:00:00,2481,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-07-05 16:43:06,2026-07-07 10:00:00,2476,manual,Cajero,Encargada
+1,6,Leche de tigre levantamuerto (Calamar),2026-07-05 16:45:57,2026-07-07 10:00:00,2474,manual,Cajero,Encargada
+1,13,Causita de pescado,2026-07-05 16:48:04,2026-07-07 10:00:00,2471,manual,Cajero,Encargada
+1,44,Ronda causera,2026-07-08 16:48:19,2026-07-09 10:00:00,1031,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-07-10 16:29:46,2026-07-11 10:00:00,1050,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-07-17 15:51:58,2026-07-18 10:00:00,1088,manual,Cajero,Encargada
+1,36,Chicharrón a lo Maui,2026-07-17 15:58:05,2026-07-18 10:00:00,1081,manual,Cajero,Encargada
+1,18,Chaufita de mariscos,2026-07-22 14:17:04,2026-07-23 10:00:00,1182,manual,Cajero,Encargada
+1,40,Sudado mixto,2026-07-22 16:49:18,2026-07-23 10:00:00,1030,manual,Cajero,Encargada
+1,21,Ceviche con chaufita de mariscos,2026-07-22 16:49:45,2026-07-23 10:00:00,1030,manual,Cajero,Encargada
+1,28,Ceviche + arroz de mariscos + chicharrón (Calamar),2026-07-22 16:56:22,2026-07-23 10:00:00,1023,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-07-26 15:47:02,2026-07-28 10:00:00,2532,manual,Cajero,Encargada
+1,2,Leche de tigre clásica (Calamar),2026-07-26 16:21:23,2026-07-28 10:00:00,2498,manual,Cajero,Encargada
+1,17,Arrocito de mariscos,2026-07-29 14:03:01,2026-07-30 10:00:00,1196,manual,Cajero,Encargada
+1,18,Chaufita de mariscos,2026-07-29 14:59:08,2026-07-30 10:00:00,1140,manual,Cajero,Encargada
+1,38,Parihuela,2026-07-29 15:09:32,2026-07-30 10:00:00,1130,manual,Cajero,Encargada
+1,35,Chicharrón de calamar,2026-07-29 15:34:28,2026-07-30 10:00:00,1105,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-07-29 16:35:39,2026-07-30 10:00:00,1044,manual,Cajero,Encargada
+1,44,Ronda causera,2026-07-29 16:38:36,2026-07-30 10:00:00,1041,manual,Cajero,Encargada
+1,26,Dúo ármalo a tu gusto,2026-07-31 16:04:09,2026-08-01 10:00:00,1075,manual,Cajero,Encargada
+1,3,Leche de tigre Maui (Pescado),2026-07-31 16:14:31,2026-08-01 10:00:00,1065,manual,Cajero,Encargada
+1,15,Ceviche levantamuerto,2026-07-31 16:14:35,2026-08-01 10:00:00,1065,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-07-31 16:22:41,2026-08-01 10:00:00,1057,manual,Cajero,Encargada
+1,40,Sudado mixto,2026-07-31 16:30:19,2026-08-01 10:00:00,1049,manual,Cajero,Encargada
+1,42,Chilcano acevichado,2026-07-31 16:33:17,2026-08-01 10:00:00,1046,manual,Cajero,Encargada
+1,9,Cevichop levantamuerto (Pescado),2026-07-31 16:39:04,2026-08-01 10:00:00,1040,manual,Cajero,Encargada
+1,1,Leche de tigre clásica (Pescado),2026-07-31 16:46:31,2026-08-01 10:00:00,1033,manual,Cajero,Encargada
+1,16,Ceviche carretillero,2026-07-31 16:51:13,2026-08-01 10:00:00,1028,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-08-05 16:02:30,2026-08-06 10:00:00,1077,manual,Cajero,Encargada
+1,18,Chaufita de mariscos,2026-08-05 16:22:13,2026-08-06 10:00:00,1057,manual,Cajero,Encargada
+1,40,Sudado mixto,2026-08-05 16:32:13,2026-08-06 10:00:00,1047,manual,Cajero,Encargada
+1,43,Ronda lechera,2026-08-05 16:36:00,2026-08-06 10:00:00,1044,manual,Cajero,Encargada
+1,8,Cevichop clásico (Calamar),2026-08-05 16:47:37,2026-08-06 10:00:00,1032,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-08-05 16:57:52,2026-08-06 10:00:00,1022,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-08-07 16:55:19,2026-08-08 10:00:00,1024,manual,Cajero,Encargada
+1,16,Ceviche carretillero,2026-08-09 15:16:54,2026-08-11 10:00:00,2563,manual,Cajero,Encargada
+1,26,Dúo ármalo a tu gusto,2026-08-09 15:22:32,2026-08-11 10:00:00,2557,manual,Cajero,Encargada
+1,25,Ceviche con chaufa de pescado,2026-08-09 15:26:01,2026-08-11 10:00:00,2553,manual,Cajero,Encargada
+1,15,Ceviche levantamuerto,2026-08-09 15:31:53,2026-08-11 10:00:00,2548,manual,Cajero,Encargada
+1,3,Leche de tigre Maui (Pescado),2026-08-09 15:42:18,2026-08-11 10:00:00,2537,manual,Cajero,Encargada
+1,9,Cevichop levantamuerto (Pescado),2026-08-09 15:43:04,2026-08-11 10:00:00,2536,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-08-09 15:45:27,2026-08-11 10:00:00,2534,manual,Cajero,Encargada
+1,12,Cevichop Maui (Calamar),2026-08-09 15:45:45,2026-08-11 10:00:00,2534,manual,Cajero,Encargada
+1,38,Parihuela,2026-08-09 15:47:21,2026-08-11 10:00:00,2532,manual,Cajero,Encargada
+1,7,Cevichop clásico (Pescado),2026-08-09 15:54:02,2026-08-11 10:00:00,2525,manual,Cajero,Encargada
+1,5,Leche de tigre levantamuerto (Pescado),2026-08-09 16:01:05,2026-08-11 10:00:00,2518,manual,Cajero,Encargada
+1,42,Chilcano acevichado,2026-08-09 16:03:36,2026-08-11 10:00:00,2516,manual,Cajero,Encargada
+1,34,Chicharrón de pescado,2026-08-09 16:05:41,2026-08-11 10:00:00,2514,manual,Cajero,Encargada
+1,19,Chaufita de pescado,2026-08-09 16:08:12,2026-08-11 10:00:00,2511,manual,Cajero,Encargada
+1,1,Leche de tigre clásica (Pescado),2026-08-09 16:17:28,2026-08-11 10:00:00,2502,manual,Cajero,Encargada
+1,35,Chicharrón de calamar,2026-08-09 16:20:16,2026-08-11 10:00:00,2499,manual,Cajero,Encargada
+1,2,Leche de tigre clásica (Calamar),2026-08-09 16:23:39,2026-08-11 10:00:00,2496,manual,Cajero,Encargada
+1,40,Sudado mixto,2026-08-09 16:24:55,2026-08-11 10:00:00,2495,manual,Cajero,Encargada
+1,23,Ceviche con causita de pescado,2026-08-09 16:47:40,2026-08-11 10:00:00,2472,manual,Cajero,Encargada
+1,30,Ceviche + chaufa de mariscos + chicharrón (Calamar),2026-08-12 16:20:03,2026-08-13 10:00:00,1059,manual,Cajero,Encargada
+1,36,Chicharrón a lo Maui,2026-08-12 16:21:57,2026-08-13 10:00:00,1058,manual,Cajero,Encargada
+1,16,Ceviche carretillero,2026-08-12 16:23:53,2026-08-13 10:00:00,1056,manual,Cajero,Encargada
+1,42,Chilcano acevichado,2026-08-12 16:46:50,2026-08-13 10:00:00,1033,manual,Cajero,Encargada
+1,26,Dúo ármalo a tu gusto,2026-08-12 16:59:13,2026-08-13 10:00:00,1020,manual,Cajero,Encargada
+1,20,Ceviche con arrocito de mariscos,2026-08-19 16:30:21,2026-08-20 10:00:00,1049,manual,Cajero,Encargada
+1,32,Ceviche + causita + chicharrón (Calamar),2026-08-26 14:37:13,2026-08-27 10:00:00,1162,manual,Cajero,Encargada
+1,36,Chicharrón a lo Maui,2026-08-26 15:11:51,2026-08-27 10:00:00,1128,manual,Cajero,Encargada
+1,35,Chicharrón de calamar,2026-08-26 16:40:01,2026-08-27 10:00:00,1039,manual,Cajero,Encargada
+1,35,Chicharrón de calamar,2026-08-28 14:25:12,2026-08-29 10:00:00,1174,manual,Cajero,Encargada
+1,36,Chicharrón a lo Maui,2026-08-28 14:51:40,2026-08-29 10:00:00,1148,manual,Cajero,Encargada
+1,10,Cevichop levantamuerto (Calamar),2026-08-28 14:54:59,2026-08-29 10:00:00,1145,manual,Cajero,Encargada
+1,8,Cevichop clásico (Calamar),2026-08-28 15:23:49,2026-08-29 10:00:00,1116,manual,Cajero,Encargada
+1,4,Leche de tigre Maui (Calamar),2026-08-28 16:26:29,2026-08-29 10:00:00,1053,manual,Cajero,Encargada
+1,24,Ceviche con chicharrón de calamar,2026-08-28 16:38:46,2026-08-29 10:00:00,1041,manual,Cajero,Encargada
+1,43,Ronda lechera,2026-09-02 15:30:54,2026-09-03 10:00:00,1109,manual,Cajero,Encargada
+1,27,Ceviche + arroz de mariscos + chicharrón (Pescado),2026-09-02 16:24:08,2026-09-03 10:00:00,1055,manual,Cajero,Encargada
+1,17,Arrocito de mariscos,2026-09-02 16:39:15,2026-09-03 10:00:00,1040,manual,Cajero,Encargada

@@ -1,0 +1,4944 @@
+{
+ "meta": {
+  "modelo": "mauidesk-forecast-1",
+  "periodo": [
+   "2026-06-16",
+   "2026-09-06"
+  ],
+  "calibracion": [
+   "2026-06-16",
+   "2026-07-12"
+  ],
+  "cobertura": 2,
+  "convenciones": [
+   "Los factores de calibracion de las semanas 1 a 4 se aplican a todo lo demas (consumo imputado, costo del plato, ventas perdidas).",
+   "El costo promedio (F8) se recorre desde el primer registro; la apertura usada es el conteo o, si falta, la estimada con el dia anterior.",
+   "Costo promedio del insumo en el periodo: promedio ponderado por el consumo.",
+   "Semanas lunes a domingo; meses calendario; ambos recortados al periodo.",
+   "Pronostico de la noche N: solo conteos hasta N; el consumo de N siempre es teorico (imputado)."
+  ]
+ },
+ "factores": {
+  "PESCADO": 1.039973,
+  "CALAMAR": 1.079966,
+  "MIXTURA": 1.029728,
+  "LIMON": 1.10001
+ },
+ "factores_fuera_de_rango": [],
+ "total": {
+  "desde": "2026-06-16",
+  "hasta": "2026-09-06",
+  "V": 98845.0,
+  "CV": 33164.494622,
+  "O": 17778.4,
+  "G": 38510.769231,
+  "GF": 35209.846154,
+  "UB": 65680.505378,
+  "UO": 27169.736148,
+  "food_cost": 33.55202,
+  "Veq": 52988.58806,
+  "merma_kg": 9.11,
+  "merma_soles": 249.997184,
+  "merma_pct": 0.522962,
+  "insumos": {
+   "PESCADO": {
+    "consumo_kg": 1020.38194,
+    "merma_kg": 0.0,
+    "merma_pct": 0.0,
+    "merma_soles": 0.0,
+    "costo": 10009.065198,
+    "costo_promedio": 9.809136,
+    "dias_imputados": [
+     "2026-07-04",
+     "2026-07-05",
+     "2026-07-17",
+     "2026-07-18",
+     "2026-08-26",
+     "2026-08-27"
+    ]
+   },
+   "CALAMAR": {
+    "consumo_kg": 94.58851,
+    "merma_kg": 0.0,
+    "merma_pct": 0.0,
+    "merma_soles": 0.0,
+    "costo": 593.880775,
+    "costo_promedio": 6.278572,
+    "dias_imputados": [
+     "2026-07-04",
+     "2026-07-05",
+     "2026-07-17",
+     "2026-07-18",
+     "2026-08-26",
+     "2026-08-27"
+    ]
+   },
+   "MIXTURA": {
+    "consumo_kg": 91.283281,
+    "merma_kg": 9.11,
+    "merma_pct": 9.155779,
+    "merma_soles": 249.997184,
+    "costo": 2814.351594,
+    "costo_promedio": 28.092268,
+    "dias_imputados": [
+     "2026-07-04",
+     "2026-07-05",
+     "2026-07-17",
+     "2026-07-18",
+     "2026-08-26",
+     "2026-08-27"
+    ]
+   },
+   "LIMON": {
+    "consumo_kg": 528.437974,
+    "merma_kg": 0.0,
+    "merma_pct": 0.0,
+    "merma_soles": 0.0,
+    "costo": 1968.797053,
+    "costo_promedio": 3.725692,
+    "dias_imputados": [
+     "2026-07-04",
+     "2026-07-05",
+     "2026-07-17",
+     "2026-07-18",
+     "2026-08-26",
+     "2026-08-27"
+    ]
+   }
+  }
+ },
+ "semanas": [
+  {
+   "desde": "2026-06-16",
+   "hasta": "2026-06-21",
+   "V": 8326.0,
+   "CV": 2777.913843,
+   "O": 1490.4,
+   "G": 3360.0,
+   "GF": 3072.0,
+   "UB": 5548.086157,
+   "UO": 2188.086157,
+   "food_cost": 33.364327,
+   "Veq": 4610.14326,
+   "merma_kg": 0.4,
+   "merma_soles": 11.882882,
+   "merma_pct": 0.291971,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 87.09,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 826.046469,
+     "costo_promedio": 9.484975,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 7.13,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 42.000375,
+     "costo_promedio": 5.890656,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.49,
+     "merma_kg": 0.4,
+     "merma_pct": 5.714286,
+     "merma_soles": 11.882882,
+     "costo": 231.1369,
+     "costo_promedio": 29.2729,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 45.6,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 188.3301,
+     "costo_promedio": 4.130046,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-06-22",
+   "hasta": "2026-06-28",
+   "V": 8349.0,
+   "CV": 2740.634084,
+   "O": 1446.3,
+   "G": 3360.0,
+   "GF": 3072.0,
+   "UB": 5608.365916,
+   "UO": 2248.365916,
+   "food_cost": 32.825896,
+   "Veq": 4573.190905,
+   "merma_kg": 0.05,
+   "merma_soles": 1.490949,
+   "merma_pct": 0.032468,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 86.79,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 827.447473,
+     "costo_promedio": 9.533903,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 6.83,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 43.357918,
+     "costo_promedio": 6.348158,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.95,
+     "merma_kg": 0.05,
+     "merma_pct": 0.625,
+     "merma_soles": 1.490949,
+     "costo": 240.82,
+     "costo_promedio": 30.104283,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 45.1,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 182.708693,
+     "costo_promedio": 4.051191,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-06-29",
+   "hasta": "2026-07-05",
+   "V": 8505.0,
+   "CV": 2913.508459,
+   "O": 1555.8,
+   "G": 3152.592593,
+   "GF": 2882.37037,
+   "UB": 5591.491541,
+   "UO": 2438.898948,
+   "food_cost": 34.256419,
+   "Veq": 4384.261305,
+   "merma_kg": 1.14,
+   "merma_soles": 33.101285,
+   "merma_pct": 0.77551,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 89.418394,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 876.108963,
+     "costo_promedio": 9.797861,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05"
+     ]
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.033098,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 53.478619,
+     "costo_promedio": 6.657285,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05"
+     ]
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.358696,
+     "merma_kg": 1.14,
+     "merma_pct": 13.411765,
+     "merma_soles": 33.101285,
+     "costo": 249.392145,
+     "costo_promedio": 29.392552,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05"
+     ]
+    },
+    "LIMON": {
+     "consumo_kg": 46.470704,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 178.728732,
+     "costo_promedio": 3.846052,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05"
+     ]
+    }
+   }
+  },
+  {
+   "desde": "2026-07-06",
+   "hasta": "2026-07-12",
+   "V": 8159.0,
+   "CV": 2809.278767,
+   "O": 1470.6,
+   "G": 3111.111111,
+   "GF": 2844.444444,
+   "UB": 5349.721233,
+   "UO": 2238.610122,
+   "food_cost": 34.431655,
+   "Veq": 4338.136738,
+   "merma_kg": 0.63,
+   "merma_soles": 18.856616,
+   "merma_pct": 0.405145,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 82.46,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 830.258729,
+     "costo_promedio": 10.068624,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 6.95,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 44.488735,
+     "costo_promedio": 6.401257,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 9.37,
+     "merma_kg": 0.63,
+     "merma_pct": 6.3,
+     "merma_soles": 18.856616,
+     "costo": 298.89,
+     "costo_promedio": 29.886167,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 42.45,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 165.041303,
+     "costo_promedio": 3.887899,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-07-13",
+   "hasta": "2026-07-19",
+   "V": 7759.0,
+   "CV": 2631.60174,
+   "O": 1396.9,
+   "G": 3111.111111,
+   "GF": 2844.444444,
+   "UB": 5127.39826,
+   "UO": 2016.287149,
+   "food_cost": 33.916764,
+   "Veq": 4304.335908,
+   "merma_kg": 0.61,
+   "merma_soles": 17.782533,
+   "merma_pct": 0.42807,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 79.129103,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 807.764857,
+     "costo_promedio": 10.208189,
+     "dias_imputados": [
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.351886,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 49.989373,
+     "costo_promedio": 5.9854,
+     "dias_imputados": [
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "MIXTURA": {
+     "consumo_kg": 6.890075,
+     "merma_kg": 0.61,
+     "merma_pct": 8.133333,
+     "merma_soles": 17.782533,
+     "costo": 219.94219,
+     "costo_promedio": 29.340704,
+     "dias_imputados": [
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "LIMON": {
+     "consumo_kg": 41.398673,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 157.00532,
+     "costo_promedio": 3.792521,
+     "dias_imputados": [
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    }
+   }
+  },
+  {
+   "desde": "2026-07-20",
+   "hasta": "2026-07-26",
+   "V": 7757.0,
+   "CV": 2608.42476,
+   "O": 1423.7,
+   "G": 3111.111111,
+   "GF": 2844.444444,
+   "UB": 5148.57524,
+   "UO": 2037.464129,
+   "food_cost": 33.626721,
+   "Veq": 4285.526486,
+   "merma_kg": 1.25,
+   "merma_soles": 34.223375,
+   "merma_pct": 1.086957,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 78.37,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 761.069264,
+     "costo_promedio": 9.711232,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.22,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 47.092402,
+     "costo_promedio": 5.729003,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 6.75,
+     "merma_kg": 1.25,
+     "merma_pct": 15.625,
+     "merma_soles": 34.223375,
+     "costo": 218.16,
+     "costo_promedio": 27.24987,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 41.16,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 158.403094,
+     "costo_promedio": 3.848472,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-07-27",
+   "hasta": "2026-08-02",
+   "V": 9017.0,
+   "CV": 3060.637587,
+   "O": 1677.2,
+   "G": 3150.997151,
+   "GF": 2880.911681,
+   "UB": 5956.362413,
+   "UO": 2805.365262,
+   "food_cost": 33.94297,
+   "Veq": 4361.249169,
+   "merma_kg": 0.98,
+   "merma_soles": 26.788126,
+   "merma_pct": 0.597561,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 92.43,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 910.051969,
+     "costo_promedio": 9.845851,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 9.94,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 58.371185,
+     "costo_promedio": 5.872353,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 8.02,
+     "merma_kg": 0.98,
+     "merma_pct": 10.888889,
+     "merma_soles": 26.788126,
+     "costo": 246.73,
+     "costo_promedio": 27.424174,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 46.95,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 168.284433,
+     "costo_promedio": 3.584333,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-08-03",
+   "hasta": "2026-08-09",
+   "V": 8493.0,
+   "CV": 2932.498672,
+   "O": 1558.9,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5560.501328,
+   "UO": 2329.732098,
+   "food_cost": 34.52842,
+   "Veq": 4511.646325,
+   "merma_kg": 0.73,
+   "merma_soles": 19.949533,
+   "merma_pct": 0.521429,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 90.57,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 936.307291,
+     "costo_promedio": 10.337941,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 6.8,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 42.418325,
+     "costo_promedio": 6.237989,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.77,
+     "merma_kg": 0.73,
+     "merma_pct": 8.588235,
+     "merma_soles": 19.949533,
+     "costo": 234.19,
+     "costo_promedio": 27.572776,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 45.46,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 160.683056,
+     "costo_promedio": 3.534603,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-08-10",
+   "hasta": "2026-08-16",
+   "V": 8087.0,
+   "CV": 2706.583729,
+   "O": 1431.3,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5380.416271,
+   "UO": 2149.64704,
+   "food_cost": 33.468329,
+   "Veq": 4439.759424,
+   "merma_kg": 1.96,
+   "merma_soles": 50.813989,
+   "merma_pct": 1.248408,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 86.14,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 872.972461,
+     "costo_promedio": 10.134345,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 6.95,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 44.647559,
+     "costo_promedio": 6.424109,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 6.04,
+     "merma_kg": 1.96,
+     "merma_pct": 24.5,
+     "merma_soles": 50.813989,
+     "costo": 207.92,
+     "costo_promedio": 26.010929,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 44.18,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 149.743709,
+     "costo_promedio": 3.3894,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-08-17",
+   "hasta": "2026-08-23",
+   "V": 8202.0,
+   "CV": 2676.921406,
+   "O": 1460.4,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5525.078594,
+   "UO": 2294.309363,
+   "food_cost": 32.637423,
+   "Veq": 4384.99575,
+   "merma_kg": 0.93,
+   "merma_soles": 23.250791,
+   "merma_pct": 0.626263,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 83.93,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 810.320571,
+     "costo_promedio": 9.654719,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 7.91,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 52.040087,
+     "costo_promedio": 6.579025,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.07,
+     "merma_kg": 0.93,
+     "merma_pct": 11.625,
+     "merma_soles": 23.250791,
+     "costo": 201.92,
+     "costo_promedio": 25.271458,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 43.89,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 152.240748,
+     "costo_promedio": 3.468689,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-08-24",
+   "hasta": "2026-08-30",
+   "V": 7696.0,
+   "CV": 2498.764885,
+   "O": 1352.1,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5197.235115,
+   "UO": 1966.465884,
+   "food_cost": 32.468359,
+   "Veq": 4374.018011,
+   "merma_kg": 0.24,
+   "merma_soles": 6.561348,
+   "merma_pct": 0.191235,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 77.654444,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 734.180608,
+     "costo_promedio": 9.454457,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.723527,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 58.899622,
+     "costo_promedio": 6.751813,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "MIXTURA": {
+     "consumo_kg": 7.764509,
+     "merma_kg": 0.24,
+     "merma_pct": 3.0,
+     "merma_soles": 6.561348,
+     "costo": 214.780359,
+     "costo_promedio": 26.816764,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "LIMON": {
+     "consumo_kg": 39.508597,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 138.804296,
+     "costo_promedio": 3.513268,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    }
+   }
+  },
+  {
+   "desde": "2026-08-31",
+   "hasta": "2026-09-06",
+   "V": 8495.0,
+   "CV": 2807.726689,
+   "O": 1514.8,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5687.273311,
+   "UO": 2456.50408,
+   "food_cost": 33.051521,
+   "Veq": 4412.118375,
+   "merma_kg": 0.19,
+   "merma_soles": 5.295756,
+   "merma_pct": 0.121795,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 86.4,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 816.536543,
+     "costo_promedio": 9.450654,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.75,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 57.096577,
+     "costo_promedio": 6.525323,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 8.81,
+     "merma_kg": 0.19,
+     "merma_pct": 2.111111,
+     "merma_soles": 5.295756,
+     "costo": 250.47,
+     "costo_promedio": 27.829086,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 46.27,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 168.82357,
+     "costo_promedio": 3.648662,
+     "dias_imputados": []
+    }
+   }
+  }
+ ],
+ "meses": [
+  {
+   "desde": "2026-06-16",
+   "hasta": "2026-06-30",
+   "V": 17746.0,
+   "CV": 5892.271203,
+   "O": 3144.0,
+   "G": 7280.0,
+   "GF": 6656.0,
+   "UB": 11853.728797,
+   "UO": 4573.728797,
+   "food_cost": 33.203377,
+   "Veq": 9964.575538,
+   "merma_kg": 0.45,
+   "merma_soles": 13.373831,
+   "merma_pct": 0.140625,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 185.06,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 1761.090861,
+     "costo_promedio": 9.516324,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 15.27,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 93.959056,
+     "costo_promedio": 6.15318,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 16.36,
+     "merma_kg": 0.45,
+     "merma_pct": 2.647059,
+     "merma_soles": 13.373831,
+     "costo": 499.4189,
+     "costo_promedio": 29.709356,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 96.51,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 393.802387,
+     "costo_promedio": 4.080431,
+     "dias_imputados": []
+    }
+   }
+  },
+  {
+   "desde": "2026-07-01",
+   "hasta": "2026-07-31",
+   "V": 35994.0,
+   "CV": 12207.848433,
+   "O": 6544.1,
+   "G": 14000.0,
+   "GF": 12800.0,
+   "UB": 23786.151567,
+   "UO": 9786.151567,
+   "food_cost": 33.916343,
+   "Veq": 19369.388054,
+   "merma_kg": 3.63,
+   "merma_soles": 103.963809,
+   "merma_pct": 0.592653,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 367.447497,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 3641.914572,
+     "costo_promedio": 9.911388,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05",
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "CALAMAR": {
+     "consumo_kg": 34.934983,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 213.880679,
+     "costo_promedio": 6.122249,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05",
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "MIXTURA": {
+     "consumo_kg": 33.918771,
+     "merma_kg": 3.63,
+     "merma_pct": 9.68,
+     "merma_soles": 103.963809,
+     "costo": 1081.825591,
+     "costo_promedio": 28.829516,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05",
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    },
+    "LIMON": {
+     "consumo_kg": 190.609377,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 726.127591,
+     "costo_promedio": 3.809506,
+     "dias_imputados": [
+      "2026-07-04",
+      "2026-07-05",
+      "2026-07-17",
+      "2026-07-18"
+     ]
+    }
+   }
+  },
+  {
+   "desde": "2026-08-01",
+   "hasta": "2026-08-31",
+   "V": 36610.0,
+   "CV": 12256.648296,
+   "O": 6575.5,
+   "G": 14000.0,
+   "GF": 12800.0,
+   "UB": 24353.351704,
+   "UO": 10353.351704,
+   "food_cost": 33.478963,
+   "Veq": 19242.033117,
+   "merma_kg": 4.84,
+   "merma_soles": 127.363788,
+   "merma_pct": 0.740627,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 381.474444,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 3789.523223,
+     "costo_promedio": 9.933885,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "CALAMAR": {
+     "consumo_kg": 35.633527,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 228.944463,
+     "costo_promedio": 6.424973,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "MIXTURA": {
+     "consumo_kg": 32.194509,
+     "merma_kg": 4.84,
+     "merma_pct": 13.444444,
+     "merma_soles": 127.363788,
+     "costo": 982.637104,
+     "costo_promedio": 26.565813,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    },
+    "LIMON": {
+     "consumo_kg": 195.048597,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 680.043506,
+     "costo_promedio": 3.486534,
+     "dias_imputados": [
+      "2026-08-26",
+      "2026-08-27"
+     ]
+    }
+   }
+  },
+  {
+   "desde": "2026-09-01",
+   "hasta": "2026-09-06",
+   "V": 8495.0,
+   "CV": 2807.726689,
+   "O": 1514.8,
+   "G": 3230.769231,
+   "GF": 2953.846154,
+   "UB": 5687.273311,
+   "UO": 2456.50408,
+   "food_cost": 33.051521,
+   "Veq": 4412.118375,
+   "merma_kg": 0.19,
+   "merma_soles": 5.295756,
+   "merma_pct": 0.121795,
+   "insumos": {
+    "PESCADO": {
+     "consumo_kg": 86.4,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 816.536543,
+     "costo_promedio": 9.450654,
+     "dias_imputados": []
+    },
+    "CALAMAR": {
+     "consumo_kg": 8.75,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 57.096577,
+     "costo_promedio": 6.525323,
+     "dias_imputados": []
+    },
+    "MIXTURA": {
+     "consumo_kg": 8.81,
+     "merma_kg": 0.19,
+     "merma_pct": 2.111111,
+     "merma_soles": 5.295756,
+     "costo": 250.47,
+     "costo_promedio": 27.829086,
+     "dias_imputados": []
+    },
+    "LIMON": {
+     "consumo_kg": 46.27,
+     "merma_kg": 0.0,
+     "merma_pct": 0.0,
+     "merma_soles": 0.0,
+     "costo": 168.82357,
+     "costo_promedio": 3.648662,
+     "dias_imputados": []
+    }
+   }
+  }
+ ],
+ "platos": {
+  "Leche de tigre clásica (Pescado)": {
+   "id": 1,
+   "precio": 12.0,
+   "porciones": 121,
+   "costo": 4.307833,
+   "MC": 7.692167,
+   "MC_pct": 64.101391,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Leche de tigre clásica (Calamar)": {
+   "id": 2,
+   "precio": 13.0,
+   "porciones": 93,
+   "costo": 4.129441,
+   "MC": 8.870559,
+   "MC_pct": 68.23507,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Leche de tigre Maui (Pescado)": {
+   "id": 3,
+   "precio": 13.0,
+   "porciones": 135,
+   "costo": 4.232664,
+   "MC": 8.767336,
+   "MC_pct": 67.441048,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Leche de tigre Maui (Calamar)": {
+   "id": 4,
+   "precio": 14.0,
+   "porciones": 76,
+   "costo": 4.054271,
+   "MC": 9.945729,
+   "MC_pct": 71.040918,
+   "sin_receta": false,
+   "categoria": "Perro"
+  },
+  "Leche de tigre levantamuerto (Pescado)": {
+   "id": 5,
+   "precio": 12.0,
+   "porciones": 115,
+   "costo": 4.307833,
+   "MC": 7.692167,
+   "MC_pct": 64.101391,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Leche de tigre levantamuerto (Calamar)": {
+   "id": 6,
+   "precio": 13.0,
+   "porciones": 80,
+   "costo": 4.129441,
+   "MC": 8.870559,
+   "MC_pct": 68.23507,
+   "sin_receta": false,
+   "categoria": "Perro"
+  },
+  "Cevichop clásico (Pescado)": {
+   "id": 7,
+   "precio": 15.0,
+   "porciones": 65,
+   "costo": 5.357479,
+   "MC": 9.642521,
+   "MC_pct": 64.283474,
+   "sin_receta": false,
+   "categoria": "Perro"
+  },
+  "Cevichop clásico (Calamar)": {
+   "id": 8,
+   "precio": 17.0,
+   "porciones": 67,
+   "costo": 5.358948,
+   "MC": 11.641052,
+   "MC_pct": 68.476776,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Cevichop levantamuerto (Pescado)": {
+   "id": 9,
+   "precio": 15.0,
+   "porciones": 136,
+   "costo": 5.357479,
+   "MC": 9.642521,
+   "MC_pct": 64.283474,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Cevichop levantamuerto (Calamar)": {
+   "id": 10,
+   "precio": 17.0,
+   "porciones": 50,
+   "costo": 5.358948,
+   "MC": 11.641052,
+   "MC_pct": 68.476776,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Cevichop Maui (Pescado)": {
+   "id": 11,
+   "precio": 16.0,
+   "porciones": 123,
+   "costo": 5.154794,
+   "MC": 10.845206,
+   "MC_pct": 67.782537,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Cevichop Maui (Calamar)": {
+   "id": 12,
+   "precio": 18.0,
+   "porciones": 46,
+   "costo": 5.156263,
+   "MC": 12.843737,
+   "MC_pct": 71.354093,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Causita de pescado": {
+   "id": 13,
+   "precio": 10.0,
+   "porciones": 93,
+   "costo": 2.773188,
+   "MC": 7.226812,
+   "MC_pct": 72.268121,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Ceviche clásico de pescado": {
+   "id": 14,
+   "precio": 18.0,
+   "porciones": 289,
+   "costo": 6.147528,
+   "MC": 11.852472,
+   "MC_pct": 65.847069,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche levantamuerto": {
+   "id": 15,
+   "precio": 18.0,
+   "porciones": 251,
+   "costo": 6.147528,
+   "MC": 11.852472,
+   "MC_pct": 65.847069,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche carretillero": {
+   "id": 16,
+   "precio": 19.0,
+   "porciones": 378,
+   "costo": 7.092481,
+   "MC": 11.907519,
+   "MC_pct": 62.67115,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Arrocito de mariscos": {
+   "id": 17,
+   "precio": 16.0,
+   "porciones": 79,
+   "costo": 6.415,
+   "MC": 9.585,
+   "MC_pct": 59.906248,
+   "sin_receta": false,
+   "categoria": "Perro"
+  },
+  "Chaufita de mariscos": {
+   "id": 18,
+   "precio": 16.0,
+   "porciones": 130,
+   "costo": 6.415,
+   "MC": 9.585,
+   "MC_pct": 59.906248,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Chaufita de pescado": {
+   "id": 19,
+   "precio": 17.0,
+   "porciones": 167,
+   "costo": 5.32558,
+   "MC": 11.67442,
+   "MC_pct": 68.673059,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche con arrocito de mariscos": {
+   "id": 20,
+   "precio": 19.0,
+   "porciones": 210,
+   "costo": 7.382299,
+   "MC": 11.617701,
+   "MC_pct": 61.145796,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche con chaufita de mariscos": {
+   "id": 21,
+   "precio": 19.0,
+   "porciones": 66,
+   "costo": 7.382299,
+   "MC": 11.617701,
+   "MC_pct": 61.145796,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Ceviche con chicharrón de pescado": {
+   "id": 22,
+   "precio": 19.0,
+   "porciones": 215,
+   "costo": 6.632536,
+   "MC": 12.367464,
+   "MC_pct": 65.091918,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche con causita de pescado": {
+   "id": 23,
+   "precio": 20.0,
+   "porciones": 105,
+   "costo": 6.236294,
+   "MC": 13.763706,
+   "MC_pct": 68.818528,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche con chicharrón de calamar": {
+   "id": 24,
+   "precio": 20.0,
+   "porciones": 116,
+   "costo": 6.215308,
+   "MC": 13.784692,
+   "MC_pct": 68.923462,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche con chaufa de pescado": {
+   "id": 25,
+   "precio": 20.0,
+   "porciones": 103,
+   "costo": 6.812397,
+   "MC": 13.187603,
+   "MC_pct": 65.938015,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Dúo ármalo a tu gusto": {
+   "id": 26,
+   "precio": 20.0,
+   "porciones": 122,
+   "costo": 6.812397,
+   "MC": 13.187603,
+   "MC_pct": 65.938015,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche + arroz de mariscos + chicharrón (Pescado)": {
+   "id": 27,
+   "precio": 22.0,
+   "porciones": 162,
+   "costo": 8.315736,
+   "MC": 13.684264,
+   "MC_pct": 62.201202,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche + arroz de mariscos + chicharrón (Calamar)": {
+   "id": 28,
+   "precio": 23.0,
+   "porciones": 30,
+   "costo": 8.017925,
+   "MC": 14.982075,
+   "MC_pct": 65.139455,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Ceviche + chaufa de mariscos + chicharrón (Pescado)": {
+   "id": 29,
+   "precio": 22.0,
+   "porciones": 110,
+   "costo": 8.315736,
+   "MC": 13.684264,
+   "MC_pct": 62.201202,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche + chaufa de mariscos + chicharrón (Calamar)": {
+   "id": 30,
+   "precio": 23.0,
+   "porciones": 73,
+   "costo": 8.017925,
+   "MC": 14.982075,
+   "MC_pct": 65.139455,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Ceviche + causita + chicharrón (Pescado)": {
+   "id": 31,
+   "precio": 22.0,
+   "porciones": 125,
+   "costo": 7.279144,
+   "MC": 14.720856,
+   "MC_pct": 66.912983,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ceviche + causita + chicharrón (Calamar)": {
+   "id": 32,
+   "precio": 23.0,
+   "porciones": 82,
+   "costo": 6.981334,
+   "MC": 16.018666,
+   "MC_pct": 69.646376,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Trío ármalo a tu gusto": {
+   "id": 33,
+   "precio": 20.0,
+   "porciones": 67,
+   "costo": 6.919421,
+   "MC": 13.080579,
+   "MC_pct": 65.402895,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Chicharrón de pescado": {
+   "id": 34,
+   "precio": 16.0,
+   "porciones": 150,
+   "costo": 5.783296,
+   "MC": 10.216704,
+   "MC_pct": 63.854402,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Chicharrón de calamar": {
+   "id": 35,
+   "precio": 18.0,
+   "porciones": 138,
+   "costo": 5.152259,
+   "MC": 12.847741,
+   "MC_pct": 71.376339,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Chicharrón a lo Maui": {
+   "id": 36,
+   "precio": 22.0,
+   "porciones": 59,
+   "costo": 7.377575,
+   "MC": 14.622425,
+   "MC_pct": 66.46557,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Filete de pescado": {
+   "id": 37,
+   "precio": 15.0,
+   "porciones": 141,
+   "costo": 4.993198,
+   "MC": 10.006802,
+   "MC_pct": 66.712011,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Parihuela": {
+   "id": 38,
+   "precio": 20.0,
+   "porciones": 80,
+   "costo": 7.906116,
+   "MC": 12.093884,
+   "MC_pct": 60.469419,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Sudado de pescado": {
+   "id": 39,
+   "precio": 16.0,
+   "porciones": 36,
+   "costo": 5.510057,
+   "MC": 10.489943,
+   "MC_pct": 65.562146,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Sudado mixto": {
+   "id": 40,
+   "precio": 18.0,
+   "porciones": 61,
+   "costo": 6.967846,
+   "MC": 11.032154,
+   "MC_pct": 61.289746,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Chilcano de pescado": {
+   "id": 41,
+   "precio": 14.0,
+   "porciones": 85,
+   "costo": 4.130211,
+   "MC": 9.869789,
+   "MC_pct": 70.498496,
+   "sin_receta": false,
+   "categoria": "Perro"
+  },
+  "Chilcano acevichado": {
+   "id": 42,
+   "precio": 16.0,
+   "porciones": 131,
+   "costo": 5.20491,
+   "MC": 10.79509,
+   "MC_pct": 67.469313,
+   "sin_receta": false,
+   "categoria": "Estrella"
+  },
+  "Ronda lechera": {
+   "id": 43,
+   "precio": 65.0,
+   "porciones": 29,
+   "costo": 24.843115,
+   "MC": 40.156885,
+   "MC_pct": 61.779824,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Ronda causera": {
+   "id": 44,
+   "precio": 65.0,
+   "porciones": 26,
+   "costo": 24.843115,
+   "MC": 40.156885,
+   "MC_pct": 61.779824,
+   "sin_receta": false,
+   "categoria": "Rompecabezas"
+  },
+  "Chicha morada 1 L": {
+   "id": 45,
+   "precio": 6.0,
+   "porciones": 213,
+   "costo": 1.079168,
+   "MC": 4.920832,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Chicha morada 1/2 L": {
+   "id": 46,
+   "precio": 4.0,
+   "porciones": 104,
+   "costo": 0.719446,
+   "MC": 3.280554,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Coca Cola 1 L": {
+   "id": 47,
+   "precio": 6.0,
+   "porciones": 226,
+   "costo": 1.079168,
+   "MC": 4.920832,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Coca Cola 600 ml": {
+   "id": 48,
+   "precio": 4.0,
+   "porciones": 174,
+   "costo": 0.719446,
+   "MC": 3.280554,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Inka Cola 1 L": {
+   "id": 49,
+   "precio": 6.0,
+   "porciones": 211,
+   "costo": 1.079168,
+   "MC": 4.920832,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Inka Cola 600 ml": {
+   "id": 50,
+   "precio": 4.0,
+   "porciones": 261,
+   "costo": 0.719446,
+   "MC": 3.280554,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  },
+  "Cerveza Pilsen": {
+   "id": 51,
+   "precio": 8.0,
+   "porciones": 258,
+   "costo": 1.438891,
+   "MC": 6.561109,
+   "MC_pct": 82.01386,
+   "sin_receta": false,
+   "categoria": "Caballo de batalla"
+  }
+ },
+ "pronosticos": [
+  {
+   "noche": "2026-08-11",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.406911,
+      "promedio_estacional": 2.192647,
+      "holt_winters": 2.033712,
+      "regresion_calendario": 2.263265
+     },
+     "n": 49,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-12",
+       "horizonte": 1,
+       "kg": 10.274989
+      },
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 2,
+       "kg": 11.344051
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 3,
+       "kg": 14.197446
+      }
+     ],
+     "sigma_h": 4.006667,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-12",
+     "disponible": 10.47,
+     "fuente_disponible": "conteo",
+     "cantidad": 20.469941
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.458532,
+      "promedio_estacional": 0.363012,
+      "holt_winters": 0.429687,
+      "regresion_calendario": 0.412308
+     },
+     "n": 49,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-12",
+       "horizonte": 1,
+       "kg": 1.126999
+      },
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 2,
+       "kg": 0.6925
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 3,
+       "kg": 1.302638
+      }
+     ],
+     "sigma_h": 0.772377,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-12",
+     "disponible": 1.21,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.59934
+    },
+    "MIXTURA": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.379885,
+      "promedio_estacional": 0.282337,
+      "holt_winters": 0.309508,
+      "regresion_calendario": 0.31871
+     },
+     "n": 49,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-12",
+       "horizonte": 1,
+       "kg": 1.077083
+      },
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 2,
+       "kg": 0.71
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 3,
+       "kg": 1.187037
+      }
+     ],
+     "sigma_h": 0.477399,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-12",
+     "disponible": 1.74,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.832335
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.326043,
+      "promedio_estacional": 1.076847,
+      "holt_winters": 1.075595,
+      "regresion_calendario": 1.158421
+     },
+     "n": 49,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-12",
+       "horizonte": 1,
+       "kg": 5.102564
+      },
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 2,
+       "kg": 5.545278
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 3,
+       "kg": 7.109269
+      }
+     ],
+     "sigma_h": 2.104068,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-12",
+     "disponible": 5.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 9.108725
+    }
+   }
+  },
+  {
+   "noche": "2026-08-12",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.360413,
+      "promedio_estacional": 2.184964,
+      "holt_winters": 2.018798,
+      "regresion_calendario": 2.263947
+     },
+     "n": 50,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 1,
+       "kg": 11.356889
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 2,
+       "kg": 14.210284
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 3,
+       "kg": 21.002334
+      }
+     ],
+     "sigma_h": 3.850276,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-13",
+     "disponible": 0.5,
+     "fuente_disponible": "conteo",
+     "cantidad": 34.024254
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.467262,
+      "promedio_estacional": 0.342883,
+      "holt_winters": 0.415463,
+      "regresion_calendario": 0.390601
+     },
+     "n": 50,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 1,
+       "kg": 0.6925
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 2,
+       "kg": 1.302638
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 3,
+       "kg": 2.122083
+      }
+     ],
+     "sigma_h": 0.735674,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-13",
+     "disponible": 0.46,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.477942
+    },
+    "MIXTURA": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.388995,
+      "promedio_estacional": 0.285881,
+      "holt_winters": 0.312714,
+      "regresion_calendario": 0.315853
+     },
+     "n": 50,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 1,
+       "kg": 0.71
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 2,
+       "kg": 1.187037
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 3,
+       "kg": 1.799567
+      }
+     ],
+     "sigma_h": 0.493537,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-13",
+     "disponible": 1.07,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.638832
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.276308,
+      "promedio_estacional": 1.068609,
+      "holt_winters": 1.048682,
+      "regresion_calendario": 1.156326
+     },
+     "n": 50,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-13",
+       "horizonte": 1,
+       "kg": 5.553121
+      },
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 2,
+       "kg": 7.117112
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 3,
+       "kg": 10.661755
+      }
+     ],
+     "sigma_h": 1.958727,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-13",
+     "disponible": 0.04,
+     "fuente_disponible": "conteo",
+     "cantidad": 15.852053
+    }
+   }
+  },
+  {
+   "noche": "2026-08-13",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.397882,
+      "promedio_estacional": 2.158283,
+      "holt_winters": 2.002855,
+      "regresion_calendario": 2.244228
+     },
+     "n": 51,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 1,
+       "kg": 14.13085
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 2,
+       "kg": 20.922901
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 3,
+       "kg": 22.474112
+      }
+     ],
+     "sigma_h": 3.823667,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-14",
+     "disponible": 16.74,
+     "fuente_disponible": "conteo",
+     "cantidad": 27.20893
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.48229,
+      "promedio_estacional": 0.339918,
+      "holt_winters": 0.412602,
+      "regresion_calendario": 0.380675
+     },
+     "n": 51,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 1,
+       "kg": 1.302638
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 2,
+       "kg": 2.122083
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 3,
+       "kg": 2.16655
+      }
+     ],
+     "sigma_h": 0.732699,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-14",
+     "disponible": 2.9,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.463712
+    },
+    "MIXTURA": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.385015,
+      "promedio_estacional": 0.294083,
+      "holt_winters": 0.312345,
+      "regresion_calendario": 0.307256
+     },
+     "n": 51,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 1,
+       "kg": 1.187037
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 2,
+       "kg": 1.799567
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 3,
+       "kg": 1.799507
+      }
+     ],
+     "sigma_h": 0.532294,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-14",
+     "disponible": 1.5,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.362148
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.266385,
+      "promedio_estacional": 1.047289,
+      "holt_winters": 1.024135,
+      "regresion_calendario": 1.151775
+     },
+     "n": 51,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-14",
+       "horizonte": 1,
+       "kg": 7.085259
+      },
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 2,
+       "kg": 10.629902
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 3,
+       "kg": 11.938917
+      }
+     ],
+     "sigma_h": 1.935074,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-14",
+     "disponible": 9.12,
+     "fuente_disponible": "conteo",
+     "cantidad": 11.778073
+    }
+   }
+  },
+  {
+   "noche": "2026-08-14",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.371516,
+      "promedio_estacional": 2.14318,
+      "holt_winters": 2.008632,
+      "regresion_calendario": 2.24316
+     },
+     "n": 52,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 1,
+       "kg": 20.821037
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 2,
+       "kg": 22.372249
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 3,
+       "kg": 10.866023
+      }
+     ],
+     "sigma_h": 3.834398,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-15",
+     "disponible": 4.64,
+     "fuente_disponible": "conteo",
+     "cantidad": 47.47343
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.478746,
+      "promedio_estacional": 0.332001,
+      "holt_winters": 0.402452,
+      "regresion_calendario": 0.37572
+     },
+     "n": 52,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 1,
+       "kg": 2.122083
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 2,
+       "kg": 2.16655
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 3,
+       "kg": 1.0075
+      }
+     ],
+     "sigma_h": 0.72718,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-15",
+     "disponible": 2.17,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.050552
+    },
+    "MIXTURA": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.374418,
+      "promedio_estacional": 0.292018,
+      "holt_winters": 0.302614,
+      "regresion_calendario": 0.294681
+     },
+     "n": 52,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 1,
+       "kg": 1.799567
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 2,
+       "kg": 1.799507
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 3,
+       "kg": 0.9325
+      }
+     ],
+     "sigma_h": 0.527109,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-15",
+     "disponible": 0.22,
+     "fuente_disponible": "conteo",
+     "cantidad": 4.246091
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.249281,
+      "promedio_estacional": 1.031503,
+      "holt_winters": 1.011889,
+      "regresion_calendario": 1.149037
+     },
+     "n": 52,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-15",
+       "horizonte": 1,
+       "kg": 10.604682
+      },
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 2,
+       "kg": 11.913697
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 3,
+       "kg": 5.477419
+      }
+     ],
+     "sigma_h": 1.935918,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-15",
+     "disponible": 2.54,
+     "fuente_disponible": "conteo",
+     "cantidad": 23.162681
+    }
+   }
+  },
+  {
+   "noche": "2026-08-15",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.390589,
+      "promedio_estacional": 2.11621,
+      "holt_winters": 2.019768,
+      "regresion_calendario": 2.225598
+     },
+     "n": 53,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 1,
+       "kg": 22.402225
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 2,
+       "kg": 10.895999
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 3,
+       "kg": 10.212666
+      }
+     ],
+     "sigma_h": 3.876403,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-16",
+     "disponible": 29.22,
+     "fuente_disponible": "conteo",
+     "cantidad": 13.096087
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.47496,
+      "promedio_estacional": 0.339998,
+      "holt_winters": 0.405604,
+      "regresion_calendario": 0.386353
+     },
+     "n": 53,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 1,
+       "kg": 2.16655
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 2,
+       "kg": 1.0075
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 3,
+       "kg": 1.051898
+      }
+     ],
+     "sigma_h": 0.72802,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-16",
+     "disponible": 2.6,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.507045
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.358112,
+      "promedio_estacional": 0.282303,
+      "holt_winters": 0.288984,
+      "regresion_calendario": 0.280222
+     },
+     "n": 53,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 1,
+       "kg": 1.795388
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 2,
+       "kg": 0.678449
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 3,
+       "kg": 0.833463
+      }
+     ],
+     "sigma_h": 0.546923,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-16",
+     "disponible": 3.47,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.0
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.224743,
+      "promedio_estacional": 1.003116,
+      "holt_winters": 0.997751,
+      "regresion_calendario": 1.123059
+     },
+     "n": 53,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-16",
+       "horizonte": 1,
+       "kg": 11.901935
+      },
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 2,
+       "kg": 5.465656
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 3,
+       "kg": 5.085567
+      }
+     ],
+     "sigma_h": 1.916456,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-16",
+     "disponible": 17.17,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.349881
+    }
+   }
+  },
+  {
+   "noche": "2026-08-16",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.360715,
+      "promedio_estacional": 1.98774,
+      "holt_winters": 1.905829,
+      "regresion_calendario": 2.137533
+     },
+     "n": 54,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 1,
+       "kg": 10.891404
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 2,
+       "kg": 10.208071
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 3,
+       "kg": 10.745777
+      }
+     ],
+     "sigma_h": 3.819018,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-18",
+     "disponible": 6.92,
+     "fuente_disponible": "conteo",
+     "cantidad": 23.063839
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.488246,
+      "promedio_estacional": 0.333144,
+      "holt_winters": 0.404172,
+      "regresion_calendario": 0.381014
+     },
+     "n": 54,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 1,
+       "kg": 1.0075
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 2,
+       "kg": 1.051898
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 3,
+       "kg": 0.5825
+      }
+     ],
+     "sigma_h": 0.723966,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-18",
+     "disponible": 0.84,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.147198
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.363594,
+      "promedio_estacional": 0.28816,
+      "holt_winters": 0.28957,
+      "regresion_calendario": 0.28215
+     },
+     "n": 54,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 1,
+       "kg": 0.63958
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 2,
+       "kg": 0.794595
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 3,
+       "kg": 0.682264
+      }
+     ],
+     "sigma_h": 0.5421,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-18",
+     "disponible": 0.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.32585
+    },
+    "LIMON": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 1.198179,
+      "promedio_estacional": 0.932008,
+      "holt_winters": 0.936987,
+      "regresion_calendario": 1.051593
+     },
+     "n": 54,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-18",
+       "horizonte": 1,
+       "kg": 5.7275
+      },
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 2,
+       "kg": 4.939877
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 3,
+       "kg": 5.0075
+      }
+     ],
+     "sigma_h": 2.007075,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-18",
+     "disponible": 5.36,
+     "fuente_disponible": "conteo",
+     "cantidad": 8.608721
+    }
+   }
+  },
+  {
+   "noche": "2026-08-18",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.305112,
+      "promedio_estacional": 1.896616,
+      "holt_winters": 1.789803,
+      "regresion_calendario": 2.051884
+     },
+     "n": 55,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 1,
+       "kg": 10.103187
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 2,
+       "kg": 10.640893
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 3,
+       "kg": 13.370731
+      }
+     ],
+     "sigma_h": 3.735283,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-19",
+     "disponible": 16.12,
+     "fuente_disponible": "conteo",
+     "cantidad": 13.313649
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.496192,
+      "promedio_estacional": 0.333925,
+      "holt_winters": 0.40814,
+      "regresion_calendario": 0.381619
+     },
+     "n": 55,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 1,
+       "kg": 1.051898
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 2,
+       "kg": 0.5825
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 3,
+       "kg": 1.095
+      }
+     ],
+     "sigma_h": 0.714061,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-19",
+     "disponible": 1.03,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.519505
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.363206,
+      "promedio_estacional": 0.289609,
+      "holt_winters": 0.290233,
+      "regresion_calendario": 0.281165
+     },
+     "n": 55,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 1,
+       "kg": 0.800958
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 2,
+       "kg": 0.678367
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 3,
+       "kg": 1.214905
+      }
+     ],
+     "sigma_h": 0.539226,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-19",
+     "disponible": 0.75,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.616272
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.175131,
+      "promedio_estacional": 0.887099,
+      "holt_winters": 0.869216,
+      "regresion_calendario": 0.992257
+     },
+     "n": 55,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-19",
+       "horizonte": 1,
+       "kg": 5.044527
+      },
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 2,
+       "kg": 5.262822
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 3,
+       "kg": 6.863197
+      }
+     ],
+     "sigma_h": 1.846964,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-19",
+     "disponible": 7.63,
+     "fuente_disponible": "conteo",
+     "cantidad": 5.715334
+    }
+   }
+  },
+  {
+   "noche": "2026-08-19",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.251227,
+      "promedio_estacional": 1.840575,
+      "holt_winters": 1.718881,
+      "regresion_calendario": 1.970752
+     },
+     "n": 56,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 1,
+       "kg": 10.62676
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 2,
+       "kg": 13.356597
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 3,
+       "kg": 20.89805
+      }
+     ],
+     "sigma_h": 3.403392,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-20",
+     "disponible": 6.57,
+     "fuente_disponible": "conteo",
+     "cantidad": 25.33083
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.494167,
+      "promedio_estacional": 0.339699,
+      "holt_winters": 0.41449,
+      "regresion_calendario": 0.381756
+     },
+     "n": 56,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 1,
+       "kg": 0.5825
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 2,
+       "kg": 1.095
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 3,
+       "kg": 2.105
+      }
+     ],
+     "sigma_h": 0.707832,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-20",
+     "disponible": 0.35,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.234623
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.37327,
+      "promedio_estacional": 0.290679,
+      "holt_winters": 0.290982,
+      "regresion_calendario": 0.286086
+     },
+     "n": 56,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 1,
+       "kg": 0.684206
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 2,
+       "kg": 1.220745
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 3,
+       "kg": 1.547992
+      }
+     ],
+     "sigma_h": 0.544145,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-20",
+     "disponible": 0.02,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.77999
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.14758,
+      "promedio_estacional": 0.855238,
+      "holt_winters": 0.818313,
+      "regresion_calendario": 0.93668
+     },
+     "n": 56,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-20",
+       "horizonte": 1,
+       "kg": 5.231696
+      },
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 2,
+       "kg": 6.832071
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 3,
+       "kg": 10.453843
+      }
+     ],
+     "sigma_h": 1.669445,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-20",
+     "disponible": 3.41,
+     "fuente_disponible": "conteo",
+     "cantidad": 11.399758
+    }
+   }
+  },
+  {
+   "noche": "2026-08-20",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.232857,
+      "promedio_estacional": 1.792575,
+      "holt_winters": 1.70281,
+      "regresion_calendario": 1.961768
+     },
+     "n": 57,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 1,
+       "kg": 13.358328
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 2,
+       "kg": 20.899782
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 3,
+       "kg": 22.251166
+      }
+     ],
+     "sigma_h": 3.446469,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-21",
+     "disponible": 14.91,
+     "fuente_disponible": "conteo",
+     "cantidad": 27.365795
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.484155,
+      "promedio_estacional": 0.345598,
+      "holt_winters": 0.412214,
+      "regresion_calendario": 0.379941
+     },
+     "n": 57,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 1,
+       "kg": 1.095
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 2,
+       "kg": 2.105
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 3,
+       "kg": 2.19905
+      }
+     ],
+     "sigma_h": 0.707527,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-21",
+     "disponible": 2.39,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.716732
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.379401,
+      "promedio_estacional": 0.293134,
+      "holt_winters": 0.288986,
+      "regresion_calendario": 0.285306
+     },
+     "n": 57,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 1,
+       "kg": 1.237171
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 2,
+       "kg": 1.564419
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 3,
+       "kg": 1.792904
+      }
+     ],
+     "sigma_h": 0.560791,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-21",
+     "disponible": 1.56,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.164009
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.131834,
+      "promedio_estacional": 0.837368,
+      "holt_winters": 0.802365,
+      "regresion_calendario": 0.922415
+     },
+     "n": 57,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-21",
+       "horizonte": 1,
+       "kg": 6.84586
+      },
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 2,
+       "kg": 10.467632
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 3,
+       "kg": 11.817324
+      }
+     ],
+     "sigma_h": 1.705751,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-21",
+     "disponible": 9.89,
+     "fuente_disponible": "conteo",
+     "cantidad": 10.229203
+    }
+   }
+  },
+  {
+   "noche": "2026-08-21",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.190675,
+      "promedio_estacional": 1.704143,
+      "holt_winters": 1.639799,
+      "regresion_calendario": 1.939113
+     },
+     "n": 58,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 1,
+       "kg": 20.895186
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 2,
+       "kg": 22.24657
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 3,
+       "kg": 10.173578
+      }
+     ],
+     "sigma_h": 3.324027,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-22",
+     "disponible": 1.64,
+     "fuente_disponible": "conteo",
+     "cantidad": 49.2346
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.468931,
+      "promedio_estacional": 0.344038,
+      "holt_winters": 0.402747,
+      "regresion_calendario": 0.377413
+     },
+     "n": 58,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 1,
+       "kg": 2.105
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 2,
+       "kg": 2.19905
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 3,
+       "kg": 1.065
+      }
+     ],
+     "sigma_h": 0.702957,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-22",
+     "disponible": 0.99,
+     "fuente_disponible": "conteo",
+     "cantidad": 4.214926
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.375163,
+      "promedio_estacional": 0.288999,
+      "holt_winters": 0.284525,
+      "regresion_calendario": 0.282126
+     },
+     "n": 58,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 1,
+       "kg": 1.565302
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 2,
+       "kg": 1.793787
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 3,
+       "kg": 0.782265
+      }
+     ],
+     "sigma_h": 0.561895,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-22",
+     "disponible": 0.44,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.843325
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.10522,
+      "promedio_estacional": 0.799475,
+      "holt_winters": 0.767729,
+      "regresion_calendario": 0.896437
+     },
+     "n": 58,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-22",
+       "horizonte": 1,
+       "kg": 10.506657
+      },
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 2,
+       "kg": 11.856348
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 3,
+       "kg": 5.23792
+      }
+     ],
+     "sigma_h": 1.607721,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-22",
+     "disponible": 2.27,
+     "fuente_disponible": "conteo",
+     "cantidad": 22.73747
+    }
+   }
+  },
+  {
+   "noche": "2026-08-22",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.183378,
+      "promedio_estacional": 1.630223,
+      "holt_winters": 1.579003,
+      "regresion_calendario": 1.88939
+     },
+     "n": 59,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 1,
+       "kg": 22.205892
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 2,
+       "kg": 10.1329
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 3,
+       "kg": 9.965667
+      }
+     ],
+     "sigma_h": 3.224833,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-23",
+     "disponible": 33.56,
+     "fuente_disponible": "conteo",
+     "cantidad": 6.280874
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.464252,
+      "promedio_estacional": 0.327596,
+      "holt_winters": 0.389403,
+      "regresion_calendario": 0.357409
+     },
+     "n": 59,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 1,
+       "kg": 2.19905
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 2,
+       "kg": 1.065
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 3,
+       "kg": 1.059398
+      }
+     ],
+     "sigma_h": 0.691936,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-23",
+     "disponible": 3.13,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.020802
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.37319,
+      "promedio_estacional": 0.285149,
+      "holt_winters": 0.282834,
+      "regresion_calendario": 0.278328
+     },
+     "n": 59,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 1,
+       "kg": 1.819878
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 2,
+       "kg": 0.80877
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 3,
+       "kg": 0.820802
+      }
+     ],
+     "sigma_h": 0.552632,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-23",
+     "disponible": 2.29,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.247647
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.098207,
+      "promedio_estacional": 0.765289,
+      "holt_winters": 0.734678,
+      "regresion_calendario": 0.867426
+     },
+     "n": 59,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-23",
+       "horizonte": 1,
+       "kg": 11.826149
+      },
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 2,
+       "kg": 5.207721
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 3,
+       "kg": 4.855889
+      }
+     ],
+     "sigma_h": 1.455846,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-23",
+     "disponible": 17.36,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.068524
+    }
+   }
+  },
+  {
+   "noche": "2026-08-23",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.149743,
+      "promedio_estacional": 1.607428,
+      "holt_winters": 1.563558,
+      "regresion_calendario": 1.844514
+     },
+     "n": 60,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 1,
+       "kg": 10.101023
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 2,
+       "kg": 9.93379
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 3,
+       "kg": 10.560789
+      }
+     ],
+     "sigma_h": 3.249923,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-25",
+     "disponible": 11.99,
+     "fuente_disponible": "conteo",
+     "cantidad": 15.605265
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.473094,
+      "promedio_estacional": 0.332928,
+      "holt_winters": 0.389235,
+      "regresion_calendario": 0.353228
+     },
+     "n": 60,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 1,
+       "kg": 1.065
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 2,
+       "kg": 1.059398
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 3,
+       "kg": 0.5975
+      }
+     ],
+     "sigma_h": 0.651545,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-25",
+     "disponible": 0.43,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.529386
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.373893,
+      "promedio_estacional": 0.268916,
+      "holt_winters": 0.268627,
+      "regresion_calendario": 0.265072
+     },
+     "n": 60,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 1,
+       "kg": 0.773365
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 2,
+       "kg": 0.785397
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 3,
+       "kg": 0.695254
+      }
+     ],
+     "sigma_h": 0.539748,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-25",
+     "disponible": 0.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.446568
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.069221,
+      "promedio_estacional": 0.76008,
+      "holt_winters": 0.723915,
+      "regresion_calendario": 0.846222
+     },
+     "n": 60,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-25",
+       "horizonte": 1,
+       "kg": 5.210904
+      },
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 2,
+       "kg": 4.859072
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 3,
+       "kg": 5.339796
+      }
+     ],
+     "sigma_h": 1.457076,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-25",
+     "disponible": 5.47,
+     "fuente_disponible": "conteo",
+     "cantidad": 6.996652
+    }
+   }
+  },
+  {
+   "noche": "2026-08-25",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.066412,
+      "promedio_estacional": 1.548382,
+      "holt_winters": 1.498105,
+      "regresion_calendario": 1.734885
+     },
+     "n": 61,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 1,
+       "kg": 9.7422
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 2,
+       "kg": 10.369199
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 3,
+       "kg": 13.06441
+      }
+     ],
+     "sigma_h": 3.286515,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-26",
+     "disponible": 14.73,
+     "fuente_disponible": "conteo",
+     "cantidad": 13.026977
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.492929,
+      "promedio_estacional": 0.337373,
+      "holt_winters": 0.394832,
+      "regresion_calendario": 0.357505
+     },
+     "n": 61,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 1,
+       "kg": 1.059398
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 2,
+       "kg": 0.5975
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 3,
+       "kg": 1.1425
+      }
+     ],
+     "sigma_h": 0.589075,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-26",
+     "disponible": 0.92,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.491828
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.366452,
+      "promedio_estacional": 0.259781,
+      "holt_winters": 0.260037,
+      "regresion_calendario": 0.25737
+     },
+     "n": 61,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 1,
+       "kg": 0.765593
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 2,
+       "kg": 0.676114
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 3,
+       "kg": 1.153902
+      }
+     ],
+     "sigma_h": 0.510064,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-26",
+     "disponible": 1.9,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.380687
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.016392,
+      "promedio_estacional": 0.717133,
+      "holt_winters": 0.674634,
+      "regresion_calendario": 0.790034
+     },
+     "n": 61,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-26",
+       "horizonte": 1,
+       "kg": 4.832607
+      },
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 2,
+       "kg": 5.302805
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 3,
+       "kg": 7.009544
+      }
+     ],
+     "sigma_h": 1.445554,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-26",
+     "disponible": 9.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.513137
+    }
+   }
+  },
+  {
+   "noche": "2026-08-26",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 2.000906,
+      "promedio_estacional": 1.620461,
+      "holt_winters": 1.532301,
+      "regresion_calendario": 1.743936
+     },
+     "n": 62,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 1,
+       "kg": 10.456072
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 2,
+       "kg": 13.151283
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 3,
+       "kg": 20.485531
+      }
+     ],
+     "sigma_h": 3.351183,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-27",
+     "disponible": 3.264302,
+     "fuente_disponible": "teorico",
+     "cantidad": 28.13907
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.498141,
+      "promedio_estacional": 0.34923,
+      "holt_winters": 0.405902,
+      "regresion_calendario": 0.37495
+     },
+     "n": 62,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 1,
+       "kg": 0.5975
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 2,
+       "kg": 1.1425
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 3,
+       "kg": 1.705
+      }
+     ],
+     "sigma_h": 0.625788,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-27",
+     "disponible": 0.023628,
+     "fuente_disponible": "teorico",
+     "cantidad": 2.518351
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.371015,
+      "promedio_estacional": 0.256512,
+      "holt_winters": 0.254389,
+      "regresion_calendario": 0.246679
+     },
+     "n": 62,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 1,
+       "kg": 0.684388
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 2,
+       "kg": 1.162176
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 3,
+       "kg": 1.494424
+      }
+     ],
+     "sigma_h": 0.531669,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-27",
+     "disponible": 0.684921,
+     "fuente_disponible": "teorico",
+     "cantidad": 2.036161
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.966152,
+      "promedio_estacional": 0.728401,
+      "holt_winters": 0.66266,
+      "regresion_calendario": 0.77241
+     },
+     "n": 62,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-27",
+       "horizonte": 1,
+       "kg": 5.335028
+      },
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 2,
+       "kg": 7.041767
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 3,
+       "kg": 10.26823
+      }
+     ],
+     "sigma_h": 1.382515,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-27",
+     "disponible": 3.565948,
+     "fuente_disponible": "teorico",
+     "cantidad": 11.084881
+    }
+   }
+  },
+  {
+   "noche": "2026-08-27",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.930193,
+      "promedio_estacional": 1.633891,
+      "holt_winters": 1.489187,
+      "regresion_calendario": 1.689764
+     },
+     "n": 63,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 1,
+       "kg": 13.111417
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 2,
+       "kg": 20.445665
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 3,
+       "kg": 21.848174
+      }
+     ],
+     "sigma_h": 3.215298,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-28",
+     "disponible": 16.1,
+     "fuente_disponible": "conteo",
+     "cantidad": 24.936985
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.498521,
+      "promedio_estacional": 0.357251,
+      "holt_winters": 0.412749,
+      "regresion_calendario": 0.385491
+     },
+     "n": 63,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 1,
+       "kg": 1.1425
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 2,
+       "kg": 1.705
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 3,
+       "kg": 2.39405
+      }
+     ],
+     "sigma_h": 0.626604,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-28",
+     "disponible": 1.07,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.580525
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.378204,
+      "promedio_estacional": 0.258961,
+      "holt_winters": 0.251607,
+      "regresion_calendario": 0.240539
+     },
+     "n": 63,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 1,
+       "kg": 1.171716
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 2,
+       "kg": 1.503964
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 3,
+       "kg": 1.712449
+      }
+     ],
+     "sigma_h": 0.497097,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-28",
+     "disponible": 1.17,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.323332
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.931446,
+      "promedio_estacional": 0.734525,
+      "holt_winters": 0.63937,
+      "regresion_calendario": 0.740587
+     },
+     "n": 63,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-28",
+       "horizonte": 1,
+       "kg": 7.016743
+      },
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 2,
+       "kg": 10.243206
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 3,
+       "kg": 11.803977
+      }
+     ],
+     "sigma_h": 1.291388,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-28",
+     "disponible": 11.24,
+     "fuente_disponible": "conteo",
+     "cantidad": 8.144093
+    }
+   }
+  },
+  {
+   "noche": "2026-08-28",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.904911,
+      "promedio_estacional": 1.655325,
+      "holt_winters": 1.481874,
+      "regresion_calendario": 1.636735
+     },
+     "n": 64,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 1,
+       "kg": 20.355579
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 2,
+       "kg": 21.758088
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 3,
+       "kg": 8.771611
+      }
+     ],
+     "sigma_h": 3.149405,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-29",
+     "disponible": 5.21,
+     "fuente_disponible": "conteo",
+     "cantidad": 44.23028
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.501788,
+      "promedio_estacional": 0.36603,
+      "holt_winters": 0.420464,
+      "regresion_calendario": 0.394488
+     },
+     "n": 64,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 1,
+       "kg": 1.705
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 2,
+       "kg": 2.39405
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 3,
+       "kg": 1.155
+      }
+     ],
+     "sigma_h": 0.62881,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-29",
+     "disponible": 0.04,
+     "fuente_disponible": "conteo",
+     "cantidad": 4.864902
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.391268,
+      "promedio_estacional": 0.265062,
+      "holt_winters": 0.258809,
+      "regresion_calendario": 0.245546
+     },
+     "n": 64,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 1,
+       "kg": 1.505512
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 2,
+       "kg": 1.713997
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 3,
+       "kg": 0.738779
+      }
+     ],
+     "sigma_h": 0.504672,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-29",
+     "disponible": 0.13,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.919621
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.910145,
+      "promedio_estacional": 0.753886,
+      "holt_winters": 0.640106,
+      "regresion_calendario": 0.720048
+     },
+     "n": 64,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-29",
+       "horizonte": 1,
+       "kg": 10.190197
+      },
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 2,
+       "kg": 11.750968
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 3,
+       "kg": 4.785415
+      }
+     ],
+     "sigma_h": 1.278721,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-29",
+     "disponible": 5.6,
+     "fuente_disponible": "conteo",
+     "cantidad": 18.444474
+    }
+   }
+  },
+  {
+   "noche": "2026-08-29",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.904214,
+      "promedio_estacional": 1.685349,
+      "holt_winters": 1.494079,
+      "regresion_calendario": 1.619419
+     },
+     "n": 65,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 1,
+       "kg": 21.642959
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 2,
+       "kg": 8.656482
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 3,
+       "kg": 10.080829
+      }
+     ],
+     "sigma_h": 3.145427,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-08-30",
+     "disponible": 26.15,
+     "fuente_disponible": "conteo",
+     "cantidad": 11.466799
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.490621,
+      "promedio_estacional": 0.373938,
+      "holt_winters": 0.418304,
+      "regresion_calendario": 0.396962
+     },
+     "n": 65,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 1,
+       "kg": 2.39405
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 2,
+       "kg": 1.155
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 3,
+       "kg": 1.030589
+      }
+     ],
+     "sigma_h": 0.642812,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-08-30",
+     "disponible": 3.79,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.582846
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.392267,
+      "promedio_estacional": 0.267685,
+      "holt_winters": 0.260304,
+      "regresion_calendario": 0.246332
+     },
+     "n": 65,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 1,
+       "kg": 1.760985
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 2,
+       "kg": 0.78502
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 3,
+       "kg": 0.887687
+      }
+     ],
+     "sigma_h": 0.517135,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-30",
+     "disponible": 1.93,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.466616
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.908112,
+      "promedio_estacional": 0.787791,
+      "holt_winters": 0.656525,
+      "regresion_calendario": 0.718047
+     },
+     "n": 65,
+     "pronosticos": [
+      {
+       "fecha": "2026-08-30",
+       "horizonte": 1,
+       "kg": 11.684315
+      },
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 2,
+       "kg": 4.718762
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 3,
+       "kg": 4.873449
+      }
+     ],
+     "sigma_h": 1.274528,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-08-30",
+     "disponible": 13.75,
+     "fuente_disponible": "conteo",
+     "cantidad": 4.749489
+    }
+   }
+  },
+  {
+   "noche": "2026-08-30",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.923533,
+      "promedio_estacional": 1.755077,
+      "holt_winters": 1.532591,
+      "regresion_calendario": 1.644381
+     },
+     "n": 66,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 1,
+       "kg": 8.640471
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 2,
+       "kg": 10.064818
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 3,
+       "kg": 9.967742
+      }
+     ],
+     "sigma_h": 3.272539,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-01",
+     "disponible": 4.83,
+     "fuente_disponible": "conteo",
+     "cantidad": 21.488354
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.47164,
+      "promedio_estacional": 0.356989,
+      "holt_winters": 0.395309,
+      "regresion_calendario": 0.385725
+     },
+     "n": 66,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 1,
+       "kg": 1.155
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 2,
+       "kg": 1.030589
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 3,
+       "kg": 0.736789
+      }
+     ],
+     "sigma_h": 0.645009,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-01",
+     "disponible": 1.7,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.312202
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.389862,
+      "promedio_estacional": 0.27686,
+      "holt_winters": 0.266531,
+      "regresion_calendario": 0.257243
+     },
+     "n": 66,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 1,
+       "kg": 0.779763
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 2,
+       "kg": 0.88243
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 3,
+       "kg": 0.7633
+      }
+     ],
+     "sigma_h": 0.5215,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-01",
+     "disponible": 0.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.519984
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.9163,
+      "promedio_estacional": 0.835169,
+      "holt_winters": 0.688527,
+      "regresion_calendario": 0.741166
+     },
+     "n": 66,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-01",
+       "horizonte": 1,
+       "kg": 4.673571
+      },
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 2,
+       "kg": 4.828258
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 3,
+       "kg": 5.026286
+      }
+     ],
+     "sigma_h": 1.3811,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-01",
+     "disponible": 2.97,
+     "fuente_disponible": "conteo",
+     "cantidad": 8.803537
+    }
+   }
+  },
+  {
+   "noche": "2026-09-01",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.873226,
+      "promedio_estacional": 1.765264,
+      "holt_winters": 1.512676,
+      "regresion_calendario": 1.568706
+     },
+     "n": 67,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 1,
+       "kg": 10.050982
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 2,
+       "kg": 10.0556
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 3,
+       "kg": 12.542925
+      }
+     ],
+     "sigma_h": 3.197348,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-02",
+     "disponible": 15.01,
+     "fuente_disponible": "conteo",
+     "cantidad": 12.534725
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.459794,
+      "promedio_estacional": 0.342565,
+      "holt_winters": 0.372226,
+      "regresion_calendario": 0.36934
+     },
+     "n": 67,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 1,
+       "kg": 1.030589
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 2,
+       "kg": 0.736789
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 3,
+       "kg": 1.115948
+      }
+     ],
+     "sigma_h": 0.554985,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-02",
+     "disponible": 1.02,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.45862
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.387708,
+      "promedio_estacional": 0.275037,
+      "holt_winters": 0.258115,
+      "regresion_calendario": 0.248097
+     },
+     "n": 67,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 1,
+       "kg": 0.943826
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 2,
+       "kg": 0.825125
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 3,
+       "kg": 1.213715
+      }
+     ],
+     "sigma_h": 0.538353,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-02",
+     "disponible": 0.69,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.964464
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.911839,
+      "promedio_estacional": 0.879749,
+      "holt_winters": 0.713805,
+      "regresion_calendario": 0.74473
+     },
+     "n": 67,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-02",
+       "horizonte": 1,
+       "kg": 4.842352
+      },
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 2,
+       "kg": 5.04038
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 3,
+       "kg": 6.616076
+      }
+     ],
+     "sigma_h": 1.441218,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-02",
+     "disponible": 7.02,
+     "fuente_disponible": "conteo",
+     "cantidad": 5.233324
+    }
+   }
+  },
+  {
+   "noche": "2026-09-02",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.85131,
+      "promedio_estacional": 1.685286,
+      "holt_winters": 1.436806,
+      "regresion_calendario": 1.464672
+     },
+     "n": 68,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 1,
+       "kg": 10.029709
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 2,
+       "kg": 12.437611
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 3,
+       "kg": 19.632219
+      }
+     ],
+     "sigma_h": 3.003004,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-03",
+     "disponible": 4.49,
+     "fuente_disponible": "conteo",
+     "cantidad": 24.963351
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.45244,
+      "promedio_estacional": 0.317375,
+      "holt_winters": 0.347968,
+      "regresion_calendario": 0.343071
+     },
+     "n": 68,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 1,
+       "kg": 0.736789
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 2,
+       "kg": 1.115948
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 3,
+       "kg": 1.6
+      }
+     ],
+     "sigma_h": 0.484877,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-03",
+     "disponible": 0.29,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.184131
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.3934,
+      "promedio_estacional": 0.278371,
+      "holt_winters": 0.25802,
+      "regresion_calendario": 0.248096
+     },
+     "n": 68,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 1,
+       "kg": 0.826336
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 2,
+       "kg": 1.214926
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 3,
+       "kg": 1.659941
+      }
+     ],
+     "sigma_h": 0.501131,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-03",
+     "disponible": 0.01,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.855549
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.9026,
+      "promedio_estacional": 0.865362,
+      "holt_winters": 0.700102,
+      "regresion_calendario": 0.724849
+     },
+     "n": 68,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-03",
+       "horizonte": 1,
+       "kg": 5.099677
+      },
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 2,
+       "kg": 6.675373
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 3,
+       "kg": 9.833353
+      }
+     ],
+     "sigma_h": 1.403403,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-03",
+     "disponible": 1.05,
+     "fuente_disponible": "conteo",
+     "cantidad": 13.033442
+    }
+   }
+  },
+  {
+   "noche": "2026-09-03",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.80202,
+      "promedio_estacional": 1.623635,
+      "holt_winters": 1.385398,
+      "regresion_calendario": 1.410157
+     },
+     "n": 69,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 1,
+       "kg": 12.450434
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 2,
+       "kg": 19.645042
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 3,
+       "kg": 21.609645
+      }
+     ],
+     "sigma_h": 3.032097,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-04",
+     "disponible": 17.2,
+     "fuente_disponible": "conteo",
+     "cantidad": 21.949188
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.454925,
+      "promedio_estacional": 0.310539,
+      "holt_winters": 0.33942,
+      "regresion_calendario": 0.329268
+     },
+     "n": 69,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 1,
+       "kg": 1.115948
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 2,
+       "kg": 1.6
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 3,
+       "kg": 2.14655
+      }
+     ],
+     "sigma_h": 0.474361,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-04",
+     "disponible": 1.8,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.523866
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.407782,
+      "promedio_estacional": 0.279134,
+      "holt_winters": 0.261475,
+      "regresion_calendario": 0.247743
+     },
+     "n": 69,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 1,
+       "kg": 1.249224
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 2,
+       "kg": 1.694239
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 3,
+       "kg": 1.825459
+      }
+     ],
+     "sigma_h": 0.491248,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-04",
+     "disponible": 1.57,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.181494
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.87053,
+      "promedio_estacional": 0.86382,
+      "holt_winters": 0.708914,
+      "regresion_calendario": 0.728026
+     },
+     "n": 69,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-04",
+       "horizonte": 1,
+       "kg": 6.715033
+      },
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 2,
+       "kg": 9.873013
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 3,
+       "kg": 11.537395
+      }
+     ],
+     "sigma_h": 1.452987,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-04",
+     "disponible": 7.66,
+     "fuente_disponible": "conteo",
+     "cantidad": 11.317997
+    }
+   }
+  },
+  {
+   "noche": "2026-09-04",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.687045,
+      "promedio_estacional": 1.547473,
+      "holt_winters": 1.299179,
+      "regresion_calendario": 1.347264
+     },
+     "n": 70,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 1,
+       "kg": 19.799916
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 2,
+       "kg": 21.79087
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 3,
+       "kg": 9.120131
+      }
+     ],
+     "sigma_h": 2.931679,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-05",
+     "disponible": 1.96,
+     "fuente_disponible": "conteo",
+     "cantidad": 46.450893
+    },
+    "CALAMAR": {
+     "metodo": "promedio_estacional",
+     "mae": {
+      "ingenuo_estacional": 0.448655,
+      "promedio_estacional": 0.322329,
+      "holt_winters": 0.345085,
+      "regresion_calendario": 0.330561
+     },
+     "n": 70,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 1,
+       "kg": 1.6
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 2,
+       "kg": 2.14655
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 3,
+       "kg": 1.27
+      }
+     ],
+     "sigma_h": 0.493436,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-05",
+     "disponible": 0.45,
+     "fuente_disponible": "conteo",
+     "cantidad": 3.928913
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.408053,
+      "promedio_estacional": 0.277371,
+      "holt_winters": 0.259628,
+      "regresion_calendario": 0.250991
+     },
+     "n": 70,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 1,
+       "kg": 1.759194
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 2,
+       "kg": 1.890414
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 3,
+       "kg": 0.934152
+      }
+     ],
+     "sigma_h": 0.489373,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-05",
+     "disponible": 0.03,
+     "fuente_disponible": "conteo",
+     "cantidad": 4.424555
+    },
+    "LIMON": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 0.857478,
+      "promedio_estacional": 0.865793,
+      "holt_winters": 0.711507,
+      "regresion_calendario": 0.724613
+     },
+     "n": 70,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-05",
+       "horizonte": 1,
+       "kg": 9.915913
+      },
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 2,
+       "kg": 11.580295
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 3,
+       "kg": 4.895175
+      }
+     ],
+     "sigma_h": 1.472221,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-05",
+     "disponible": 0.09,
+     "fuente_disponible": "conteo",
+     "cantidad": 23.827796
+    }
+   }
+  },
+  {
+   "noche": "2026-09-05",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "holt_winters",
+     "mae": {
+      "ingenuo_estacional": 1.640852,
+      "promedio_estacional": 1.475917,
+      "holt_winters": 1.25124,
+      "regresion_calendario": 1.272981
+     },
+     "n": 71,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 1,
+       "kg": 21.834882
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 2,
+       "kg": 9.164142
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 3,
+       "kg": 10.411411
+      }
+     ],
+     "sigma_h": 3.015144,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-06",
+     "disponible": 30.29,
+     "fuente_disponible": "conteo",
+     "cantidad": 7.723298
+    },
+    "CALAMAR": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.425198,
+      "promedio_estacional": 0.315931,
+      "holt_winters": 0.328737,
+      "regresion_calendario": 0.312877
+     },
+     "n": 71,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 1,
+       "kg": 2.161593
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 2,
+       "kg": 1.160562
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 3,
+       "kg": 1.040857
+      }
+     ],
+     "sigma_h": 0.589807,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-06",
+     "disponible": 4.05,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.028024
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.407372,
+      "promedio_estacional": 0.276219,
+      "holt_winters": 0.258229,
+      "regresion_calendario": 0.251685
+     },
+     "n": 71,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 1,
+       "kg": 1.92174
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 2,
+       "kg": 0.963987
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 3,
+       "kg": 1.020738
+      }
+     ],
+     "sigma_h": 0.492966,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-06",
+     "disponible": 1.78,
+     "fuente_disponible": "conteo",
+     "cantidad": 1.916584
+    },
+    "LIMON": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.860088,
+      "promedio_estacional": 0.84347,
+      "holt_winters": 0.701312,
+      "regresion_calendario": 0.690297
+     },
+     "n": 71,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-06",
+       "horizonte": 1,
+       "kg": 11.459877
+      },
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 2,
+       "kg": 5.127659
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 3,
+       "kg": 5.224667
+      }
+     ],
+     "sigma_h": 1.544061,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-06",
+     "disponible": 13.93,
+     "fuente_disponible": "conteo",
+     "cantidad": 5.19729
+    }
+   }
+  },
+  {
+   "noche": "2026-09-06",
+   "insumos": {
+    "PESCADO": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 1.664634,
+      "promedio_estacional": 1.339243,
+      "holt_winters": 1.181531,
+      "regresion_calendario": 1.144541
+     },
+     "n": 72,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 1,
+       "kg": 9.616732
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 2,
+       "kg": 10.131203
+      },
+      {
+       "fecha": "2026-09-10",
+       "horizonte": 3,
+       "kg": 10.669481
+      }
+     ],
+     "sigma_h": 2.635263,
+     "H": 2,
+     "z": 2.326348,
+     "fecha_lista": "2026-09-08",
+     "disponible": 9.93,
+     "fuente_disponible": "conteo",
+     "cantidad": 15.948473
+    },
+    "CALAMAR": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.394927,
+      "promedio_estacional": 0.308671,
+      "holt_winters": 0.30379,
+      "regresion_calendario": 0.291489
+     },
+     "n": 72,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 1,
+       "kg": 1.114194
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 2,
+       "kg": 0.994488
+      },
+      {
+       "fecha": "2026-09-10",
+       "horizonte": 3,
+       "kg": 0.865526
+      }
+     ],
+     "sigma_h": 0.526676,
+     "H": 2,
+     "z": 1.281552,
+     "fecha_lista": "2026-09-08",
+     "disponible": 1.95,
+     "fuente_disponible": "conteo",
+     "cantidad": 0.833645
+    },
+    "MIXTURA": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.413439,
+      "promedio_estacional": 0.299382,
+      "holt_winters": 0.282428,
+      "regresion_calendario": 0.27978
+     },
+     "n": 72,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 1,
+       "kg": 1.01224
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 2,
+       "kg": 1.068991
+      },
+      {
+       "fecha": "2026-09-10",
+       "horizonte": 3,
+       "kg": 0.972582
+      }
+     ],
+     "sigma_h": 0.557145,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-08",
+     "disponible": 0.0,
+     "fuente_disponible": "conteo",
+     "cantidad": 2.997653
+    },
+    "LIMON": {
+     "metodo": "regresion_calendario",
+     "mae": {
+      "ingenuo_estacional": 0.907132,
+      "promedio_estacional": 0.807552,
+      "holt_winters": 0.693806,
+      "regresion_calendario": 0.647944
+     },
+     "n": 72,
+     "pronosticos": [
+      {
+       "fecha": "2026-09-08",
+       "horizonte": 1,
+       "kg": 5.086037
+      },
+      {
+       "fecha": "2026-09-09",
+       "horizonte": 2,
+       "kg": 5.183045
+      },
+      {
+       "fecha": "2026-09-10",
+       "horizonte": 3,
+       "kg": 5.449132
+      }
+     ],
+     "sigma_h": 1.424467,
+     "H": 2,
+     "z": 1.644854,
+     "fecha_lista": "2026-09-08",
+     "disponible": 3.2,
+     "fuente_disponible": "conteo",
+     "cantidad": 9.412122
+    }
+   }
+  }
+ ]
+}
