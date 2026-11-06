@@ -4,7 +4,7 @@ import api from '../api/client'
 import { useAuthStore } from '../store/auth'
 import {
   LayoutGrid, UtensilsCrossed, Receipt,
-  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X, Package, TrendingUp, ChefHat,
+  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X, Package, TrendingUp, ChefHat, ShoppingCart,
 } from 'lucide-react'
 import type { Role } from '../store/auth'
 import { PrinterStatusPill } from './PrinterStatus'
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/bills',       label: 'Historial',icon: History,         roles: ['owner','manager','cashier','waiter'] as Role[] },
   { to: '/reports',     label: 'Reportes', icon: BarChart3,       roles: ['owner','manager'] as Role[] },
   { to: '/inventory',   label: 'Inventario', icon: Package,       roles: ['owner','manager'] as Role[] },
+  { to: '/purchase-list', label: 'Lista de compra', icon: ShoppingCart, roles: ['owner','manager'] as Role[] },
   { to: '/profitability', label: 'Rentabilidad', icon: TrendingUp, roles: ['owner'] as Role[] },
   { to: '/recipes',     label: 'Recetas',  icon: ChefHat,         roles: ['owner'] as Role[] },
   { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager','cashier'] as Role[] },

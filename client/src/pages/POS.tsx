@@ -5,6 +5,7 @@ import { useOrdersStore, type ActiveOrder, type ItemPayload } from '../store/ord
 import type { Category, Dish, OrderItem, SelectedModifier, TableStatus } from '../types'
 import api from '../api/client'
 import { socket } from '../api/socket'
+import LowPortionsBanner from '../components/LowPortionsBanner'
 import { useToastStore } from '../store/toast'
 import { useAuthStore } from '../store/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -307,6 +308,7 @@ export default function POS() {
   // que al cargar el menú (el servidor lo rechazaría al enviar).
   const menuRef = useRef<Category[]>([])
   useEffect(() => { menuRef.current = menu }, [menu])
+  const dishNames = useMemo(() => new Map(menu.flatMap(c => c.dishes.map(d => [d.id, d.name] as [number, string]))), [menu])
   const applyAvailability = useCallback((dishId: number, available: boolean) => {
     const next = menuRef.current.map(c => ({ ...c, dishes: c.dishes.map(d => (d.id === dishId ? { ...d, available } : d)) }))
     menuRef.current = next
@@ -519,6 +521,9 @@ export default function POS() {
           </button>
         )}
       </div>
+
+      {/* Pocas porciones según el stock teórico (RF18); marcar agotado lo confirma una persona */}
+      <LowPortionsBanner dishNames={dishNames} />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Menu */}

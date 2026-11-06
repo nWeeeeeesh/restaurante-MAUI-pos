@@ -190,7 +190,9 @@ MODULES = [
         "files": ["server/src/domain/forecast.ts", "server/src/__tests__/domain.forecast.test.ts",
                   "server/src/domain/demand.ts", "server/src/repositories/forecast.repo.ts",
                   "server/src/services/forecast.service.ts", "server/src/jobs/nightly.ts", "server/src/__tests__/forecast.test.ts",
-                  "server/src/routes/forecast.ts", "server/src/schemas/forecast.ts", "server/src/__tests__/forecast.api.test.ts"],
+                  "server/src/routes/forecast.ts", "server/src/schemas/forecast.ts", "server/src/__tests__/forecast.api.test.ts",
+                  "client/src/api/forecast.ts", "client/src/hooks/usePurchaseList.ts", "client/src/pages/forecast/PurchaseList.tsx",
+                  "client/src/components/LowPortionsBanner.tsx"],
     },
     {
         "id": "impresion", "name": "Impresión",

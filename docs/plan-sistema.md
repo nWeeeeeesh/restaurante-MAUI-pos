@@ -263,7 +263,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** `[PI-12][RF17]` (lista e impresión con la impresora simulada en tests), `[PI-13][RF18]` (aviso al cruzar el umbral), `[PI-14][RF19][RD02]` (la disponibilidad no cambia sin confirmación) y los permisos de cada ruta.
 
-### - [ ] T17. Cliente del incremento 3
+### - [x] T17. Cliente del incremento 3
 - `client/src/api/forecast.ts` y el hook `usePurchaseList`.
 - Página **Lista de compra** (propietario y encargado):
   - fecha;
@@ -505,3 +505,16 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - **PI-15:** 401 y 403 en las cinco rutas.
     - Además: idempotencia de `run` y el historial.
     - Pruebas: 234.
+- **2026-11-06 · T17.** Cliente del incremento 3:
+  - **Estructura.** `api/forecast.ts` y el hook `usePurchaseList` (carga derivada de la consulta, sin warnings nuevos).
+  - **Lista de compra.** La página `pages/forecast/PurchaseList.tsx` es para el dueño y el encargado, con su entrada en el Layout. Por insumo muestra:
+    - lo que hay que comprar, al alza en medios kilos;
+    - la cobertura con − y +, hasta min(3, vida útil);
+    - «Se usará» (la suma del pronóstico), «Hay» (contado o estimado) y «Por si acaso» (el stock de seguridad, con el nivel de servicio);
+    - el pronóstico de cada día.
+    Abajo está el botón Imprimir.
+  - **Aviso en el POS.** `LowPortionsBanner` va bajo el encabezado del POS y aparece plegado. Se actualiza con `GET /api/forecast/alerts` al montar y al reconectar, y con el evento `inventory:low-portions`. Cuando llega `menu:availability` con agotado, el plato sale del aviso. «Marcar agotado» (dueño, encargado y cajero) pide confirmación y envía `source: 'propuesta_confirmada'`. El mozo ve el aviso pero no puede marcar.
+  - **RD01.** La «Compra del día» no cambió.
+  - **Revisión manual.** Con `db:sim` y capturas en 1280 px y 390 px (lista del 2026-08-20, cobertura del limón llevada a 3 días, POS con el aviso desplegado), sin errores de consola.
+  - **Observación.** Con la base simulada, «hoy» parte del último conteo (8 de septiembre) y el aviso lista muchos platos con mixtura en 0. Es correcto para esos datos; con el uso diario el conteo es del mismo día.
+  - **CI.** Cliente con los mismos 65 warnings.
