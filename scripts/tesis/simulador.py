@@ -293,7 +293,8 @@ def escribir_todo(carta, recetas, compras, mermas, conteos, ventas, perdidas, ag
         ini = dt.datetime.combine(d, dt.time()) + dt.timedelta(seconds=hora)
         fin = dt.datetime.combine(sig, dt.time(10, 0))
         filas.append((1, p['id'], p['sku'], ini.strftime('%Y-%m-%d %H:%M:%S'), fin.strftime('%Y-%m-%d %H:%M:%S'),
-                      int((fin - ini).total_seconds() // 60), 'manual', CAJERO, ENCARGADA))
+                      # Minutos redondeados como el export (Math.round)
+                      math.floor((fin - ini).total_seconds() / 60 + 0.5), 'manual', CAJERO, ENCARGADA))
     escribir('stockouts.csv', ['local_id', 'plato_id', 'plato', 'inicio', 'fin', 'duracion_min', 'origen', 'marcado_por',
                                'habilitado_por'], filas)
     escribir('day_notes.csv', ['local_id', 'id', 'fecha', 'tipo', 'texto', 'registrado_por', 'registrado_en'],

@@ -36,6 +36,7 @@ logs/
 Thumbs.db
 
 # misc
+__pycache__/
 *.bak
 *.old
 *.tmp

@@ -27,6 +27,8 @@ Las dos primeras son deterministas: con la semilla `20260610`, dos ejecuciones d
 - `purchases.csv`, `waste.csv`, `counts.csv`, `lost_sales.csv`, `stockouts.csv`, `day_notes.csv` y `other_costs.csv`: con las columnas del export de la tesis.
 - `gastos.csv`: los siete gastos mensuales con su tipo (`fijo` o `variable`), fechados el día 1 de cada mes.
 
+En el servidor, `loadSim(db)` (`server/src/__tests__/helpers/sim.ts`) carga estos archivos en una base de prueba recién creada. `npm run db:sim` (desde `server/`) crea `server/mauidisk-sim.db` para demostraciones, con los usuarios `sim-dueno`, `sim-encargada` y `sim-cajero` (contraseña `sim12345`); se levanta con `DATABASE_URL=file:./mauidisk-sim.db npm run dev`. El script no lee `server/.env` y aborta si la URL no termina en `-sim.db`.
+
 El modelo de generación:
 - La demanda de cada plato sigue una Poisson. Su media es la base del plato (peso de la categoría × variante × un factor fijo por plato) × el factor del día de la semana × 1.30 en los feriados (28 y 29 de julio). Así, de martes a jueves se vende alrededor de S/ 1 000, y el fin de semana el doble.
 - Cada porción pedida es un evento con hora y se atiende en orden. Si un insumo no alcanza para la porción, el plato se marca agotado y deja de venderse ese día. Se habilita a las 10:00 del siguiente día de atención. «No había» se registra la mitad de las veces.

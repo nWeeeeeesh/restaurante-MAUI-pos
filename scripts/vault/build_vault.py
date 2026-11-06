@@ -255,11 +255,13 @@ MODULES = [
         "summary": "Vitest + supertest en el servidor. Los tests de cada módulo están en su nota de módulo; aquí solo los helpers.",
         "rules": [
             "Esquema de tests generado desde `schema.ts` (`helpers/db.ts`); tests HTTP con `setupHttpApp()` y `ctx.as(rol)`.",
+            "Datos simulados de la tesis: `loadSim(db)` (`helpers/sim.ts`) carga `fixtures/sim12` (generados por `scripts/tesis/simulador.py`); `npm run db:sim` crea `mauidisk-sim.db` y solo acepta una URL que termine en `-sim.db`.",
             "Un test HTTP no debe importar estáticamente nada que importe `src/db`.",
             "Al corregir un defecto: primero el test que lo reproduce.",
         ],
         "docs": [("architecture/testing", "completo")],
-        "files": ["server/src/__tests__/helpers/db.ts", "server/src/__tests__/helpers/http.ts", "server/vitest.config.ts"],
+        "files": ["server/src/__tests__/helpers/db.ts", "server/src/__tests__/helpers/http.ts", "server/vitest.config.ts",
+                  "server/src/__tests__/helpers/sim.ts", "server/src/__tests__/sim.test.ts", "server/scripts/load-sim.ts"],
     },
     {
         "id": "config", "name": "Build y configuración",

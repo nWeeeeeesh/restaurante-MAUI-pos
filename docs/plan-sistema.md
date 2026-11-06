@@ -142,7 +142,7 @@ Salidas: un CSV por tabla con las columnas del export (T21), más `ventas_items.
 
 **Acepta:** `python3 scripts/tesis/simulador.py && python3 scripts/tesis/referencia.py` regenera exactamente los mismos archivos (prueba de determinismo: dos ejecuciones dan el mismo hash); los 18 casos PU de la sección 5 pasan en `python3 scripts/tesis/pruebas_pu.py`.
 
-### - [ ] T6. Cargador de los datos simulados
+### - [x] T6. Cargador de los datos simulados
 1. `server/src/__tests__/helpers/sim.ts`: `loadSim(ex, dir)` lee los CSV de `fixtures/sim12` y los inserta con Drizzle en una base de prueba (usuarios, carta, recetas, ventas como pedidos y boletas pagadas, compras, conteos, merma, otros insumos, gastos, agotados y notas). Inserta directo en tablas, porque `saveDaily` solo acepta 7 días atrás.
 2. `server/scripts/load-sim.ts` y el script `npm run db:sim` (en `server/package.json`): crea `server/mauidisk-sim.db` con esos datos para demostraciones locales. **Nunca** debe apuntar a la base de producción; verifica que `DATABASE_URL` termine en `-sim.db` o aborta.
 
@@ -417,3 +417,13 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - Métodos elegidos en las 96 noches × insumo: Holt-Winters 44, promedio estacional 27, regresión 25.
     - Dos ejecuciones dan los mismos hashes, y los 18 casos PU pasan.
   - **Para T9.** `expenses` no tiene `local_id`: la rentabilidad por local tendrá que tratar los gastos como del local 1, o T7 agrega la columna.
+- **2026-11-05 · T6.** `loadSim(db)` en `helpers/sim.ts` y `npm run db:sim` (`server/scripts/load-sim.ts`):
+  - **Recetas.** Todavía no se cargan, porque `recipe_items` llega en T7. T7 amplía el cargador con las recetas y los parámetros de los insumos.
+  - **Ventas.** Cada boleta del simulador es un pedido `dine_in` sin mesa, `paid`, cobrado en efectivo. `paid_at` es la hora del último ítem, pasada a UTC con −05:00 fijo (Lima no tiene horario de verano).
+  - **Agotados.** Se cargan como dos eventos `dish.availability` (`source: 'manual'`), como los escribe `/availability`.
+  - **Usuarios.** Se llaman Dueño, Encargada y Cajero, como `registrado_por`.
+  - **`db:sim`.** No lee `server/.env`: usa `DATABASE_URL` del entorno o `file:./mauidisk-sim.db`, y aborta si la URL no termina en `-sim.db`.
+  - **Zona horaria.** `vitest.config.ts` fija `TZ=America/Lima`, porque el export y los días locales dependen de la zona del proceso.
+  - **Saltos de línea.** `.gitattributes` fija LF en los fixtures, para que el hash no cambie al hacer checkout en Windows.
+  - **Corrección al simulador.** `duracion_min` truncaba los minutos y el export los redondea. Se corrigió el simulador: solo cambió `stockouts.csv`; `esperado.json` quedó igual.
+  - **Prueba.** `sim.test.ts` compara las filas por tabla, las ventas por día local y el export de compras, conteos, merma y agotados contra los CSV. Pruebas: 174.

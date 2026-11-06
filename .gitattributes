@@ -1,2 +1,4 @@
 # Los scripts de shell corren en la Pi: siempre LF, aunque se copien desde Windows (scp)
 *.sh text eol=lf
+# Los datos simulados de la tesis se comparan byte a byte (scripts/tesis/README.md)
+server/src/__tests__/fixtures/sim12/* text eol=lf
