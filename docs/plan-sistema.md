@@ -290,7 +290,7 @@ Amplía `npm run perf`: `generarPronosticos` de una noche con las 12 semanas y `
 
 **Acepta:** `[PI-07][RF07][RD05]`: los encabezados coinciden con el diccionario v2.
 
-### - [ ] T20. Pruebas de aceptación documentadas
+### - [x] T20. Pruebas de aceptación documentadas
 `docs/tesis/aceptacion.md`: guion para el propietario con los criterios de aceptación de los tres incrementos y una tabla para anotar el resultado y la fecha. Cubre PA-01 a PA-08 y la revisión de cada pantalla. Las pruebas manuales que se puedan hacer en la PC (PA-02, PA-03, PA-04, PA-05 y PA-06) se ejecutan ahora y se anotan con su evidencia (comando o captura).
 
 ### - [ ] T21. Documentación técnica
@@ -533,5 +533,15 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **No se exporta `forecast_runs`.** Es operativo y el plan no lo pedía.
   - **Diccionario v2.** Las definiciones del estudio por grupos se reemplazaron por las de los incrementos 2 y 3, se agregó la sección «Cambios de v1 a v2», y cada tabla lleva sus columnas en la línea bajo el título.
   - **PI-07.** Lee esas líneas del diccionario y las compara con los encabezados que fija la prueba, y verifica que la lista coincide con `EXPORT_TABLES`. `study_config` ya responde 400.
-  - **Otros cambios.** El diálogo de export del cliente ofrece las tablas nuevas, y `CLAUDE.md` se actualizó a dataset v2. Pruebas: 236.
+  - **Otros cambios.** El diálogo de export del cliente ofrece las tablas nuevas, y `CLAUDE.md` se actualizó a dataset v2. Pruebas: 241.
   - **Sobre la fecha de congelamiento.** v2 reemplaza a v1 antes del 2026-11-09, la fecha prevista para congelar el instrumento.
+- **2026-11-06 · T20.** `docs/tesis/aceptacion.md` es el guion para el propietario:
+  - **Numeración de las PA.** El repositorio no define PA-01 a PA-08: el `.docx` de la tesis es el plan v3 anterior. Se propusieron por incremento, respetando lo que el plan fija: PA-07 es el rendimiento en la Pi, y PA-02 a PA-06 se hacen en la PC. El documento avisa que se ajuste la columna «PA» si la tabla de la tesis numera distinto.
+  - **Aceptadas el 2026-11-06 en la PC: PA-02 a PA-06.**
+    - Evidencia por comando: `npx vitest run -t "PI-02|PI-07|PP-01|PI-09|PI-06|PI-08|PP-02|PP-03|PI-11|PI-12|PI-13|PI-14|RF09|RF11"` da 42 pruebas en verde.
+    - Evidencia por captura: las de T11 y T17, copiadas a `docs/tesis/capturas/` (8 PNG, unos 500 KB en total).
+  - **Pendientes en el local.**
+    - PA-01: la «Compra del día» desde el celular del encargado.
+    - PA-07: `npm run perf` en la Pi.
+    - PA-08: una semana de tarea nocturna, la ticketera real y los menús por rol en los celulares.
+  - **Revisión de pantallas.** Incluye una tabla por pantalla; la de «Hoy» y el menú inferior del celular quedan para el local.
