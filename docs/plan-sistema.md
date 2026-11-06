@@ -209,7 +209,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** `npm run ci` (el cliente pasa tsc y eslint); revisión manual con `npm run db:sim` levantado, anotada en «Desviaciones» si algo no se pudo verificar.
 
-### - [ ] T12. Rendimiento del incremento 2 (RNF09)
+### - [x] T12. Rendimiento del incremento 2 (RNF09)
 `server/scripts/perf.ts` (`npm run perf`): con `mauidisk-sim.db`, mide 20 veces `obtenerRentabilidad` de un mes y de las 12 semanas, y guarda la mediana y el p95 en `docs/tesis/rendimiento.json`.
 
 **Acepta:** p95 del mes ≤ 3 000 ms en la PC (la medición en la Raspberry Pi queda como prueba de aceptación PA-07, manual).
@@ -463,3 +463,11 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Revisión manual.** La hice con `npm run db:sim`, el servidor y Vite, y capturas sin interfaz (Playwright con el Chromium local) en 1280 px y 390 px: Rentabilidad, Recetas (calibrando desde la UI), Tipo de gasto y Editar insumo, sin errores de consola. Después de calibrar con las semanas 1 a 4, la pantalla muestra UO = S/ 27 169.74, igual que `esperado.json`.
   - **Sin verificar en un celular real.** El menú inferior móvil, que ya tenía más entradas de las que caben, no se revisó en un teléfono.
   - **CI.** Cliente sin errores y con los mismos 65 warnings de antes.
+- **2026-11-06 · T12.** `npm run perf` (`server/scripts/perf.ts`):
+  - **Cómo mide.** Usa solo la base simulada (aborta si la URL no termina en `-sim.db` o si el archivo no existe). Hace una ejecución de calentamiento que no cuenta y 20 repeticiones. El p95 es por rango más cercano.
+  - **Archivo de resultados.** `docs/tesis/rendimiento.json` conserva las secciones de otras ejecuciones, para que T18 agregue el incremento 3 sin pisar el 2. El script exporta `medir()` para T18.
+  - **Resultado en la PC** (Ryzen 7 7700X, Node 24):
+    - Agosto por semana: mediana 28.9 ms, p95 41.6 ms.
+    - Las 12 semanas: mediana 26.8 ms, p95 30.0 ms.
+    - Límite: 3 000 ms; cumple con amplio margen.
+  - **Pendiente.** La medición en la Raspberry Pi sigue siendo PA-07.

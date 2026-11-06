@@ -1,0 +1,30 @@
+{
+  "equipo": {
+    "plataforma": "win32 10.0.26200",
+    "cpu": "AMD Ryzen 7 7700X 8-Core Processor             ",
+    "nucleos": 16,
+    "node": "v24.18.0"
+  },
+  "medidoEn": "2026-11-06T14:25:08.255Z",
+  "datos": "fixtures/sim12 (72 días de atención, npm run db:sim)",
+  "incremento2": {
+    "obtenerRentabilidad (agosto, por semana)": {
+      "repeticiones": 20,
+      "medianaMs": 28.9,
+      "p95Ms": 41.6,
+      "minMs": 26.1,
+      "maxMs": 42.2,
+      "limiteMs": 3000,
+      "cumple": true
+    },
+    "obtenerRentabilidad (12 semanas, por semana)": {
+      "repeticiones": 20,
+      "medianaMs": 26.8,
+      "p95Ms": 30,
+      "minMs": 25.4,
+      "maxMs": 30.3,
+      "limiteMs": 3000,
+      "cumple": true
+    }
+  }
+}
