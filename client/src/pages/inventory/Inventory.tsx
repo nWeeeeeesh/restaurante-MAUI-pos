@@ -34,7 +34,13 @@ const EXPORTS: { table: string; label: string }[] = [
   { table: 'daily_parts',  label: 'Partes del registro (quién y cuándo)' },
   { table: 'counts',       label: 'Conteos' },
   { table: 'supplies',     label: 'Catálogo de insumos' },
-  { table: 'study_config', label: 'Configuración del estudio' },
+  // Dataset v2: incrementos 2 y 3
+  { table: 'recipe_items',         label: 'Recetas' },
+  { table: 'recipe_calibrations',  label: 'Calibraciones de receta' },
+  { table: 'demand_forecasts',     label: 'Pronósticos (por noche)' },
+  { table: 'purchase_suggestions', label: 'Cantidades sugeridas' },
+  { table: 'expense_categories',   label: 'Tipo de gasto' },
+  { table: 'app_settings',         label: 'Ajustes del local' },
 ]
 
 // CSV por tabla para el análisis de la tesis. El endpoint exige el token, por

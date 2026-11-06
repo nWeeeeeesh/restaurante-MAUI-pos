@@ -1,9 +1,11 @@
 import { and, asc, eq, gte, lte, sql, type Column } from 'drizzle-orm'
 import { db as defaultDb, type Executor } from '../db'
 import {
-  auditLog, bills, categories, dailyParts, dayNotes, dishes, lostSales, orderItems, orders, otherSupplyCosts, studyConfig,
+  appSettings, auditLog, bills, categories, dailyParts, dayNotes, demandForecasts, dishes, expenseCategories, lostSales,
+  orderItems, orders, otherSupplyCosts, purchaseSuggestions, recipeCalibrations, recipeItems,
   supplies, supplyCounts, supplyPurchases, supplyTransfers, supplyWaste, users,
 } from '../db/schema'
+import { kgPorPorcion } from '../domain/costing'
 import { localDateString, parseDayBoundary, sqliteLocalOffset } from '../utils/dates'
 import { roundMoney } from '../utils/math'
 import { toCsv } from '../utils/csv'
@@ -15,9 +17,11 @@ import type { ExportTable } from '../schemas/inventory'
 // Las columnas y su orden quedan CONGELADOS el 2026-11-09 (inicio de la línea base);
 // inventory.export.test.ts falla a propósito si cambian. Desde esa fecha, un cambio
 // exige DATASET_VERSION = 'v2' y una versión nueva del diccionario.
-export const DATASET_VERSION = 'v1'
+export const DATASET_VERSION = 'v2'
 
 const r2 = (n: number | null | undefined) => (n === null || n === undefined ? null : roundMoney(n))
+const r3 = (n: number | null | undefined) => (n === null || n === undefined ? null : Math.round(n * 1000) / 1000)
+const r6 = (n: number | null | undefined) => (n === null || n === undefined ? null : Math.round(n * 1e6) / 1e6)
 
 function preamble(table: ExportTable, range: DateRange) {
   const now = new Date()
@@ -141,17 +145,99 @@ export async function exportCsv(db: Executor = defaultDb, table: ExportTable, ra
     case 'supplies': {
       const rows = await db.select().from(supplies).orderBy(asc(supplies.sortOrder), asc(supplies.id))
       return toCsv(
-        ['id', 'codigo', 'nombre', 'unidad', 'perecible', 'critico', 'activo', 'orden', 'grupo'],
-        rows.map(r => [r.id, r.code, r.name, r.unit, r.perishable ? 1 : 0, r.critical ? 1 : 0, r.active === false ? 0 : 1, r.sortOrder, r.studyGroup]),
+        ['id', 'codigo', 'nombre', 'unidad', 'perecible', 'critico', 'activo', 'orden', 'rendimiento', 'vida_util_dias', 'nivel_servicio'],
+        rows.map(r => [r.id, r.code, r.name, r.unit, r.perishable ? 1 : 0, r.critical ? 1 : 0, r.active === false ? 0 : 1, r.sortOrder,
+          r.yield, r.shelfLifeDays, r.serviceLevel]),
         pre,
       )
     }
 
-    // La configuración completa, sin filtro de fechas: fija las fechas de activación
-    case 'study_config': {
-      const rows = await db.select({ key: studyConfig.key, value: studyConfig.value, by: users.name, at: localTs(studyConfig.updatedAt) })
-        .from(studyConfig).leftJoin(users, eq(studyConfig.updatedBy, users.id))
-        .orderBy(asc(studyConfig.key))
+    // ── Dataset v2: incrementos 2 y 3 ──
+
+    // Receta vigente (catálogo del negocio, sin filtro de fechas)
+    case 'recipe_items': {
+      const rows = await db.select({
+        dishId: recipeItems.dishId, dish: dishes.name, variant: recipeItems.variant, supplyId: recipeItems.supplyId,
+        code: supplies.code, name: supplies.name, grams: recipeItems.gramsClean, yield: supplies.yield, by: users.name, at: localTs(recipeItems.updatedAt),
+      }).from(recipeItems)
+        .innerJoin(dishes, eq(recipeItems.dishId, dishes.id))
+        .innerJoin(supplies, eq(recipeItems.supplyId, supplies.id))
+        .leftJoin(users, eq(recipeItems.updatedBy, users.id))
+        .orderBy(asc(recipeItems.dishId), asc(recipeItems.variant), asc(recipeItems.supplyId))
+      return toCsv(
+        ['plato_id', 'plato', 'variante', 'insumo_id', 'insumo_codigo', 'insumo', 'gramos_limpios', 'kg_por_porcion', 'actualizado_por', 'actualizado_en'],
+        rows.map(r => [r.dishId, r.dish, r.variant, r.supplyId, r.code, r.name, r.grams, r6(kgPorPorcion(r.grams, r.yield)), r.by, r.at]),
+        pre,
+      )
+    }
+
+    // Todas las calibraciones (el vigente es el último id por local e insumo)
+    case 'recipe_calibrations': {
+      const rows = await db.select({
+        localId: recipeCalibrations.localId, id: recipeCalibrations.id, supplyId: recipeCalibrations.supplyId, code: supplies.code,
+        factor: recipeCalibrations.factor, from: recipeCalibrations.fromDate, to: recipeCalibrations.toDate, by: users.name,
+        at: localTs(recipeCalibrations.computedAt),
+      }).from(recipeCalibrations)
+        .innerJoin(supplies, eq(recipeCalibrations.supplyId, supplies.id))
+        .leftJoin(users, eq(recipeCalibrations.computedBy, users.id))
+        .orderBy(asc(recipeCalibrations.id))
+      return toCsv(
+        ['local_id', 'id', 'insumo_id', 'insumo_codigo', 'factor', 'desde', 'hasta', 'calculado_por', 'calculado_en'],
+        rows.map(r => [r.localId, r.id, r.supplyId, r.code, r6(r.factor), r.from, r.to, r.by, r.at]),
+        pre,
+      )
+    }
+
+    // Filtrado por la noche en que se hizo el pronóstico
+    case 'demand_forecasts': {
+      const rows = await db.select({
+        localId: demandForecasts.localId, id: demandForecasts.id, supplyId: demandForecasts.supplyId, code: supplies.code,
+        madeOn: demandForecasts.madeOn, target: demandForecasts.targetDate, horizon: demandForecasts.horizon, method: demandForecasts.method,
+        value: demandForecasts.valueKg, sigma: demandForecasts.sigmaH, model: demandForecasts.modelVersion, at: localTs(demandForecasts.createdAt),
+      }).from(demandForecasts)
+        .innerJoin(supplies, eq(demandForecasts.supplyId, supplies.id))
+        .where(and(gte(demandForecasts.madeOn, range.from), lte(demandForecasts.madeOn, range.to)))
+        .orderBy(asc(demandForecasts.madeOn), asc(demandForecasts.supplyId), asc(demandForecasts.horizon))
+      return toCsv(
+        ['local_id', 'id', 'insumo_id', 'insumo_codigo', 'noche', 'fecha_objetivo', 'horizonte', 'metodo', 'pronostico_kg', 'sigma_h', 'version_modelo', 'creado_en'],
+        rows.map(r => [r.localId, r.id, r.supplyId, r.code, r.madeOn, r.target, r.horizon, r.method, r3(r.value), r3(r.sigma), r.model, r.at]),
+        pre,
+      )
+    }
+
+    case 'purchase_suggestions': {
+      const rows = await db.select({
+        localId: purchaseSuggestions.localId, id: purchaseSuggestions.id, date: purchaseSuggestions.date, supplyId: purchaseSuggestions.supplyId,
+        code: supplies.code, coverage: purchaseSuggestions.coverageDays, forecast: purchaseSuggestions.forecastSum,
+        safety: purchaseSuggestions.safetyStock, available: purchaseSuggestions.available, source: purchaseSuggestions.availableSource,
+        quantity: purchaseSuggestions.quantity, level: purchaseSuggestions.serviceLevel, model: purchaseSuggestions.modelVersion,
+        by: users.name, at: localTs(purchaseSuggestions.createdAt),
+      }).from(purchaseSuggestions)
+        .innerJoin(supplies, eq(purchaseSuggestions.supplyId, supplies.id))
+        .leftJoin(users, eq(purchaseSuggestions.createdBy, users.id))
+        .where(and(gte(purchaseSuggestions.date, range.from), lte(purchaseSuggestions.date, range.to)))
+        .orderBy(asc(purchaseSuggestions.date), asc(purchaseSuggestions.id))
+      return toCsv(
+        ['local_id', 'id', 'fecha', 'insumo_id', 'insumo_codigo', 'cobertura_dias', 'pronostico_kg', 'stock_seguridad_kg', 'disponible_kg',
+          'origen_disponible', 'cantidad_kg', 'nivel_servicio', 'version_modelo', 'registrado_por', 'registrado_en'],
+        rows.map(r => [r.localId, r.id, r.date, r.supplyId, r.code, r.coverage, r3(r.forecast), r3(r.safety), r3(r.available), r.source,
+          r3(r.quantity), r.level, r.model, r.by, r.at]),
+        pre,
+      )
+    }
+
+    case 'expense_categories': {
+      const rows = await db.select({ category: expenseCategories.category, kind: expenseCategories.kind, by: users.name, at: localTs(expenseCategories.updatedAt) })
+        .from(expenseCategories).leftJoin(users, eq(expenseCategories.updatedBy, users.id))
+        .orderBy(asc(expenseCategories.category))
+      return toCsv(['categoria', 'tipo', 'actualizado_por', 'actualizado_en'], rows.map(r => [r.category, r.kind, r.by, r.at]), pre)
+    }
+
+    // Ajustes del local, completos (por ejemplo, la apertura del segundo local)
+    case 'app_settings': {
+      const rows = await db.select({ key: appSettings.key, value: appSettings.value, by: users.name, at: localTs(appSettings.updatedAt) })
+        .from(appSettings).leftJoin(users, eq(appSettings.updatedBy, users.id))
+        .orderBy(asc(appSettings.key))
       return toCsv(['clave', 'valor', 'actualizado_por', 'actualizado_en'], rows.map(r => [r.key, r.value, r.by, r.at]), pre)
     }
 

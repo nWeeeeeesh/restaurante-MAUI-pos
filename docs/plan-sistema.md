@@ -284,7 +284,7 @@ Amplía `npm run perf`: `generarPronosticos` de una noche con las 12 semanas y `
 
 ## Fase E. Cierre
 
-### - [ ] T19. Exportación y diccionario v2 (RF07, RD05)
+### - [x] T19. Exportación y diccionario v2 (RF07, RD05)
 1. Agrega al export las tablas `recipe_items`, `recipe_calibrations`, `demand_forecasts`, `purchase_suggestions`, `expense_categories` y `app_settings`, y la columna `no_purchase`. Quita la tabla del estudio.
 2. Sube `DATASET_VERSION` a `v2` y actualiza `docs/diccionario-datos-tesis.md` con una sección «Cambios de v1 a v2».
 
@@ -526,3 +526,12 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
     - Lista de compra: mediana 34.9 ms, p95 43.9 ms (límite 3 s).
     - El incremento 2 se volvió a medir: p95 de 30.5 ms (mes) y 29.5 ms (12 semanas).
   - **Pendiente.** La Raspberry Pi sigue siendo PA-07.
+- **2026-11-06 · T19.** Export y diccionario v2:
+  - **`DATASET_VERSION = 'v2'`.** Sale la tabla `study_config` y la columna `grupo` de `supplies` (siguen en la base, sin uso). `supplies` agrega `rendimiento`, `vida_util_dias` y `nivel_servicio`.
+  - **Tablas nuevas.** `recipe_items`, `recipe_calibrations`, `demand_forecasts` (filtrada por la noche), `purchase_suggestions`, `expense_categories` y `app_settings`.
+  - **`no_purchase`.** Ya salía como `no_compro` en `daily_parts` desde T3.
+  - **No se exporta `forecast_runs`.** Es operativo y el plan no lo pedía.
+  - **Diccionario v2.** Las definiciones del estudio por grupos se reemplazaron por las de los incrementos 2 y 3, se agregó la sección «Cambios de v1 a v2», y cada tabla lleva sus columnas en la línea bajo el título.
+  - **PI-07.** Lee esas líneas del diccionario y las compara con los encabezados que fija la prueba, y verifica que la lista coincide con `EXPORT_TABLES`. `study_config` ya responde 400.
+  - **Otros cambios.** El diálogo de export del cliente ofrece las tablas nuevas, y `CLAUDE.md` se actualizó a dataset v2. Pruebas: 236.
+  - **Sobre la fecha de congelamiento.** v2 reemplaza a v1 antes del 2026-11-09, la fecha prevista para congelar el instrumento.

@@ -205,8 +205,10 @@ export const RangeQuerySchema = z.object({
 
 export const EXPORT_TABLES = [
   'daily', 'purchases', 'waste', 'counts', 'lost_sales', 'stockouts', 'day_notes', 'supplies',
-  // Plan v3 (E1)
-  'study_config', 'daily_parts', 'transfers', 'other_costs', 'sales',
+  // Plan v3 (E1); study_config salió en el dataset v2 (el estudio por grupos se retiró)
+  'daily_parts', 'transfers', 'other_costs', 'sales',
+  // Dataset v2 (plan-sistema T19): incrementos 2 y 3
+  'recipe_items', 'recipe_calibrations', 'demand_forecasts', 'purchase_suggestions', 'expense_categories', 'app_settings',
 ] as const
 export const ExportQuerySchema = RangeQuerySchema.extend({
   table: z.enum(EXPORT_TABLES),

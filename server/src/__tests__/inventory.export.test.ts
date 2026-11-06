@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import request from 'supertest'
+import * as fs from 'fs'
+import * as path from 'path'
 import { setupHttpApp } from './helpers/http'
+import { EXPORT_TABLES } from '../schemas/inventory'
 import { addDays, localDateString, parseDayBoundary } from '../utils/dates'
 
-// Instrumento de la tesis (docs/diccionario-datos-tesis.md, dataset v1 final, plan v3
-// §2.5). Se congela el 2026-11-09: desde ese día, si este test falla porque cambió un
-// encabezado, NO lo "arregles" aquí; un cambio exige dataset v2 y una versión nueva
-// del diccionario.
+// Instrumento de la tesis (docs/diccionario-datos-tesis.md, dataset v2, plan-sistema
+// T19). Si este test falla porque cambió un encabezado, NO lo "arregles" aquí: un cambio
+// exige subir DATASET_VERSION y una versión nueva del diccionario.
 const HEADERS: Record<string, string> = {
   daily: 'local_id,fecha,insumo_id,insumo_codigo,insumo,unidad,quedaba,botaste,compraste,precio_unitario,costo_total,proveedor,enviaste,recibiste,modo_quedaba,modo_botaste,modo_compraste,modo_precio,apertura_por,apertura_en,compra_por,compra_en',
   purchases: 'local_id,id,fecha,insumo_id,insumo_codigo,insumo,unidad,cantidad,costo_total,costo_unitario,proveedor,origen,modo_entrada,modo_precio,notas,registrado_por,registrado_en',
@@ -15,12 +17,17 @@ const HEADERS: Record<string, string> = {
   lost_sales: 'local_id,id,fecha,hora,plato_id,plato,insumo_id,insumo_codigo,insumo,porciones,registrado_por',
   stockouts: 'local_id,plato_id,plato,inicio,fin,duracion_min,origen,marcado_por,habilitado_por',
   day_notes: 'local_id,id,fecha,tipo,texto,registrado_por,registrado_en',
-  supplies: 'id,codigo,nombre,unidad,perecible,critico,activo,orden,grupo',
-  study_config: 'clave,valor,actualizado_por,actualizado_en',
+  supplies: 'id,codigo,nombre,unidad,perecible,critico,activo,orden,rendimiento,vida_util_dias,nivel_servicio',
   daily_parts: 'local_id,id,fecha,parte,registrado_por,registrado_en,duracion_ms,es_correccion,version_cliente,no_compro',
   transfers: 'local_id,id,fecha,insumo_id,insumo_codigo,insumo,unidad,direccion,cantidad,costo_unitario,otro_local_id,origen,modo_entrada,registrado_por,registrado_en',
   other_costs: 'local_id,id,fecha,monto,origen,modo_entrada,registrado_por,registrado_en',
   sales: 'local_id,fecha,hora,boleta_id,plato_id,plato,categoria_id,categoria,cantidad,precio_unitario,total,anulado',
+  recipe_items: 'plato_id,plato,variante,insumo_id,insumo_codigo,insumo,gramos_limpios,kg_por_porcion,actualizado_por,actualizado_en',
+  recipe_calibrations: 'local_id,id,insumo_id,insumo_codigo,factor,desde,hasta,calculado_por,calculado_en',
+  demand_forecasts: 'local_id,id,insumo_id,insumo_codigo,noche,fecha_objetivo,horizonte,metodo,pronostico_kg,sigma_h,version_modelo,creado_en',
+  purchase_suggestions: 'local_id,id,fecha,insumo_id,insumo_codigo,cobertura_dias,pronostico_kg,stock_seguridad_kg,disponible_kg,origen_disponible,cantidad_kg,nivel_servicio,version_modelo,registrado_por,registrado_en',
+  expense_categories: 'categoria,tipo,actualizado_por,actualizado_en',
+  app_settings: 'clave,valor,actualizado_por,actualizado_en',
 }
 
 let ctx: Awaited<ReturnType<typeof setupHttpApp>>
@@ -50,11 +57,27 @@ async function csv(table: string, from = today, to = today) {
   return res.text.replace(/^﻿/, '').trimEnd().split('\r\n')
 }
 
-describe('export: encabezados del dataset v1 final', () => {
+describe('[PI-07][RF07][RD05] export: encabezados del dataset v2', () => {
+  it('las tablas y columnas coinciden con el diccionario v2', () => {
+    // Cada tabla del diccionario: un título «### `tabla`» y, en la línea siguiente, sus
+    // columnas en orden entre comillas invertidas
+    const doc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'diccionario-datos-tesis.md'), 'utf-8').replace(/\r/g, '')
+    expect(doc).toMatch(/^# Diccionario de datos de la tesis — v2/)
+    const fromDoc: Record<string, string> = {}
+    for (const m of doc.matchAll(/^### `([a-z_]+)`[^\n]*\n`([^`]+)`/gm)) fromDoc[m[1]] = m[2].split(',').map(c => c.trim()).join(',')
+    expect(fromDoc).toEqual(HEADERS)
+    expect(Object.keys(HEADERS).sort()).toEqual([...EXPORT_TABLES].sort())
+  })
+
+  it('la tabla del estudio ya no se exporta', async () => {
+    const res = await request(ctx.app).get('/api/inventory/export?table=study_config&from=2026-01-01&to=2026-01-31').set('Authorization', manager)
+    expect(res.status).toBe(400)
+  })
+
   for (const [table, header] of Object.entries(HEADERS)) {
     it(`${table}: línea de versión y columnas fijas`, async () => {
       const lines = await csv(table, '2026-01-01', '2026-01-31')
-      expect(lines[0]).toMatch(new RegExp(`^# maui-tesis dataset v1 · ${table} · desde 2026-01-01 · hasta 2026-01-31 · generado \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} America/Lima$`))
+      expect(lines[0]).toMatch(new RegExp(`^# maui-tesis dataset v2 · ${table} · desde 2026-01-01 · hasta 2026-01-31 · generado \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} America/Lima$`))
       expect(lines[1]).toBe(header)
     })
   }
@@ -119,8 +142,8 @@ describe('export: contenido', () => {
   })
 
   it('supplies, notas y otros insumos', async () => {
-    // El grupo del estudio quedó sin uso desde T2 (la columna sale vacía hasta el dataset v2)
-    expect((await csv('supplies'))[2]).toBe(`${calamar},CALAMAR,Calamar,kg,1,1,1,2,`)
+    // v2: rendimiento (1 por defecto), vida útil y nivel de servicio (vacíos sin configurar)
+    expect((await csv('supplies'))[2]).toBe(`${calamar},CALAMAR,Calamar,kg,1,1,1,2,1,,`)
 
     await request(ctx.app).post('/api/inventory/daily').set('Authorization', manager).send({
       part: 'apertura', date: today, items: [{ supplyId: calamar, opening: 1.5 }], notes: [{ kind: 'otro', text: 'Inicio de la línea base' }],
