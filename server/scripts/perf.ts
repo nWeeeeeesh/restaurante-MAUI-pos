@@ -25,10 +25,13 @@ function percentil(sorted: number[], p: number): number {
   return sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)]
 }
 
-export async function medir(fn: () => Promise<unknown>, limiteMs: number, reps = REPS): Promise<Medicion> {
+// `antes` corre antes de cada repetición, fuera del tiempo medido
+export async function medir(fn: () => Promise<unknown>, limiteMs: number, reps = REPS, antes?: () => Promise<unknown>): Promise<Medicion> {
+  await antes?.()
   await fn() // calentamiento: no cuenta
   const t: number[] = []
   for (let k = 0; k < reps; k++) {
+    await antes?.()
     const start = process.hrtime.bigint()
     await fn()
     t.push(Number(process.hrtime.bigint() - start) / 1e6)
@@ -52,9 +55,19 @@ async function main() {
   process.env.DATABASE_URL = url
   const { db } = await import('../src/db')
   const { obtenerRentabilidad } = await import('../src/services/profitability.service')
+  const { generarPronosticos, listaCompra } = await import('../src/services/forecast.service')
+  const { sql } = await import('drizzle-orm')
 
   const mes = await medir(() => obtenerRentabilidad(db, { localId: 1, from: '2026-08-01', to: '2026-08-31', groupBy: 'week' }), 3000)
   const semanas = await medir(() => obtenerRentabilidad(db, { localId: 1, from: '2026-06-16', to: '2026-09-06', groupBy: 'week' }), 3000)
+
+  // Incremento 3: la tarea nocturna con las 12 semanas (se borra el pronóstico de esa
+  // noche antes de cada repetición, porque es idempotente) y la lista de compra
+  const NOCHE = '2026-09-06'
+  const borrarNoche = () => db.run(sql`DELETE FROM demand_forecasts WHERE made_on = ${NOCHE}`)
+  const nocturna = await medir(() => generarPronosticos(db, { localId: 1, madeOn: NOCHE }), 60000, REPS, borrarNoche)
+  await generarPronosticos(db, { localId: 1, madeOn: NOCHE })
+  const lista = await medir(() => listaCompra(db, { localId: 1, date: '2026-09-08', coverageDays: 2 }, null), 3000)
 
   const previo = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf-8')) : {}
   const salida = {
@@ -66,13 +79,17 @@ async function main() {
       'obtenerRentabilidad (agosto, por semana)': mes,
       'obtenerRentabilidad (12 semanas, por semana)': semanas,
     },
+    incremento3: {
+      'generarPronosticos (noche del 2026-09-06, 4 insumos)': nocturna,
+      'listaCompra (2026-09-08, cobertura 2)': lista,
+    },
   }
   fs.mkdirSync(path.dirname(OUT), { recursive: true })
   fs.writeFileSync(OUT, JSON.stringify(salida, null, 2) + '\n')
-  for (const [k, v] of Object.entries(salida.incremento2)) {
+  for (const [k, v] of [...Object.entries(salida.incremento2), ...Object.entries(salida.incremento3)]) {
     console.log(`${k}: mediana ${v.medianaMs} ms · p95 ${v.p95Ms} ms (límite ${v.limiteMs} ms) ${v.cumple ? 'OK' : 'NO CUMPLE'}`)
   }
-  if (!mes.cumple || !semanas.cumple) process.exit(2)
+  if (![mes, semanas, nocturna, lista].every(m => m.cumple)) process.exit(2)
 }
 
 if (require.main === module) {

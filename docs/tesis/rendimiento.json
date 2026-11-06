@@ -5,24 +5,44 @@
     "nucleos": 16,
     "node": "v24.18.0"
   },
-  "medidoEn": "2026-11-06T14:25:08.255Z",
+  "medidoEn": "2026-11-06T14:43:53.988Z",
   "datos": "fixtures/sim12 (72 días de atención, npm run db:sim)",
   "incremento2": {
     "obtenerRentabilidad (agosto, por semana)": {
       "repeticiones": 20,
-      "medianaMs": 28.9,
-      "p95Ms": 41.6,
-      "minMs": 26.1,
-      "maxMs": 42.2,
+      "medianaMs": 26.6,
+      "p95Ms": 30.5,
+      "minMs": 25.5,
+      "maxMs": 31.5,
       "limiteMs": 3000,
       "cumple": true
     },
     "obtenerRentabilidad (12 semanas, por semana)": {
       "repeticiones": 20,
       "medianaMs": 26.8,
-      "p95Ms": 30,
-      "minMs": 25.4,
-      "maxMs": 30.3,
+      "p95Ms": 29.5,
+      "minMs": 26.3,
+      "maxMs": 30.4,
+      "limiteMs": 3000,
+      "cumple": true
+    }
+  },
+  "incremento3": {
+    "generarPronosticos (noche del 2026-09-06, 4 insumos)": {
+      "repeticiones": 20,
+      "medianaMs": 43.8,
+      "p95Ms": 49.7,
+      "minMs": 42.1,
+      "maxMs": 51.7,
+      "limiteMs": 60000,
+      "cumple": true
+    },
+    "listaCompra (2026-09-08, cobertura 2)": {
+      "repeticiones": 20,
+      "medianaMs": 34.9,
+      "p95Ms": 43.9,
+      "minMs": 26.7,
+      "maxMs": 44.9,
       "limiteMs": 3000,
       "cumple": true
     }

@@ -275,7 +275,7 @@ Aditivo, en `schema.ts` y `migrate.ts` (con prueba en `schema.test.ts`):
 
 **Acepta:** CI en verde; revisión manual con la base simulada.
 
-### - [ ] T18. Rendimiento del incremento 3 (RNF09)
+### - [x] T18. Rendimiento del incremento 3 (RNF09)
 Amplía `npm run perf`: `generarPronosticos` de una noche con las 12 semanas y `listaCompra`, 20 repeticiones, mediana y p95 en `docs/tesis/rendimiento.json`.
 
 **Acepta:** p95 de la tarea nocturna ≤ 60 s en la PC; lista de compra ≤ 3 000 ms.
@@ -518,3 +518,11 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
   - **Revisión manual.** Con `db:sim` y capturas en 1280 px y 390 px (lista del 2026-08-20, cobertura del limón llevada a 3 días, POS con el aviso desplegado), sin errores de consola.
   - **Observación.** Con la base simulada, «hoy» parte del último conteo (8 de septiembre) y el aviso lista muchos platos con mixtura en 0. Es correcto para esos datos; con el uso diario el conteo es del mismo día.
   - **CI.** Cliente con los mismos 65 warnings.
+- **2026-11-06 · T18.** `npm run perf` también mide el incremento 3.
+  - **Tarea nocturna.** `generarPronosticos` de la noche del 2026-09-06, con las 12 semanas y 4 insumos. Como es idempotente, antes de cada repetición (fuera del tiempo medido) se borran los pronósticos de esa noche en la base simulada. Para eso `medir()` acepta ahora un paso previo.
+  - **Lista de compra.** `listaCompra` del 2026-09-08 con cobertura 2.
+  - **Resultados en la PC:**
+    - Tarea nocturna: mediana 43.8 ms, p95 49.7 ms (límite 60 s).
+    - Lista de compra: mediana 34.9 ms, p95 43.9 ms (límite 3 s).
+    - El incremento 2 se volvió a medir: p95 de 30.5 ms (mes) y 29.5 ms (12 semanas).
+  - **Pendiente.** La Raspberry Pi sigue siendo PA-07.
