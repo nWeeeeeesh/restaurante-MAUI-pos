@@ -11,7 +11,7 @@
     "rss_max_mb": null,
     "temp_max_c": null,
     "estrangulamiento": null,
-    "escritura_mb_dia": null,
+    "escritura_mb": null,
     "potencia_media_w": null
   },
   "e4": {
@@ -23,15 +23,13 @@
     "reinicio_s": null,
     "respaldo_s": null,
     "respaldo_mb": null,
-    "restauracion_s": null,
-    "disponibilidad_pct": null,
-    "noches_ok": null,
-    "noches": null,
-    "respaldos_ok": null,
-    "respaldos": null
+    "restauracion_s": null
   },
   "jornada": {
-    "pedidos": null,
+    "factor": null,
+    "boletas": null,
+    "operaciones": null,
+    "duracion_min": null,
     "p95_pedido_ms": null,
     "p95_cobro_ms": null,
     "errores": null

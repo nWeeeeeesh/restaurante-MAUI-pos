@@ -1,23 +1,22 @@
-// «Todo en uno»: un solo clic que encadena medir cálculos, verificar permisos, correr las
-// pruebas, programar las jornadas y, la mañana siguiente a la última jornada, las
-// pruebas de recuperación; al final deja la descarga lista. El plan vive en
-// todo-en-uno.json: sobrevive a los reinicios y a los cortes de C5. Si un paso falla, el
-// plan se detiene y se puede reintentar desde ese paso.
-import { addDaysIso } from '../domain/calendar'
+// «Todo en uno»: un solo clic que, en una sola corrida y sin esperas, encadena medir
+// cálculos, la jornada simulada comprimida, la tarea nocturna real, verificar permisos,
+// correr las pruebas y las pruebas de recuperación; al final deja la descarga lista. El
+// plan vive en todo-en-uno.json: sobrevive a los cortes de la recuperación. Si un paso
+// falla, el plan se detiene y se puede reintentar desde ese paso.
 import { DomainError } from '../errors'
-import type { Programacion } from './jornada'
 import { escribirJson, fechaLocal, leerJson, rutaDev } from './modo'
 import type { EstadoRecuperacion } from './recuperacion'
 import { terminado, type Trabajo } from './trabajos'
 
-export type IdPaso = 'medir' | 'permisos' | 'pruebas' | 'programar' | 'recuperacion' | 'descarga'
-export type TipoTrabajo = 'medir' | 'permisos' | 'pruebas' | 'recuperacion'
+export type IdPaso = 'medir' | 'jornada' | 'nocturna' | 'permisos' | 'pruebas' | 'recuperacion' | 'descarga'
+export type TipoTrabajo = 'medir' | 'jornada' | 'nocturna' | 'permisos' | 'pruebas' | 'recuperacion'
 
 export const PASOS: { id: IdPaso; nombre: string }[] = [
   { id: 'medir', nombre: 'Medir cálculos' },
+  { id: 'jornada', nombre: 'Jornada simulada comprimida' },
+  { id: 'nocturna', nombre: 'Tarea nocturna real' },
   { id: 'permisos', nombre: 'Verificar permisos' },
   { id: 'pruebas', nombre: 'Correr pruebas automatizadas' },
-  { id: 'programar', nombre: 'Programar las jornadas' },
   { id: 'recuperacion', nombre: 'Pruebas de recuperación' },
   { id: 'descarga', nombre: 'Dejar la descarga lista' },
 ]
@@ -34,24 +33,18 @@ export interface Paso {
 
 export interface PlanTodo {
   creado: string
-  hora: string
-  dias: number
-  desde: string
-  recuperacionEn: string // ISO
   estado: 'corriendo' | 'detenido' | 'listo'
   pasos: Paso[]
 }
 
 export interface Dependencias {
   correr: (tipo: TipoTrabajo) => Trabajo
-  programar: (p: Programacion) => void
   estadoRecuperacion: () => EstadoRecuperacion | null
   jornadaEnCurso: () => unknown
   verificarDescarga: () => void
   ahora: () => Date
 }
 
-export const DIAS_JORNADAS = 7
 const sondeoMs = () => Number(process.env.MAUI_TODO_SONDEO_MS || 30_000)
 const archivo = () => rutaDev('todo-en-uno.json')
 export const planTodo = () => leerJson<PlanTodo>(archivo())
@@ -60,14 +53,6 @@ const guardar = (p: PlanTodo) => escribirJson(archivo(), p)
 let deps: Dependencias | null = null
 let temporizador: ReturnType<typeof setTimeout> | null = null
 let avanzando = false
-
-// La mañana siguiente a la última jornada (y a su tarea nocturna de las 23:30), a las
-// 09:00. MAUI_TODO_ESPERA_RECUPERACION_MS la adelanta para probar.
-export function momentoRecuperacion(desde: string, dias: number, ahora: Date): string {
-  const ms = process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
-  if (ms) return new Date(ahora.getTime() + Number(ms)).toISOString()
-  return new Date(`${addDaysIso(desde, dias)}T09:00:00`).toISOString()
-}
 
 function revisarEn(ms: number) {
   if (temporizador) clearTimeout(temporizador)
@@ -105,13 +90,11 @@ async function ejecutar(plan: PlanTodo, paso: Paso): Promise<boolean> {
   const d = deps!
   switch (paso.id) {
     case 'medir':
+    case 'jornada':
+    case 'nocturna':
     case 'permisos':
     case 'pruebas':
       return correrTrabajo(plan, paso, paso.id)
-    case 'programar':
-      d.programar({ hora: plan.hora, dias: plan.dias, desde: plan.desde, ejecutadas: [] })
-      marcar(plan, paso, { estado: 'hecho', inicio: fechaLocal(), fin: fechaLocal(), detalle: `${plan.dias} jornadas desde el ${plan.desde} a las ${plan.hora}` })
-      return true
     case 'recuperacion': {
       if (paso.estado === 'corriendo') {
         // Ya empezó: termina después del quinto reinicio (reanudarRecuperacion)
@@ -122,11 +105,10 @@ async function ejecutar(plan: PlanTodo, paso: Paso): Promise<boolean> {
         revisarEn(sondeoMs())
         return false
       }
-      const falta = new Date(plan.recuperacionEn).getTime() - d.ahora().getTime()
-      if (falta > 0 || d.jornadaEnCurso()) {
-        const cuando = new Date(plan.recuperacionEn)
-        marcar(plan, paso, { estado: 'esperando', detalle: d.jornadaEnCurso() && falta <= 0 ? 'Espera a que termine la jornada en curso' : `Empieza el ${fechaLocal(cuando).replace('T', ' a las ').slice(0, 22)}` })
-        revisarEn(falta > 0 ? falta : sondeoMs())
+      // El reinicio cortaría una jornada lanzada a mano: se espera a que termine
+      if (d.jornadaEnCurso()) {
+        marcar(plan, paso, { estado: 'esperando', detalle: 'Espera a que termine la jornada en curso' })
+        revisarEn(sondeoMs())
         return false
       }
       marcar(plan, paso, { estado: 'corriendo', inicio: fechaLocal(), detalle: 'Respaldos, restauraciones y reinicios' })
@@ -168,16 +150,12 @@ export async function avanzar() {
   }
 }
 
-export function iniciarTodoEnUno(d: Dependencias, opciones: { hora?: string; dias?: number } = {}): PlanTodo {
+export function iniciarTodoEnUno(d: Dependencias): PlanTodo {
   const previo = planTodo()
   if (previo?.estado === 'corriendo') throw new DomainError('«Todo en uno» ya está en marcha', 409, 'DEV_TODO_RUNNING')
   deps = d
-  const ahora = d.ahora()
-  const hora = opciones.hora ?? '12:00'
-  const dias = opciones.dias ?? DIAS_JORNADAS
-  const desde = addDaysIso(fechaLocal(ahora).slice(0, 10), 1) // desde mañana
   const plan: PlanTodo = {
-    creado: fechaLocal(ahora), hora, dias, desde, recuperacionEn: momentoRecuperacion(desde, dias, ahora), estado: 'corriendo',
+    creado: fechaLocal(d.ahora()), estado: 'corriendo',
     pasos: PASOS.map(p => ({ ...p, estado: 'pendiente', inicio: null, fin: null, error: null, detalle: null })),
   }
   guardar(plan)

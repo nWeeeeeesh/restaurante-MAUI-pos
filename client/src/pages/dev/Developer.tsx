@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { CheckCircle2, CircleDashed, Clock, Download, FlaskConical, Gauge, Loader2, Play, Plug, RotateCcw, ShieldCheck, Square, Timer, XCircle, Zap } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Clock, Download, FlaskConical, Gauge, Loader2, Moon, Play, Plug, RotateCcw, ShieldCheck, Square, Timer, XCircle, Zap } from 'lucide-react'
 import {
-  cancelarRecuperacion, cancelarTodoEnUno, correrJornada, iniciarTodoEnUno, reintentarTodoEnUno, type PasoTodo, descargarTodo, detenerJornada, iniciarRecuperacion, lanzar, programarJornadas, putEquipo,
-  quitarProgramacion, type EstadoDev, type Parte, type Trabajo,
+  cancelarRecuperacion, cancelarTodoEnUno, iniciarTodoEnUno, reintentarTodoEnUno, type PasoTodo, descargarTodo, detenerJornada, iniciarRecuperacion, lanzar, putEquipo,
+  type EstadoDev, type Parte, type Trabajo,
 } from '../../api/dev'
 import { useDevEstado } from '../../hooks/useDevEstado'
 import { useToastStore } from '../../store/toast'
@@ -83,18 +83,14 @@ export default function Developer() {
   const [enviando, setEnviando] = useState<string | null>(null)
   const [confirmar, setConfirmar] = useState(false)
   const [equipo, setEquipo] = useState<{ refrigeracion?: string; almacenamiento?: string }>({})
-  const [periodo, setPeriodo] = useState<{ desde?: string; hasta?: string }>({})
-  const [prog, setProg] = useState<{ hora?: string; dias?: number }>({})
   const [confirmarTodo, setConfirmarTodo] = useState(false)
-  const [horaTodo, setHoraTodo] = useState('12:00')
 
   if (!data) {
     return <div className="p-4 text-sm text-[#64748B]">{error ?? 'Cargando…'}</div>
   }
   const d: EstadoDev = data
   const ocupado = !!d.enCurso || d.recuperacion.estado === 'corriendo'
-  const desde = periodo.desde ?? d.periodo.desde
-  const hasta = periodo.hasta ?? d.periodo.hasta
+  const j = d.jornada.resumen
 
   async function accion(nombre: string, fn: () => Promise<unknown>, ok: string) {
     setEnviando(nombre)
@@ -122,18 +118,13 @@ export default function Developer() {
 
       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900">
         <Plug size={16} className="shrink-0 mt-0.5" />
-        <p><b>Falta: desenchufar y enchufar la Pi 5 veces (arranques: {d.arranques.hechos} de {d.arranques.de}).</b> Es lo único que el sistema no puede hacer solo.</p>
+        <p><b>Falta: desenchufar y enchufar la Pi 5 veces (arranques: {d.arranques.hechos} de {d.arranques.de}).</b> Es lo único que el sistema no puede hacer solo. Hazlo antes o después de «Todo en uno», no durante.</p>
       </div>
 
       <Seccion titulo="Todo en uno" icono={<Zap size={16} className="text-[#0077B6]" />}
-        ayuda="Un clic: medir cálculos, verificar permisos, correr las pruebas, programar 7 jornadas desde mañana y, la mañana siguiente a la última (09:00), las pruebas de recuperación. Sigue sola aunque la Pi se reinicie.">
+        ayuda="Un clic, una sola corrida de unos 25 a 35 min: medir cálculos, jornada simulada comprimida, tarea nocturna real, permisos, pruebas automatizadas y pruebas de recuperación. Al final queda lista la descarga.">
         {(!d.todoEnUno || d.todoEnUno.estado !== 'corriendo') && (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="text-xs font-semibold text-[#334155]">Hora de las jornadas
-              <input type="time" className={inputCls} value={horaTodo} onChange={e => setHoraTodo(e.target.value)} />
-            </label>
-            <Boton disabled={ocupado || enviando !== null || !!d.jornada.enCurso} onClick={() => setConfirmarTodo(true)}><Zap size={14} />Todo en uno</Boton>
-          </div>
+          <Boton disabled={ocupado || enviando !== null || !!d.jornada.enCurso} onClick={() => setConfirmarTodo(true)}><Zap size={14} />Todo en uno</Boton>
         )}
         {d.todoEnUno && (
           <div className="space-y-1">
@@ -152,7 +143,7 @@ export default function Developer() {
                     )}
                   </div>
                   {(p.detalle || p.error) && <p className={`ml-5 ${p.error ? 'text-red-600' : 'text-[#64748B]'}`}>{p.error ?? p.detalle}</p>}
-                  {p.estado === 'corriendo' && ['medir', 'permisos', 'pruebas', 'recuperacion'].includes(p.id) && <div className="ml-5 mt-1"><Avance t={t[p.id]} /></div>}
+                  {p.estado === 'corriendo' && ['medir', 'jornada', 'nocturna', 'permisos', 'pruebas', 'recuperacion'].includes(p.id) && <div className="ml-5 mt-1"><Avance t={t[p.id]} /></div>}
                 </li>
               ))}
             </ul>
@@ -167,7 +158,8 @@ export default function Developer() {
         <ul className="divide-y divide-[#F1F5F9]">
           <EstadoParte nombre="Registro continuo (recursos, latidos)" parte={d.partes.registro} />
           <EstadoParte nombre="Medir cálculos (E2, E3)" parte={d.partes.medir} />
-          <EstadoParte nombre="Jornadas simuladas" parte={d.partes.jornada} />
+          <EstadoParte nombre="Jornada simulada (E5)" parte={d.partes.jornada} />
+          <EstadoParte nombre="Tarea nocturna real (PA-08)" parte={d.partes.nocturna} />
           <EstadoParte nombre="Pruebas de recuperación (E5)" parte={d.partes.recuperacion} />
           <EstadoParte nombre="Verificar permisos (PA-08)" parte={d.partes.permisos} />
           <EstadoParte nombre="Pruebas automatizadas (Cap. IV)" parte={d.partes.pruebas} />
@@ -210,35 +202,27 @@ export default function Developer() {
         )}
       </Seccion>
 
-      <Seccion titulo="Jornada simulada" icono={<Play size={16} className="text-[#0077B6]" />} ayuda="Carga de fondo (E5): repite a velocidad real el día de sim12 con más boletas, con pedido, comanda, cobro y boleta.">
+      <Seccion titulo="Jornada simulada" icono={<Play size={16} className="text-[#0077B6]" />}
+        ayuda={`E5: el día de sim12 con más boletas, comprimido ${d.jornada.factor} veces (unos minutos), con pedido, comanda, cobro y boleta, y recursos cada 1 s.`}>
         <div className="flex flex-wrap gap-2">
           {d.jornada.enCurso
             ? <Boton variante="secundario" disabled={enviando !== null} onClick={() => accion('detener', detenerJornada, 'Jornada detenida')}><Square size={14} />Detener jornada (desde {d.jornada.enCurso.inicio?.slice(11)})</Boton>
-            : <Boton disabled={enviando !== null} onClick={() => accion('jornada', correrJornada, 'Jornada iniciada')}><Play size={14} />Correr una jornada ahora</Boton>}
+            : <Boton disabled={ocupado || enviando !== null} onClick={() => accion('jornada', () => lanzar('jornada'), 'Jornada iniciada')}><Play size={14} />Correr la jornada</Boton>}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs font-semibold text-[#334155]">Hora diaria
-            <input type="time" className={inputCls} value={prog.hora ?? d.jornada.programacion?.hora ?? '12:00'} onChange={e => setProg(p => ({ ...p, hora: e.target.value }))} />
-          </label>
-          <label className="text-xs font-semibold text-[#334155]">Días
-            <input type="number" inputMode="numeric" min={1} max={60} className={inputCls} value={prog.dias ?? d.jornada.programacion?.dias ?? 7}
-              onChange={e => setProg(p => ({ ...p, dias: Number(e.target.value) }))} />
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Boton disabled={enviando !== null} onClick={() => accion('programar', () => programarJornadas({ hora: prog.hora ?? d.jornada.programacion?.hora ?? '12:00', dias: prog.dias ?? d.jornada.programacion?.dias ?? 7 }), 'Jornadas programadas')}>Programar</Boton>
-          {d.jornada.programacion && <Boton variante="secundario" disabled={enviando !== null} onClick={() => accion('quitar', quitarProgramacion, 'Programación quitada')}>Quitar programación</Boton>}
-        </div>
-        {d.jornada.programacion && (
-          <p className="text-xs text-[#0F172A]">
-            Programadas: {d.jornada.programacion.dias} días a las {d.jornada.programacion.hora} desde {d.jornada.programacion.desde};
-            hechas {d.jornada.programacion.ejecutadas.length}. Próxima: {d.jornada.proxima ? new Date(d.jornada.proxima).toLocaleString('es-PE') : 'ninguna'}.
+        <Avance t={t.jornada} />
+        {j && (
+          <p className="text-xs text-[#64748B]">
+            Última ({j.estado}, {j.inicio.replace('T', ' ')}): {j.operaciones} operaciones en {j.duracionMin} min · p95 pedido {j.p95PedidoMs ?? '—'} ms · p95 cobro {j.p95CobroMs ?? '—'} ms · {j.errores} errores
           </p>
         )}
-        {d.jornada.resumen && (
-          <p className="text-xs text-[#64748B]">
-            Última ({d.jornada.resumen.estado}, {d.jornada.resumen.inicio.replace('T', ' ')}): {d.jornada.resumen.pedidos} pedidos, {d.jornada.resumen.errores} errores
-            {Object.entries(d.jornada.resumen.porAccion).map(([a, m]) => ` · ${a} p95 ${m.p95Ms ?? '—'} ms`).join('')}
+      </Seccion>
+
+      <Seccion titulo="Tarea nocturna real" icono={<Moon size={16} className="text-[#0077B6]" />} ayuda="PA-08: corre una vez la tarea nocturna por el mismo camino que la de las 23:30 y comprueba su fila ok en forecast_runs.">
+        <Boton disabled={ocupado || enviando !== null} onClick={() => accion('nocturna', () => lanzar('nocturna'), 'Tarea nocturna iniciada')}><Moon size={14} />Correr la tarea nocturna</Boton>
+        <Avance t={t.nocturna} />
+        {d.nocturna && (
+          <p className={`text-xs font-bold ${d.nocturna.ok ? 'text-emerald-700' : 'text-red-600'}`}>
+            Noche del {d.nocturna.madeOn}: {d.nocturna.ok ? 'ok' : 'error'} en {d.nocturna.ms} ms ({d.nocturna.fecha.replace('T', ' ')})
           </p>
         )}
       </Seccion>
@@ -293,28 +277,19 @@ export default function Developer() {
         )}
       </Seccion>
 
-      <Seccion titulo="Descargar todo" icono={<Download size={16} className="text-[#0077B6]" />} ayuda="maui-resultados-<fecha>.tar.gz con resultados.json, los CSV, lo de la tesis y resumen.md.">
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs font-semibold text-[#334155]">Desde
-            <input type="date" className={inputCls} value={desde} onChange={e => setPeriodo(p => ({ ...p, desde: e.target.value }))} />
-          </label>
-          <label className="text-xs font-semibold text-[#334155]">Hasta
-            <input type="date" className={inputCls} value={hasta} onChange={e => setPeriodo(p => ({ ...p, hasta: e.target.value }))} />
-          </label>
-        </div>
-        <p className="text-xs text-[#64748B]">Por defecto, los últimos 7 días completos ({d.periodo.desde} a {d.periodo.hasta}).</p>
-        <Boton disabled={enviando !== null} onClick={() => accion('descargar', () => descargarTodo({ desde, hasta }), 'Descarga lista')}><Download size={14} />{enviando === 'descargar' ? 'Armando…' : 'Descargar todo'}</Boton>
+      <Seccion titulo="Descargar todo" icono={<Download size={16} className="text-[#0077B6]" />} ayuda="maui-resultados-<fecha>.tar.gz con la última corrida: resultados.json, los CSV, lo de la tesis y resumen.md.">
+        <Boton disabled={enviando !== null} onClick={() => accion('descargar', descargarTodo, 'Descarga lista')}><Download size={14} />{enviando === 'descargar' ? 'Armando…' : 'Descargar todo'}</Boton>
       </Seccion>
 
       <ConfirmDialog
         open={confirmarTodo}
         title="¿Empezar «Todo en uno»?"
-        message={`Mide los cálculos, verifica los permisos y corre las pruebas ahora (varios minutos). Programa 7 jornadas desde mañana a las ${horaTodo} y, la mañana siguiente a la última, a las 09:00, corre las pruebas de recuperación: el servicio se cortará 5 veces. Deja la Pi encendida toda la semana.`}
+        message="Corre todo seguido, en unos 25 a 35 minutos: cálculos, jornada simulada comprimida, tarea nocturna, permisos, pruebas automatizadas y, al final, las pruebas de recuperación, en las que el servicio se corta 5 veces unos segundos. No desenchufes la Pi mientras corre."
         confirmLabel="Empezar"
         variant="warning"
         loading={enviando === 'todo'}
         onCancel={() => setConfirmarTodo(false)}
-        onConfirm={() => { setConfirmarTodo(false); void accion('todo', () => iniciarTodoEnUno(horaTodo), '«Todo en uno» en marcha') }}
+        onConfirm={() => { setConfirmarTodo(false); void accion('todo', iniciarTodoEnUno, '«Todo en uno» en marcha') }}
       />
 
       <ConfirmDialog

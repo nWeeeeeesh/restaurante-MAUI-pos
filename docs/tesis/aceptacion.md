@@ -3,35 +3,29 @@
 Sistema de pronóstico de demanda y cálculo de rentabilidad operativa para la cevichería MAUI (modelo incremental). Este guion lo sigue el **propietario** (o quien él designe) para aceptar cada incremento. Las pruebas automáticas que respaldan cada criterio llevan su ID entre corchetes en `server/src/__tests__/` (`npm run ci`).
 
 > **Numeración de las PA.** El plan del sistema fija que PA-07 es el rendimiento en la Raspberry Pi y que PA-02 a PA-06 se pueden hacer en la PC. El resto de la numeración se propuso aquí por incremento. Si la tabla de pruebas de aceptación de la tesis numera distinto, ajusta solo la columna «PA» y conserva los criterios.
+>
+> **PA-01 se retiró (2026-11-26).** Medía el registro diario del encargado desde su celular, que es uso real; la tesis evalúa el desarrollo y el rendimiento del sistema, no su usabilidad. RF01–RF04 y RNF02 quedan cubiertos por sus pruebas automatizadas; RNF01 queda como no evaluado. Las demás PA conservan su número.
 
 ## Cómo preparar la prueba
 
 | Dónde | Preparación |
 |---|---|
 | PC (PA-02 a PA-06) | `cd server && npm run db:sim` crea `mauidisk-sim.db` con 12 semanas simuladas (2026-06-16 a 2026-09-06). Levanta el servidor con `DATABASE_URL=file:./mauidisk-sim.db npm run dev` y el cliente con `npm run dev:client`. Usuarios: `sim-dueno`, `sim-encargada` y `sim-cajero`, contraseña `sim12345`. |
-| Local (PA-01, PA-07, PA-08) | La Raspberry Pi del local con la versión desplegada (DEPLOYMENT.md), la ticketera y los celulares del personal. |
+| Raspberry Pi de pruebas (PA-07, PA-08) | La Raspberry Pi instalada con `instalar.sh --modo-pruebas` (DEPLOYMENT.md), con datos simulados. Todo sale de **«Todo en uno»** en la pantalla Desarrollador, en una sola corrida. |
 
 ## Resumen
 
 | PA | Incremento | Qué se acepta | Requisitos | Dónde | Resultado | Fecha | Evidencia |
 |---|---|---|---|---|---|---|---|
-| PA-01 | 1 | El encargado registra la «Compra del día» completa desde su celular | RF01–RF04, RNF01, RNF02 | Local | Pendiente | | |
 | PA-02 | 1 | «Hoy no compré» y export del dataset v2 | RF02, RF07, RD05 | PC | **Aceptada** | 2026-11-06 | Pruebas `[PI-02]`, `[PI-07]` |
 | PA-03 | 2 | La rentabilidad de un periodo coincide con el cálculo de referencia | RF10, RF12, RF14 | PC | **Aceptada** | 2026-11-06 | `[PP-01]`, `[PI-09]`; [captura](capturas/rentabilidad-desktop.png) |
 | PA-04 | 2 | Recetas, calibración, costo y margen por plato, tipo de gasto | RF06, RF08, RF09, RF11, RF13 | PC | **Aceptada** | 2026-11-06 | `[PI-06]`, `[PI-08]`; [recetas](capturas/recetas-desktop.png), [gasto](capturas/gastos-mobile.png), [insumo](capturas/insumo-mobile.png) |
 | PA-05 | 3 | Lista de compra con pronóstico, cobertura editable e impresión | RF15, RF16, RF17, RD04 | PC | **Aceptada** | 2026-11-06 | `[PP-02]`, `[PP-03]`, `[PI-10]`, `[PI-12]`; [captura](capturas/lista-desktop.png) |
 | PA-06 | 3 | Aviso de pocas porciones; el agotado lo confirma una persona; la «Compra del día» no muestra el pronóstico | RF05, RF18, RF19, RD01, RD02 | PC | **Aceptada** | 2026-11-06 | `[PI-11]`, `[PI-13]`, `[PI-14]`; [captura](capturas/pos-mobile.png) |
-| PA-07 | 2 y 3 | Tiempos de respuesta en la Raspberry Pi | RNF09 | Local | Pendiente | | `npm run perf` en la Pi |
-| PA-08 | 3 | La tarea nocturna corre sola una semana, cada rol ve solo lo suyo y el respaldo se restaura | RF16, RNF03, RNF05, RNF06, RNF10 | Local | Pendiente | | `forecast_runs`, celulares por rol |
+| PA-07 | 2 y 3 | Tiempos de respuesta en la Raspberry Pi | RNF09 | Pi de pruebas | Pendiente | | «Medir cálculos» (`tesis/rendimiento.json`) |
+| PA-08 | 3 | La tarea nocturna real termina ok, cada rol ve solo lo suyo y el respaldo se restaura | RF16, RNF03, RNF05, RNF06, RNF10 | Pi de pruebas | Pendiente | | `tesis/forecast_runs.csv`, `tesis/permisos.json`, Tabla V |
 
 ## Criterios por prueba
-
-### PA-01 · Registro diario en el local (incremento 1)
-1. El encargado abre **Inventario → Hoy** en su celular antes de comprar y completa **«Al abrir»**: lo que quedaba de cada crítico y lo botado (también 0). Guarda.
-2. Al volver del mercado completa **«Al volver de comprar»**: cantidad, precio y proveedor de cada compra, y el monto de otros insumos. Guarda.
-3. Un día sin compras usa **«Hoy no compré»**.
-
-**Se acepta si:** cada parte se guarda en 60 s o menos (RNF01, `daily_parts.duracion_ms`); al día siguiente el «Hoy empezaste con» muestra lo registrado; el export `daily` del día tiene una fila por crítico.
 
 ### PA-02 · «Hoy no compré» y dataset v2 (PC)
 1. En **Hoy**, «Al volver de comprar» → **Hoy no compré**. Con una compra escrita, el botón queda deshabilitado.
@@ -73,18 +67,18 @@ Sistema de pronóstico de demanda y cálculo de rentabilidad operativa para la c
 **Se acepta si:** el aviso no cambia nada por sí solo; solo al confirmar el plato queda agotado en todos los celulares, y la auditoría lo registra como `propuesta_confirmada`; la «Compra del día» no muestra pronósticos, sugerencias ni stock teórico.
 **Resultado (2026-11-06):** aceptada ([captura](capturas/pos-mobile.png)). `[PI-13]`: con 6 porciones no avisa; al cobrar avisa con 5 y luego con 4. `[PI-14]`: la disponibilidad no cambia sin confirmación. `[PI-11]`: `GET /api/inventory/daily/:date` responde idéntico antes y después de pronosticar.
 
-### PA-07 · Rendimiento en la Raspberry Pi (local)
-1. En la Pi: `cd server && npm run db:sim && npm run perf`.
+### PA-07 · Rendimiento en la Raspberry Pi (Pi de pruebas)
+1. En la pantalla **Desarrollador**, «Todo en uno» (o solo «Medir cálculos»): 30 s en reposo, `npm run perf` y 30 s más.
 
-**Se acepta si:** el p95 de la rentabilidad de un mes y de la lista de compra es ≤ 3 000 ms y el de la tarea nocturna ≤ 60 s (`docs/tesis/rendimiento.json`). En la PC (Ryzen 7 7700X) dieron 30.5 ms, 43.9 ms y 49.7 ms.
+**Se acepta si:** el p95 de la rentabilidad de un mes y de la lista de compra es ≤ 3 000 ms y el de la tarea nocturna ≤ 60 s (`tesis/rendimiento.json` del paquete descargado). En la PC (Ryzen 7 7700X) dieron 30.5 ms, 43.9 ms y 49.7 ms.
 
-### PA-08 · Una semana de operación (local)
-1. Durante 7 días de atención, el sistema queda encendido sin tocar nada.
-2. Cada mañana, el encargado imprime la lista de compra.
-3. El mozo, el cajero, el encargado y el dueño revisan su menú en su celular.
-4. Restaura el respaldo de la noche anterior en una base nueva (DEPLOYMENT.md) y comprueba que la “Compra del día” y las ventas del último día están completas.
+### PA-08 · Tarea nocturna, permisos y respaldo (Pi de pruebas)
+Todo en la misma corrida de **«Todo en uno»**, sin esperar días:
+1. **Tarea nocturna real:** se corre una vez por el mismo camino que la de las 23:30 (`correrNoche`).
+2. **Verificar permisos:** el dueño, la encargada, el cajero y un mozo del simulador contra Rentabilidad, Recetas, Lista de compra, Inventario y POS.
+3. **Pruebas de recuperación:** 5 respaldos, 5 restauraciones en una base nueva y 5 reinicios tras matar el proceso.
 
-**Se acepta si:** hay una fila `ok` en `forecast_runs` por cada noche de atención; la lista se imprime en la ticketera real; el mozo no ve Rentabilidad, Recetas ni Lista de compra; el cajero y el encargado no ven Rentabilidad ni Recetas; la base restaurada pasa `PRAGMA integrity_check` y tiene la «Compra del día» y las boletas del último día (RNF05).
+**Se acepta si:** la noche corrida deja una fila `ok` en `forecast_runs`; la matriz de permisos coincide (el mozo no ve Rentabilidad, Recetas ni Lista de compra; el cajero y el encargado no ven Rentabilidad ni Recetas); cada restauración pasa `PRAGMA integrity_check` (RNF05). La impresión usa la impresora simulada; la ticketera real queda fuera.
 
 ## Revisión de cada pantalla
 

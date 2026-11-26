@@ -37,7 +37,7 @@ const RF: [string, string, string?][] = [
   ['RF19', 'Proponer marcar un plato como agotado, sin marcarlo hasta que una persona lo confirme'],
 ]
 const RNF: [string, string, string?][] = [
-  ['RNF01', 'Cada parte del registro se completa en 60 s o menos desde un celular', 'PA-01'],
+  ['RNF01', 'Cada parte del registro se completa en 60 s o menos desde un celular', 'No evaluado: fuera del alcance (usabilidad)'],
   ['RNF02', 'Cada campo tiene una ayuda de una línea', 'revisión de pantallas'],
   ['RNF03', 'Opera sin internet dentro de la red local', 'PA-08'],
   ['RNF04', 'Cada guardado es atómico; volver a guardar una parte la reemplaza sin duplicarla'],
@@ -87,7 +87,7 @@ function matriz(titulo: string, reqs: [string, string, string?][], pruebas: Prue
     const ps = pruebas.filter(p => p.etiquetas.includes(id))
     const casos = [...new Set(ps.flatMap(p => p.etiquetas.filter(e => /^P[UIP]-/.test(e))))].sort()
     const detalle = ps.length === 0 ? '—' : `${ps.length}${casos.length ? ` (${casos.join(', ')})` : ''}`
-    lines.push(`| ${id} | ${desc} | ${detalle} | ${icono(ps)} | ${ps.length === 0 ? (manual ? `Aceptación manual: ${manual}` : '**Sin prueba**') : ''} |`)
+    lines.push(`| ${id} | ${desc} | ${detalle} | ${icono(ps)} | ${ps.length === 0 ? (manual ? (manual.startsWith('No evaluado') ? manual : `Aceptación manual: ${manual}`) : '**Sin prueba**') : ''} |`)
   }
   return lines.join('\n')
 }
@@ -147,7 +147,7 @@ La medición en la Raspberry Pi es la prueba de aceptación PA-07 ([aceptacion.m
 
 ## 4. Requisitos sin prueba automática
 
-${sinPrueba.length === 0 ? 'Ninguno.' : sinPrueba.map(([id, d, m]) => `- **${id}** (${d}): ${m ? `se acepta de forma manual (${m}).` : '**sin prueba ni aceptación manual definida.**'}`).join('\n')}
+${sinPrueba.length === 0 ? 'Ninguno.' : sinPrueba.map(([id, d, m]) => `- **${id}** (${d}): ${m ? (m.startsWith('No evaluado') ? `${m.replace('No evaluado', 'no se evalúa')}.` : `se acepta de forma manual (${m}).`) : '**sin prueba ni aceptación manual definida.**'}`).join('\n')}
 
 ## 5. Pruebas por archivo
 

@@ -46,7 +46,7 @@ Los casos PU-01 a PU-18 también corren en Python sobre la implementación de re
 
 | Requisito | Descripción | Pruebas | Estado | Si no hay prueba |
 |---|---|---|---|---|
-| RNF01 | Cada parte del registro se completa en 60 s o menos desde un celular | — | — | Aceptación manual: PA-01 |
+| RNF01 | Cada parte del registro se completa en 60 s o menos desde un celular | — | — | No evaluado: fuera del alcance (usabilidad) |
 | RNF02 | Cada campo tiene una ayuda de una línea | — | — | Aceptación manual: revisión de pantallas |
 | RNF03 | Opera sin internet dentro de la red local | — | — | Aceptación manual: PA-08 |
 | RNF04 | Cada guardado es atómico; volver a guardar una parte la reemplaza sin duplicarla | 5 | ✅ en verde |  |
@@ -83,7 +83,7 @@ La medición en la Raspberry Pi es la prueba de aceptación PA-07 ([aceptacion.m
 
 ## 4. Requisitos sin prueba automática
 
-- **RNF01** (Cada parte del registro se completa en 60 s o menos desde un celular): se acepta de forma manual (PA-01).
+- **RNF01** (Cada parte del registro se completa en 60 s o menos desde un celular): no se evalúa: fuera del alcance (usabilidad).
 - **RNF02** (Cada campo tiene una ayuda de una línea): se acepta de forma manual (revisión de pantallas).
 - **RNF03** (Opera sin internet dentro de la red local): se acepta de forma manual (PA-08).
 - **RNF08** (Un nuevo local se instala con la misma versión y su propio identificador): se acepta de forma manual (instalación con instalar.sh (DEPLOYMENT.md)).

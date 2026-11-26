@@ -1,16 +1,19 @@
-// Jornada simulada (C4, E5 del artículo: carga de fondo). Proceso hijo que, por HTTP
-// contra el propio servicio y con los usuarios del simulador, repite A VELOCIDAD REAL el
-// día de fixtures/sim12 con más boletas: pedido (con su comanda), ítems agregados, cobro
-// y boleta, a las mismas horas relativas. No es una prueba de carga: no se acelera.
+// Jornada simulada (E5 del artículo). Proceso hijo que, por HTTP contra el propio
+// servicio y con los usuarios del simulador, repite el día de fixtures/sim12 con más
+// boletas: pedido (con su comanda), ítems agregados, cobro y boleta, en el mismo orden y
+// con los tiempos entre operaciones divididos por un factor (por defecto 60: unas 6 h
+// en unos 6 min). Todo se mide en una sola corrida, no a lo largo de días.
 // Cada petición va a jornada.csv; al final, jornada-resumen.json.
 //
-//   npm run dev:jornada -- [--puerto 3001]
+//   npm run dev:jornada -- [--puerto 3001] [--factor 60]
 import { percentil, planSim12 } from '../src/dev/jornada-plan'
 import { agregarFila, escribirJson, fechaLocal, rutaDev } from '../src/dev/modo'
 
 const args = process.argv.slice(2)
-const i = args.indexOf('--puerto')
-const PUERTO = Number(i !== -1 ? args[i + 1] : process.env.PORT || 3001)
+const opcion = (nombre: string) => { const k = args.indexOf(nombre); return k !== -1 ? args[k + 1] : undefined }
+const PUERTO = Number(opcion('--puerto') ?? process.env.PORT ?? 3001)
+const FACTOR = Number(opcion('--factor') ?? process.env.MAUI_JORNADA_FACTOR ?? 60)
+if (!Number.isFinite(FACTOR) || FACTOR < 1) throw new Error(`Factor de compresión inválido: ${FACTOR}`)
 const BASE = `http://127.0.0.1:${PUERTO}`
 const CLAVE = process.env.MAUI_SIM_CLAVE || 'sim12345'
 const MESERO = 'sim-encargada' // abre los pedidos y agrega ítems
@@ -21,6 +24,7 @@ const tiempos = new Map<string, number[]>()
 let errores = 0
 let pedidos = 0
 const inicio = fechaLocal()
+const t0Real = Date.now()
 
 async function login(usuario: string) {
   const r = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usuario, password: CLAVE }) })
@@ -58,12 +62,19 @@ async function llamar<T = unknown>(accion: string | null, usuario: string, metod
 
 function resumen(estado: string, extra: Record<string, unknown> = {}) {
   const porAccion = Object.fromEntries([...tiempos].map(([a, t]) => [a, { n: t.length, medianaMs: percentil(t, 0.5), p95Ms: percentil(t, 0.95) }]))
-  escribirJson(rutaDev('jornada-resumen.json'), { estado, inicio, fin: fechaLocal(), pedidos, errores, porAccion, ...extra })
+  const operaciones = [...tiempos.values()].reduce((s, t) => s + t.length, 0)
+  escribirJson(rutaDev('jornada-resumen.json'), {
+    estado, inicio, fin: fechaLocal(), factor: FACTOR, pedidos, operaciones, errores,
+    duracionMin: Math.round((Date.now() - t0Real) / 6000) / 10,
+    p95PedidoMs: percentil(tiempos.get('pedido') ?? [], 0.95),
+    p95CobroMs: percentil(tiempos.get('cobro') ?? [], 0.95),
+    porAccion, ...extra,
+  })
 }
 
 async function main() {
   const plan = planSim12()
-  console.log(`[jornada] día ${plan.fecha} de sim12: ${plan.boletas} boletas, ${plan.eventos.length} eventos en ${(plan.duracionS / 3600).toFixed(1)} h`)
+  console.log(`[jornada] día ${plan.fecha} de sim12: ${plan.boletas} boletas, ${plan.eventos.length} eventos en ${(plan.duracionS / 3600).toFixed(1)} h, comprimidos ${FACTOR} veces`)
   await login(MESERO)
   await login(CAJERO)
   const menu = (await llamar<{ dishes: { id: number; name: string }[] }[]>(null, MESERO, 'GET', '/api/menu')).datos ?? []
@@ -78,7 +89,7 @@ async function main() {
 
   const t0 = Date.now()
   for (const ev of plan.eventos) {
-    const espera = t0 + ev.offsetS * 1000 - Date.now()
+    const espera = t0 + ev.offsetS * 1000 / FACTOR - Date.now()
     if (espera > 0) await new Promise(r => setTimeout(r, espera))
     const items = ev.items.flatMap(it => {
       const dishId = platos.get(it.plato)

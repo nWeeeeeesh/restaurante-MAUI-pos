@@ -1,14 +1,14 @@
 // C8 «Descargar todo»: arma maui-resultados-<fecha>.tar.gz con lo que necesitan el
-// artículo y la tesis. articulo/resultados.json sigue EXACTAMENTE el esquema de
+// artículo y la tesis, de la última corrida (no hay periodo: todo se mide en una sola
+// corrida). articulo/resultados.json sigue EXACTAMENTE el esquema de
 // server/data/resultados_plantilla.json: no se cambian ni se agregan claves y lo que
 // falta queda en null.
 import { execFile } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { addDaysIso, diasAtencion, type Calendario } from '../domain/calendar'
 import { fechaLocal, leerCsvDev, leerJson, rutaDev } from './modo'
-import { percentil } from './jornada-plan'
+import type { ResumenJornada } from './jornada'
 import { discoDe, fuentesPorDefecto, type Fuentes } from './sistema'
 import { DIR_SERVER } from './trabajos'
 
@@ -21,23 +21,6 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 const num = (s: string | undefined) => (s === undefined || s.trim() === '' ? null : Number(s))
 const nums = (xs: (number | null)[]) => xs.filter((x): x is number => x !== null && Number.isFinite(x))
 const ultimos = <T>(xs: T[], n = VECES_ARRANQUE) => xs.slice(-n)
-
-export interface Periodo { desde: string; hasta: string }
-
-// Por defecto, los últimos 7 días completos (hasta ayer)
-export function periodoPorDefecto(hoy = fechaLocal().slice(0, 10)): Periodo {
-  const hasta = addDaysIso(hoy, -1)
-  return { desde: addDaysIso(hasta, -6), hasta }
-}
-
-export const diasDelPeriodo = (p: Periodo) => {
-  let n = 0
-  for (let d = p.desde; d <= p.hasta; d = addDaysIso(d, 1)) n++
-  return n
-}
-
-export const enPeriodo = <T extends Record<string, string>>(filas: T[], p: Periodo) =>
-  filas.filter(f => { const d = (f.fecha_hora ?? '').slice(0, 10); return d >= p.desde && d <= p.hasta })
 
 // Las claves deben ser las de la plantilla; donde la plantilla tiene un objeto, el
 // resultado también (con sus mismas claves); donde tiene null, cualquier valor.
@@ -98,18 +81,12 @@ export function almacenamiento(f: Fuentes): string | null {
 
 // ── Cálculos ──
 
-export interface DatosExternos {
-  noches: { ok: number; total: number } | null
-  respaldosRemotos: string[] | null // fechas (YYYY-MM-DD) de los .gz en la copia externa
-}
-
 const THROTTLE_BITS = 0x4 | 0x8 | 0x40000 | 0x80000
 
-export function calcularResultados(p: Periodo, externos: DatosExternos, f: Fuentes = fuentesPorDefecto()) {
+export function calcularResultados(f: Fuentes = fuentesPorDefecto()) {
   const plantilla = leerJson<Record<string, Json>>(RUTA_PLANTILLA)
   if (!plantilla) throw new Error(`No se puede leer ${RUTA_PLANTILLA}`)
   const r = JSON.parse(JSON.stringify(plantilla)) as Record<string, Record<string, Json> | Json>
-  const dias = diasDelPeriodo(p)
   const equipoGuardado = leerJson<{ refrigeracion?: string; almacenamiento?: string }>(rutaDev('equipo.json')) ?? {}
 
   r.equipo = {
@@ -122,24 +99,24 @@ export function calcularResultados(p: Periodo, externos: DatosExternos, f: Fuent
   r.e2 = leerJson<Json>(rutaDev('e2-pi.json'))
 
   const e2 = leerCsvDev(rutaDev('recursos-e2.csv'))
-  const semana = enPeriodo(leerCsvDev(rutaDev('recursos.csv')), p)
+  const jor = leerCsvDev(rutaDev('recursos-jornada.csv'))
   const max = (xs: (number | null)[]) => { const v = nums(xs); return v.length ? Math.max(...v) : null }
   const throttled = e2.map(x => x.throttled).filter(Boolean)
   let escritura: number | null = null
-  const sect = nums(semana.map(x => num(x.sectores_escritos)))
+  const sect = nums(jor.map(x => num(x.sectores_escritos)))
   if (sect.length >= 2) {
     // Solo los saltos positivos: un reinicio vuelve el contador a cero
     let total = 0
     for (let k = 1; k < sect.length; k++) if (sect[k] > sect[k - 1]) total += sect[k] - sect[k - 1]
-    escritura = r1(total * 512 / 1048576 / dias)
+    escritura = r1(total * 512 / 1048576)
   }
-  const pot = nums(semana.map(x => num(x.potencia_w)))
+  const pot = nums(jor.map(x => num(x.potencia_w)))
   r.e3 = {
     cpu_max_pct: max(e2.map(x => num(x.cpu_pct))),
     rss_max_mb: max(e2.map(x => num(x.rss_mb))),
     temp_max_c: max(e2.map(x => num(x.temp_c))),
     estrangulamiento: throttled.length ? throttled.some(t => (parseInt(t, 16) & THROTTLE_BITS) !== 0) : null,
-    escritura_mb_dia: escritura,
+    escritura_mb: escritura,
     potencia_media_w: pot.length ? r2(pot.reduce((a, b) => a + b, 0) / pot.length) : null,
   }
 
@@ -150,29 +127,23 @@ export function calcularResultados(p: Periodo, externos: DatosExternos, f: Fuent
     const v = nums(leerCsvDev(rutaDev(archivo)).filter(x => !filtro || filtro(x)).map(x => num(x[col])))
     return v.length ? ultimos(v) : null
   }
-  const latidos = new Set(enPeriodo(leerCsvDev(rutaDev('latidos.csv')), p).map(x => x.fecha_hora.slice(0, 16)))
-  const fechasRespaldo = externos.respaldosRemotos ? new Set(externos.respaldosRemotos.filter(d => d >= p.desde && d <= p.hasta)) : null
   r.e5 = {
     arranque_s: columna('arranques.csv', 'uptime_s', x => x.motivo === 'arranque'),
     reinicio_s: columna('reinicio.csv', 'duracion_s'),
     respaldo_s: columna('respaldo.csv', 'duracion_s'),
     respaldo_mb: columna('respaldo.csv', 'tamano_mb'),
     restauracion_s: columna('restauracion.csv', 'duracion_s'),
-    disponibilidad_pct: fs.existsSync(rutaDev('latidos.csv')) ? r2(100 * latidos.size / (dias * 1440)) : null,
-    noches_ok: externos.noches?.ok ?? null,
-    noches: externos.noches?.total ?? null,
-    respaldos_ok: fechasRespaldo ? fechasRespaldo.size : null,
-    respaldos: fechasRespaldo ? dias : null,
   }
 
-  const jornada = enPeriodo(leerCsvDev(rutaDev('jornada.csv')), p)
-  const ok = (x: Record<string, string>) => Number(x.codigo) >= 200 && Number(x.codigo) < 300
-  const ms = (accion: string) => jornada.filter(x => x.accion === accion && ok(x)).map(x => Number(x.ms))
-  r.jornada = jornada.length === 0 ? r.jornada : {
-    pedidos: jornada.filter(x => x.accion === 'pedido' && ok(x)).length,
-    p95_pedido_ms: percentil(ms('pedido'), 0.95),
-    p95_cobro_ms: percentil(ms('cobro'), 0.95),
-    errores: jornada.filter(x => !ok(x)).length,
+  const j = leerJson<ResumenJornada>(rutaDev('jornada-resumen.json'))
+  r.jornada = !j || j.estado !== 'terminada' ? r.jornada : {
+    factor: j.factor,
+    boletas: j.boletas ?? null,
+    operaciones: j.operaciones,
+    duracion_min: j.duracionMin,
+    p95_pedido_ms: j.p95PedidoMs,
+    p95_cobro_ms: j.p95CobroMs,
+    errores: j.errores,
   }
 
   const errores = validarContraPlantilla(r, plantilla)
@@ -180,33 +151,12 @@ export function calcularResultados(p: Periodo, externos: DatosExternos, f: Fuent
   return r
 }
 
-// ── Datos que no están en los archivos ──
-
-export function nochesDelPeriodo(cal: Calendario, runs: { madeOn: string; status: string }[], p: Periodo) {
-  const noches = diasAtencion(cal, p.desde, p.hasta)
-  const ok = new Set(runs.filter(x => x.status === 'ok').map(x => x.madeOn))
-  return { ok: noches.filter(n => ok.has(n)).length, total: noches.length }
-}
-
-// `rclone lsl`: «  123456 2026-12-02 03:00:05.123456789 archivo.db.gz»
-export function fechasDeRclone(salida: string): string[] {
-  return [...salida.matchAll(/^\s*\d+\s+(\d{4}-\d{2}-\d{2})\s+\S+\s+(.+\.db\.gz)\s*$/gm)].map(m => m[1])
-}
-
-export const remotoPrueba = () => process.env.MAUI_RCLONE_REMOTO || 'gdrive:MauiDeskPrueba/'
-
-export function listarRemoto(): Promise<string[] | null> {
-  return new Promise(resolve => {
-    execFile('rclone', ['lsl', remotoPrueba()], { timeout: 60_000 }, (err, out) => resolve(err ? null : fechasDeRclone(String(out))))
-  })
-}
-
 // ── Resumen legible ──
 
 const v = (x: unknown) => (x === null || x === undefined ? 'pendiente' : Array.isArray(x) ? x.join(', ') : typeof x === 'boolean' ? (x ? 'sí' : 'no') : String(x))
 const tabla = (filas: [string, unknown][]) => ['| Dato | Valor |', '|---|---|', ...filas.map(([k, x]) => `| ${k} | ${v(x)} |`)].join('\n')
 
-export function resumenMd(r: Record<string, unknown>, p: Periodo, extra: { permisos: unknown; pruebas: unknown; arranques: number }) {
+export function resumenMd(r: Record<string, unknown>, extra: { permisos: unknown; pruebas: unknown; arranques: number; nocturna: unknown }) {
   const eq = r.equipo as Record<string, unknown>
   const e2 = r.e2 as { incremento2?: Record<string, { p95Ms: number; limiteMs: number; cumple: boolean }>; incremento3?: Record<string, { p95Ms: number; limiteMs: number; cumple: boolean }>; tamanoBaseMb?: number } | null
   const e3 = r.e3 as Record<string, unknown>
@@ -215,10 +165,11 @@ export function resumenMd(r: Record<string, unknown>, p: Periodo, extra: { permi
   const j = r.jornada as Record<string, unknown>
   const perm = extra.permisos as { todoCoincide: boolean; matriz: { usuario: string; pantalla: string; codigo: number; esperado: number; coincide: boolean }[] } | null
   const pru = extra.pruebas as { total: number | null; fallidas: number | null; fecha: string } | null
+  const noc = extra.nocturna as { madeOn: string; ms: number; ok: boolean } | null
   const filasE2 = e2 ? [...Object.entries(e2.incremento2 ?? {}), ...Object.entries(e2.incremento3 ?? {})] : []
   return `# Resultados de MauiDesk en la Raspberry Pi
 
-Generado el ${fechaLocal()}. Periodo: ${p.desde} a ${p.hasta} (${diasDelPeriodo(p)} días). «pendiente» = todavía no hay datos.
+Generado el ${fechaLocal()}, con los datos de la última corrida. «pendiente» = todavía no hay datos.
 
 ## Equipo (Tabla III)
 
@@ -230,19 +181,23 @@ ${filasE2.length ? ['| Operación | p95 (ms) | Límite (ms) | Cumple |', '|---|-
 
 ## E3 · Recursos
 
-${tabla([['CPU máxima (%)', e3.cpu_max_pct], ['RSS máximo (MB)', e3.rss_max_mb], ['Temperatura máxima (°C)', e3.temp_max_c], ['Estrangulamiento', e3.estrangulamiento], ['Escritura (MB/día)', e3.escritura_mb_dia], ['Potencia media (W)', e3.potencia_media_w]])}
+${tabla([['CPU máxima (%)', e3.cpu_max_pct], ['RSS máximo (MB)', e3.rss_max_mb], ['Temperatura máxima (°C)', e3.temp_max_c], ['Estrangulamiento', e3.estrangulamiento], ['Escritura durante la jornada (MB)', e3.escritura_mb], ['Potencia media en la jornada (W)', e3.potencia_media_w]])}
 
 ## E4 · Instalación (Tabla I)
 
 ${tabla([['Fases (min)', e4.fases_min], ['Compilación (min)', e4.compilacion_min]])}
 
-## E5 · Funcionamiento y recuperación (Tabla V)
+## E5 · Recuperación (Tabla V)
 
-${tabla([['Arranque (s)', e5.arranque_s], [`Arranques registrados`, `${extra.arranques} de ${VECES_ARRANQUE}`], ['Reinicio tras falla (s)', e5.reinicio_s], ['Respaldo (s)', e5.respaldo_s], ['Respaldo (MB)', e5.respaldo_mb], ['Restauración (s)', e5.restauracion_s], ['Disponibilidad (%)', e5.disponibilidad_pct], ['Noches con pronóstico', e5.noches === null ? null : `${e5.noches_ok} de ${e5.noches}`], ['Días con respaldo externo', e5.respaldos === null ? null : `${e5.respaldos_ok} de ${e5.respaldos}`]])}
+${tabla([['Arranque (s)', e5.arranque_s], [`Arranques registrados`, `${extra.arranques} de ${VECES_ARRANQUE}`], ['Reinicio tras falla (s)', e5.reinicio_s], ['Respaldo (s)', e5.respaldo_s], ['Respaldo (MB)', e5.respaldo_mb], ['Restauración (s)', e5.restauracion_s]])}
 
-## Jornada simulada
+## Jornada simulada (E5)
 
-${tabla([['Pedidos', j.pedidos], ['p95 crear pedido (ms)', j.p95_pedido_ms], ['p95 cobrar (ms)', j.p95_cobro_ms], ['Errores', j.errores]])}
+${tabla([['Factor de compresión', j.factor], ['Boletas', j.boletas], ['Operaciones', j.operaciones], ['Duración (min)', j.duracion_min], ['p95 crear pedido (ms)', j.p95_pedido_ms], ['p95 cobrar (ms)', j.p95_cobro_ms], ['Errores', j.errores]])}
+
+## Tarea nocturna real (PA-08)
+
+${noc ? `Noche del ${noc.madeOn}: ${noc.ok ? 'ok' : '**ERROR**'} en ${noc.ms} ms (fila en tesis/forecast_runs.csv).` : 'pendiente'}
 
 ## Permisos (PA-08)
 
@@ -260,7 +215,7 @@ export function tar(args: string[], cwd: string): Promise<void> {
   return new Promise((resolve, reject) => execFile('tar', args, { cwd, timeout: 120_000 }, err => (err ? reject(err) : resolve())))
 }
 
-export async function armarPaquete(p: Periodo, archivos: { destino: string; origen?: string; contenido?: string }[]) {
+export async function armarPaquete(archivos: { destino: string; origen?: string; contenido?: string }[]) {
   const nombre = `maui-resultados-${fechaLocal().slice(0, 10)}`
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), `${nombre}-`))
   for (const a of archivos) {

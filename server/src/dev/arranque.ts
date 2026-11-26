@@ -1,10 +1,8 @@
 // Arranque del modo de pruebas desde index.ts: la impresora simulada antes de escuchar
-// y, después, el registro continuo, el arranque, la recuperación pendiente y las
-// jornadas programadas.
+// y, después, el registro continuo, el arranque, la recuperación pendiente y «Todo en uno».
 import * as fs from 'fs'
 import { PUERTO_IMPRESORA_SIMULADA } from './guardia'
 import { iniciarImpresoraSimulada } from './impresora'
-import { programarJornadas } from './jornada'
 import { dirDev, modoPruebas, rutaDev } from './modo'
 import { reanudarRecuperacion } from './recuperacion'
 import { registrarArranque, registrarLatidos, registrarRecursos } from './registro'
@@ -26,7 +24,6 @@ export function iniciarModoPruebas(puerto: number) {
   if (!modoPruebas()) return
   registrarRecursos(rutaDev('recursos.csv'), 10_000)
   registrarLatidos()
-  programarJornadas(puerto)
   void registrarArranque(puerto).then(async a => {
     if (a?.motivo === 'prueba_reinicio') await reanudarRecuperacion(a.primer200)
     // Después de medir el reinicio: «Todo en uno» sigue donde quedó

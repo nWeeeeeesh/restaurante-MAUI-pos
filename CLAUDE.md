@@ -74,7 +74,8 @@ server/src/
   repositories/      profitability.repo, forecast.repo: únicos que conocen el esquema en los incrementos 2 y 3 (lectura por lote)
   jobs/nightly.ts    pronóstico de cada noche de atención a las 23:30 de Lima; lo arranca index.ts (NIGHTLY_JOBS=off lo apaga)
   dev/               modo de pruebas (MAUI_MODO_PRUEBAS=1): guardia de la base -sim.db, registro de recursos, impresora
-                     simulada, jornadas, recuperación, permisos, pruebas, descarga de resultados y «Todo en uno»
+                     simulada, jornada comprimida, tarea nocturna real, recuperación, permisos, pruebas, descarga de
+                     resultados y «Todo en uno» de una sola corrida
                      (server/data/dev/)
   services/
     order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
@@ -114,7 +115,7 @@ server/scripts/
   perf.ts            npm run perf: tiempos de los incrementos 2 y 3 → docs/tesis/rendimiento.json
   load-recetas.ts    npm run db:recetas -- [--csv] [--reemplazar] [--dry-run]: recetas de server/data/recetas_aproximadas.csv
   dev-usuario.ts     npm run dev:usuario -- <nombre> <contraseña>: usuario desarrollador (solo en modo de pruebas)
-  jornada.ts         npm run dev:jornada: jornada simulada a velocidad real contra el propio servicio (modo de pruebas)
+  jornada.ts         npm run dev:jornada -- [--factor 60]: jornada simulada comprimida contra el propio servicio (modo de pruebas)
 
 scripts/actualizar.sh  actualiza la Pi del local a una etiqueta (DEPLOYMENT.md)
 scripts/instalar.sh    instala en una Pi recién grabada las fases 3 a 11, cronometradas (--modo-pruebas para el banco de pruebas)

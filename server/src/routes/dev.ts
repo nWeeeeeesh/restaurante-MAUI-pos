@@ -3,29 +3,21 @@
 // 404 como cualquier ruta inexistente; con el modo, solo el rol developer entra.
 import * as fs from 'fs'
 import { Router } from 'express'
-import { and, eq, gte, lte } from 'drizzle-orm'
-import { db } from '../db'
-import { forecastRuns } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
-import { validateBody, validateQuery } from '../middleware/validate'
-import {
-  ConfirmarSchema, EquipoSchema, PeriodoSchema, ProgramacionSchema, ReintentarSchema, TodoEnUnoSchema, type EquipoInput, type ProgramacionInput,
-} from '../schemas/dev'
+import { validateBody } from '../middleware/validate'
+import { ConfirmarSchema, EquipoSchema, ReintentarSchema, TodoEnUnoSchema, type EquipoInput } from '../schemas/dev'
 import { audit } from '../services/audit'
-import { calendarioHasta } from '../services/forecast.service'
-import { currentLocalId } from '../utils/local'
 import { toCsv } from '../utils/csv'
+import { db } from '../db'
 import { dirDev, escribirJson, fechaLocal, leerCsvDev, leerJson, modoPruebas, rutaDev } from '../dev/modo'
 import { medirCalculos, p95s } from '../dev/medir'
 import { verificarPermisos } from '../dev/permisos'
 import { correrPruebas } from '../dev/pruebas'
+import { tareaNocturna } from '../dev/nocturna'
 import { cancelarRecuperacion, estadoRecuperacion, pruebasRecuperacion, VECES } from '../dev/recuperacion'
-import { correrJornada, detenerJornada, jornadaEnCurso, programacion, programarJornadas, proximaJornada } from '../dev/jornada'
+import { detenerJornada, FACTOR_JORNADA, jornadaEnCurso, jornadaSimulada, resumenJornada } from '../dev/jornada'
 import { iniciarTrabajo, trabajoEnCurso, trabajos } from '../dev/trabajos'
-import {
-  almacenamiento, armarPaquete, calcularResultados, enPeriodo, listarRemoto, nochesDelPeriodo, periodoPorDefecto, resumenMd,
-  soVersion, VECES_ARRANQUE, type Periodo,
-} from '../dev/descarga'
+import { almacenamiento, armarPaquete, calcularResultados, resumenMd, soVersion, VECES_ARRANQUE } from '../dev/descarga'
 import { fuentesPorDefecto } from '../dev/sistema'
 import { cancelarTodoEnUno, iniciarTodoEnUno, planTodo, reintentarDesde, type IdPaso } from '../dev/todo-en-uno'
 import { dependenciasReales } from '../dev/todo-en-uno-deps'
@@ -50,10 +42,8 @@ function parte(archivo: string) {
 const arranques = () => leerCsvDev(rutaDev('arranques.csv')).filter(a => a.motivo === 'arranque').length
 
 router.get('/estado', async (_req, res) => {
-  const prog = programacion()
   const f = fuentesPorDefecto()
   res.json({
-    periodo: periodoPorDefecto(),
     dir: dirDev(),
     equipo: { ...(leerJson<EquipoInput>(rutaDev('equipo.json')) ?? {}), detectado: { almacenamiento: almacenamiento(f), so_version: soVersion(f), node: process.versions.node } },
     trabajos: trabajos(),
@@ -65,7 +55,8 @@ router.get('/estado', async (_req, res) => {
       permisos: parte('permisos.json'),
       pruebas: parte('pruebas.json'),
       recuperacion: parte('reinicio.csv'),
-      jornada: parte('jornada.csv'),
+      jornada: parte('jornada-resumen.json'),
+      nocturna: parte('nocturna.json'),
       instalacion: parte('instalacion-tiempos.json'),
       impresiones: parte('impresiones.csv'),
     },
@@ -74,7 +65,8 @@ router.get('/estado', async (_req, res) => {
     permisos: leerJson(rutaDev('permisos.json')),
     pruebas: leerJson(rutaDev('pruebas.json')),
     recuperacion: { ...(estadoRecuperacion() ?? {}), veces: VECES },
-    jornada: { enCurso: jornadaEnCurso(), resumen: leerJson(rutaDev('jornada-resumen.json')), programacion: prog, proxima: prog ? proximaJornada(prog)?.toISOString() ?? null : null },
+    nocturna: leerJson(rutaDev('nocturna.json')),
+    jornada: { enCurso: jornadaEnCurso(), resumen: resumenJornada(), factor: FACTOR_JORNADA() },
   })
 })
 
@@ -94,6 +86,8 @@ const lanzar = (tipo: string, fn: Parameters<typeof iniciarTrabajo>[1]) => async
 router.post('/medir', lanzar('medir', medirCalculos))
 router.post('/permisos', lanzar('permisos', a => verificarPermisos(base(), a)))
 router.post('/pruebas', lanzar('pruebas', correrPruebas))
+router.post('/jornada', lanzar('jornada', a => jornadaSimulada(puerto(), a)))
+router.post('/nocturna', lanzar('nocturna', tareaNocturna))
 router.post('/recuperacion', validateBody(ConfirmarSchema), lanzar('recuperacion', pruebasRecuperacion))
 router.delete('/recuperacion', async (req, res) => {
   const habia = cancelarRecuperacion()
@@ -101,10 +95,10 @@ router.delete('/recuperacion', async (req, res) => {
   res.json({ cancelada: habia })
 })
 
-// «Todo en uno»: medir, permisos, pruebas, 7 jornadas y, después, recuperación
+// «Todo en uno», en una sola corrida: medir, jornada, nocturna, permisos, pruebas y recuperación
 router.post('/todo-en-uno', validateBody(TodoEnUnoSchema), async (req, res) => {
-  const plan = iniciarTodoEnUno(dependenciasReales(puerto()), { hora: (req.body as { hora: string }).hora })
-  await registrar(req.user!.id, 'todo-en-uno', { hora: plan.hora, desde: plan.desde })
+  const plan = iniciarTodoEnUno(dependenciasReales(puerto()))
+  await registrar(req.user!.id, 'todo-en-uno')
   res.status(202).json(plan)
 })
 router.post('/todo-en-uno/reintentar', validateBody(ReintentarSchema), async (req, res) => {
@@ -119,63 +113,34 @@ router.delete('/todo-en-uno', async (req, res) => {
   res.json(plan)
 })
 
-router.post('/jornada', async (req, res) => {
-  const j = correrJornada(puerto())
-  await registrar(req.user!.id, 'jornada')
-  res.status(202).json(j)
-})
 router.delete('/jornada', async (req, res) => {
   const detenida = detenerJornada()
   await registrar(req.user!.id, 'jornada.detener')
   res.json({ detenida })
 })
-router.put('/jornada/programacion', validateBody(ProgramacionSchema), async (req, res) => {
-  const b = req.body as ProgramacionInput
-  const p = { hora: b.hora, dias: b.dias, desde: b.desde ?? fechaLocal().slice(0, 10), ejecutadas: [] as string[] }
-  const proxima = programarJornadas(puerto(), p)
-  await registrar(req.user!.id, 'jornada.programar', p)
-  res.json({ programacion: p, proxima: proxima?.toISOString() ?? null })
-})
-router.delete('/jornada/programacion', async (req, res) => {
-  programarJornadas(puerto(), null)
-  await registrar(req.user!.id, 'jornada.desprogramar')
-  res.json({ programacion: null })
-})
 
-function periodoDe(q: Record<string, unknown>): Periodo {
-  const p = PeriodoSchema.parse(q)
-  const d = periodoPorDefecto()
-  return { desde: p.desde ?? d.desde, hasta: p.hasta ?? d.hasta }
+// forecast_runs de la noche que corrió la tarea nocturna real
+async function runsNocturna() {
+  const noc = leerJson<{ runs?: { madeOn: string; status: string; startedAt: string | null; finishedAt: string | null; error: string | null }[] }>(rutaDev('nocturna.json'))
+  return noc?.runs ?? []
 }
 
-async function nochesYRuns(p: Periodo) {
-  const localId = currentLocalId()
-  const runs = await db.select().from(forecastRuns)
-    .where(and(eq(forecastRuns.localId, localId), gte(forecastRuns.madeOn, p.desde), lte(forecastRuns.madeOn, p.hasta)))
-  const cal = await calendarioHasta(db, { localId, hasta: p.hasta })
-  return { noches: nochesDelPeriodo(cal, runs, p), runs }
-}
-
-// GET /api/dev/resultados?desde&hasta — resultados.json sin armar el paquete
-router.get('/resultados', validateQuery(PeriodoSchema), async (req, res) => {
-  const p = periodoDe(req.query)
-  const { noches } = await nochesYRuns(p)
-  res.json({ periodo: p, resultados: calcularResultados(p, { noches, respaldosRemotos: await listarRemoto() }) })
+// GET /api/dev/resultados — resultados.json sin armar el paquete
+router.get('/resultados', async (_req, res) => {
+  res.json({ resultados: calcularResultados() })
 })
 
-// GET /api/dev/descargar?desde&hasta — maui-resultados-<fecha>.tar.gz
-router.get('/descargar', validateQuery(PeriodoSchema), async (req, res) => {
-  const p = periodoDe(req.query)
-  const { noches, runs } = await nochesYRuns(p)
-  const resultados = calcularResultados(p, { noches, respaldosRemotos: await listarRemoto() })
+// GET /api/dev/descargar — maui-resultados-<fecha>.tar.gz, con la última corrida
+router.get('/descargar', async (req, res) => {
+  const resultados = calcularResultados()
   const permisos = leerJson(rutaDev('permisos.json'))
   const pruebas = leerJson(rutaDev('pruebas.json'))
-  const semana = enPeriodo(leerCsvDev(rutaDev('recursos.csv')), p)
-  const columnas = ['fecha_hora', 'cpu_pct', 'mem_disponible_mb', 'rss_mb', 'temp_c', 'throttled', 'sectores_escritos', 'potencia_w']
-  const paquete = await armarPaquete(p, [
+  const nocturna = leerJson(rutaDev('nocturna.json'))
+  const runs = await runsNocturna()
+  const paquete = await armarPaquete([
     { destino: 'articulo/resultados.json', contenido: JSON.stringify(resultados, null, 2) + '\n' },
     { destino: 'articulo/recursos-e2.csv', origen: rutaDev('recursos-e2.csv') },
-    { destino: 'articulo/recursos-semana.csv', contenido: [columnas.join(','), ...semana.map(f => columnas.map(c => f[c] ?? '').join(','))].join('\n') + '\n' },
+    { destino: 'articulo/recursos-jornada.csv', origen: rutaDev('recursos-jornada.csv') },
     { destino: 'articulo/jornada.csv', origen: rutaDev('jornada.csv') },
     { destino: 'tesis/rendimiento.json', origen: rutaDev('e2-pi.json') },
     { destino: 'tesis/forecast_runs.csv', contenido: toCsv(['made_on', 'status', 'started_at', 'finished_at', 'error'], runs.map(r => [r.madeOn, r.status, r.startedAt, r.finishedAt, r.error])) },
@@ -184,9 +149,9 @@ router.get('/descargar', validateQuery(PeriodoSchema), async (req, res) => {
     { destino: 'tesis/pruebas-ci.txt', origen: rutaDev('pruebas-ci.txt') },
     { destino: 'tesis/pruebas-report-tesis.txt', origen: rutaDev('pruebas-report-tesis.txt') },
     { destino: 'tesis/impresiones.csv', origen: rutaDev('impresiones.csv') },
-    { destino: 'resumen.md', contenido: resumenMd(resultados, p, { permisos, pruebas, arranques: arranques() }) },
+    { destino: 'resumen.md', contenido: resumenMd(resultados, { permisos, pruebas, arranques: arranques(), nocturna }) },
   ])
-  await registrar(req.user!.id, 'descargar', p)
+  await registrar(req.user!.id, 'descargar')
   res.download(paquete.archivo, paquete.nombre, () => fs.rmSync(paquete.archivo, { force: true }))
 })
 

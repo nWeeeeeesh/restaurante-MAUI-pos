@@ -13,18 +13,15 @@ import { CABECERA_RECURSOS, cpuPct, discoDe, muestra, potenciaDe, tiemposCpu, ty
 import { registrarRecursos } from '../dev/registro'
 import { iniciarImpresoraSimulada, tipoDeTrabajo } from '../dev/impresora'
 import { planSim12, percentil } from '../dev/jornada-plan'
-import { proximaJornada } from '../dev/jornada'
+import { FACTOR_JORNADA } from '../dev/jornada'
 import { entornoPruebas, totalesVitest } from '../dev/pruebas'
 import { respaldos, type EstadoRecuperacion } from '../dev/recuperacion'
 import { iniciarTrabajo } from '../dev/trabajos'
-import type { Programacion } from '../dev/jornada'
 import {
-  iniciarTodoEnUno, momentoRecuperacion, planTodo, reanudarTodoEnUno, reintentarDesde, type Dependencias, type PlanTodo,
+  iniciarTodoEnUno, planTodo, reanudarTodoEnUno, reintentarDesde, type Dependencias, type PlanTodo,
 } from '../dev/todo-en-uno'
-import { addDaysIso } from '../domain/calendar'
 import {
-  almacenamiento, calcularResultados, fechasDeRclone, nochesDelPeriodo, periodoPorDefecto, RUTA_PLANTILLA, resumenMd, soVersion,
-  validarContraPlantilla,
+  almacenamiento, calcularResultados, RUTA_PLANTILLA, resumenMd, soVersion, validarContraPlantilla,
 } from '../dev/descarga'
 
 // Perfil de desarrollador y modo de pruebas (tarea de despliegue, bloque C), con /proc
@@ -113,7 +110,8 @@ describe('[RNF06] /api/dev y el rol developer', () => {
     const estado = await request(ctx.app).get('/api/dev/estado').set('Authorization', auth.developer)
     expect(estado.status).toBe(200)
     expect(estado.body.arranques).toEqual({ hechos: 0, de: 5 })
-    expect(estado.body.periodo).toEqual(periodoPorDefecto())
+    expect(estado.body.periodo).toBeUndefined()
+    expect(estado.body.jornada.factor).toBe(60)
     // «Todo en uno» pide confirmación
     expect((await request(ctx.app).post('/api/dev/todo-en-uno').set('Authorization', auth.developer).send({})).status).toBe(400)
     expect((await request(ctx.app).post('/api/dev/todo-en-uno').set('Authorization', auth.manager).send({ confirmar: true })).status).toBe(403)
@@ -242,11 +240,23 @@ describe('jornada simulada (C4)', () => {
     expect(pedidos[0].items[0].plato).toMatch(/\S/)
   })
 
-  it('programación: hoy si la hora no pasó, si no el día siguiente; termina con los N días', () => {
-    const p = { hora: '12:00', dias: 2, desde: '2026-12-01', ejecutadas: [] as string[] }
-    expect(proximaJornada(p, new Date('2026-12-01T09:00:00'))?.getDate()).toBe(1)
-    expect(proximaJornada(p, new Date('2026-12-01T13:00:00'))?.getDate()).toBe(2)
-    expect(proximaJornada({ ...p, ejecutadas: ['2026-12-02'] }, new Date('2026-12-01T13:00:00'))).toBeNull()
+  it('comprimida 60 veces, el día dura minutos y no horas', () => {
+    const plan = planSim12()
+    expect(plan.duracionS / 60 / 60).toBeLessThan(10)
+    expect(plan.duracionS / 60).toBeGreaterThan(60)
+  })
+
+  it('el factor de compresión es 60 por defecto y se cambia con MAUI_JORNADA_FACTOR', () => {
+    const antes = process.env.MAUI_JORNADA_FACTOR
+    try {
+      delete process.env.MAUI_JORNADA_FACTOR
+      expect(FACTOR_JORNADA()).toBe(60)
+      process.env.MAUI_JORNADA_FACTOR = '120'
+      expect(FACTOR_JORNADA()).toBe(120)
+    } finally {
+      if (antes === undefined) delete process.env.MAUI_JORNADA_FACTOR
+      else process.env.MAUI_JORNADA_FACTOR = antes
+    }
   })
 
   it('percentil por rango más cercano', () => {
@@ -298,7 +308,6 @@ describe('«Todo en uno»: encadenamiento con tiempos acortados', () => {
   const DEV = path.join(TMP, 'dev-todo')
   let devAntes: string | undefined
   const llamadas: string[] = []
-  const programadas: Programacion[] = []
   let fallarPruebas = true
 
   const deps = (): Dependencias => ({
@@ -312,7 +321,6 @@ describe('«Todo en uno»: encadenamiento con tiempos acortados', () => {
         setTimeout(() => escribirJson(rutaDev('recuperacion.json'), { estado: 'hecho', fase: 'Terminado', inicio: '', fin: '', error: null }), 80)
       }
     }),
-    programar: p => { programadas.push(p) },
     estadoRecuperacion: () => leerJson<EstadoRecuperacion>(rutaDev('recuperacion.json')),
     jornadaEnCurso: () => null,
     verificarDescarga: () => undefined,
@@ -330,32 +338,27 @@ describe('«Todo en uno»: encadenamiento con tiempos acortados', () => {
 
   beforeAll(() => {
     devAntes = process.env.MAUI_DEV_DIR
-    Object.assign(process.env, { MAUI_DEV_DIR: DEV, MAUI_TODO_ESPERA_RECUPERACION_MS: '150', MAUI_TODO_SONDEO_MS: '30' })
+    Object.assign(process.env, { MAUI_DEV_DIR: DEV, MAUI_TODO_SONDEO_MS: '30' })
   })
   afterAll(() => {
     process.env.MAUI_DEV_DIR = devAntes
-    delete process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
     delete process.env.MAUI_TODO_SONDEO_MS
   })
 
-  it('se detiene en el paso que falla y sigue desde ahí hasta dejar la descarga lista', async () => {
+  it('en una sola corrida y sin esperas: se detiene en el paso que falla y sigue desde ahí hasta dejar la descarga lista', async () => {
     const plan = iniciarTodoEnUno(deps())
-    expect(plan.desde).toBe(addDaysIso(fechaLocal().slice(0, 10), 1))
+    expect(plan.pasos.map(p => p.id)).toEqual(['medir', 'jornada', 'nocturna', 'permisos', 'pruebas', 'recuperacion', 'descarga'])
     expect(() => iniciarTodoEnUno(deps())).toThrow(/en marcha/)
 
     const detenido = await hasta(p => p.estado === 'detenido')
-    expect(detenido.pasos.map(p => p.estado)).toEqual(['hecho', 'hecho', 'error', 'pendiente', 'pendiente', 'pendiente'])
-    expect(detenido.pasos[2].error).toBe('2 pruebas fallidas')
-    expect(programadas).toHaveLength(0)
+    expect(detenido.pasos.map(p => p.estado)).toEqual(['hecho', 'hecho', 'hecho', 'hecho', 'error', 'pendiente', 'pendiente'])
+    expect(detenido.pasos[4].error).toBe('2 pruebas fallidas')
 
     reintentarDesde(deps(), 'pruebas')
-    const esperando = await hasta(p => p.pasos[4].estado === 'esperando')
-    expect(esperando.pasos[3].detalle).toMatch(/^7 jornadas desde el \d{4}-\d{2}-\d{2} a las 12:00$/)
     const listo = await hasta(p => p.estado === 'listo')
     expect(listo.pasos.every(p => p.estado === 'hecho')).toBe(true)
-    expect(listo.pasos[5].detalle).toBe('Listo para descargar')
-    expect(llamadas).toEqual(['medir', 'permisos', 'pruebas', 'pruebas', 'recuperacion'])
-    expect(programadas).toEqual([{ hora: '12:00', dias: 7, desde: plan.desde, ejecutadas: [] }])
+    expect(listo.pasos[6].detalle).toBe('Listo para descargar')
+    expect(llamadas).toEqual(['medir', 'jornada', 'nocturna', 'permisos', 'pruebas', 'pruebas', 'recuperacion'])
     // El plan quedó en disco
     expect(JSON.parse(fs.readFileSync(path.join(DEV, 'todo-en-uno.json'), 'utf-8')).estado).toBe('listo')
   })
@@ -365,29 +368,20 @@ describe('«Todo en uno»: encadenamiento con tiempos acortados', () => {
     const p = planTodo()!
     p.estado = 'corriendo'
     for (const x of p.pasos) Object.assign(x, { estado: 'hecho' })
-    p.pasos[2].estado = 'corriendo' // pruebas, cortado por el reinicio
-    p.pasos[4].estado = 'corriendo' // recuperación entre cortes
-    p.pasos[5].estado = 'pendiente'
+    p.pasos[4].estado = 'corriendo' // pruebas, cortado por el reinicio
+    p.pasos[5].estado = 'corriendo' // recuperación entre cortes
+    p.pasos[6].estado = 'pendiente'
     escribirJson(path.join(DEV, 'todo-en-uno.json'), p)
     escribirJson(path.join(DEV, 'recuperacion.json'), { estado: 'corriendo', fase: 'Reinicio 3 de 5', inicio: '', fin: null, error: null })
 
     expect(reanudarTodoEnUno(deps())).not.toBeNull()
-    await hasta(x => x.pasos[4].detalle === 'Reinicio 3 de 5')
+    await hasta(x => x.pasos[5].detalle === 'Reinicio 3 de 5')
     expect(planTodo()!.estado).toBe('corriendo')
     escribirJson(path.join(DEV, 'recuperacion.json'), { estado: 'hecho', fase: 'Terminado', inicio: '', fin: '', error: null })
     await hasta(x => x.estado === 'listo')
     expect(llamadas).toEqual(['pruebas'])
   })
 
-  it('sin acortar, la recuperación es la mañana siguiente a la última jornada, a las 09:00', () => {
-    const ms = process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
-    delete process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
-    try {
-      expect(momentoRecuperacion('2026-12-01', 7, new Date())).toBe(new Date('2026-12-08T09:00:00').toISOString())
-    } finally {
-      process.env.MAUI_TODO_ESPERA_RECUPERACION_MS = ms
-    }
-  })
 })
 
 describe('pruebas automatizadas en la Pi (C7)', () => {
@@ -402,8 +396,7 @@ describe('pruebas automatizadas en la Pi (C7)', () => {
   })
 })
 
-describe('resumen y resultados.json (C8)', () => {
-  const P = { desde: '2026-12-01', hasta: '2026-12-02' }
+describe('resumen y resultados.json (C8), de la última corrida', () => {
   const csv = (archivo: string, filas: string[]) => {
     fs.mkdirSync(path.dirname(rutaDev(archivo)), { recursive: true })
     fs.writeFileSync(rutaDev(archivo), filas.join('\n') + '\n')
@@ -413,7 +406,7 @@ describe('resumen y resultados.json (C8)', () => {
     const cab = CABECERA_RECURSOS.join(',')
     csv('recursos-e2.csv', [cab, '2026-12-03T10:00:00,,6000,80,48.1,0x0,100,3.1', '2026-12-03T10:00:01,97.5,5800,121.4,61.2,0x80000,120,5.9'])
     // Un reinicio vuelve el contador a cero: solo cuentan los saltos positivos
-    csv('recursos.csv', [cab,
+    csv('recursos-jornada.csv', [cab,
       '2026-11-30T23:59:50,1,6000,80,45,0x0,999999,2',
       '2026-12-01T00:00:00,1,6000,80,45,0x0,1000,2.0',
       '2026-12-01T12:00:00,1,6000,80,45,0x0,1000+',
@@ -421,41 +414,46 @@ describe('resumen y resultados.json (C8)', () => {
       '2026-12-02T08:00:00,1,6000,80,45,0x0,50,4.0',
       '2026-12-02T08:00:10,1,6000,80,45,0x0,2098,',
     ].map(l => l.replace('1000+', '1000,')))
-    csv('latidos.csv', ['fecha_hora', ...Array.from({ length: 1440 }, (_, k) => `2026-12-01T${String(Math.floor(k / 60)).padStart(2, '0')}:${String(k % 60).padStart(2, '0')}:05`), '2026-12-02T00:00:05', '2026-12-02T00:00:40'])
     csv('arranques.csv', ['fecha_hora,uptime_s,motivo', ...[31.2, 30.8, 29.9, 33.1, 30.2, 31].map((u, k) => `2026-12-0${k < 3 ? 1 : 2}T0${k}:00:00,${u},arranque`), '2026-12-02T09:00:00,40,prueba_reinicio'])
     csv('reinicio.csv', ['fecha_hora,n,duracion_s', '2026-12-02T09:00:00,1,9.5'])
     csv('respaldo.csv', ['fecha_hora,n,duracion_s,tamano_mb,archivo', '2026-12-02T09:00:00,1,1.2,3.4,a.db.gz', '2026-12-02T09:00:05,2,1.1,3.4,b.db.gz'])
     csv('restauracion.csv', ['fecha_hora,n,duracion_s,codigo', '2026-12-02T09:01:00,1,0.8,0'])
-    csv('jornada.csv', ['fecha_hora,accion,ms,codigo',
-      ...Array.from({ length: 20 }, (_, k) => `2026-12-01T12:${String(k).padStart(2, '0')}:00,pedido,${k + 1},201`),
-      '2026-12-01T13:00:00,cobro,40,201', '2026-12-01T13:01:00,cobro,60,201', '2026-12-01T13:02:00,cobro,999,409',
-      '2026-12-05T12:00:00,pedido,5000,201'])
+    fs.writeFileSync(rutaDev('jornada-resumen.json'), JSON.stringify({
+      estado: 'terminada', inicio: '', fin: '', factor: 60, pedidos: 68, operaciones: 286, errores: 0, duracionMin: 6.1,
+      p95PedidoMs: 14, p95CobroMs: 19, boletas: 68, porAccion: {},
+    }))
     fs.writeFileSync(rutaDev('e2-pi.json'), JSON.stringify({ incremento2: { mes: { p95Ms: 300, limiteMs: 3000, cumple: true } }, tamanoBaseMb: 3.2 }))
     fs.writeFileSync(rutaDev('instalacion-tiempos.json'), JSON.stringify({ fases_min: [5, 3, 4, 12, 1, 1, 2, 1, 2, 3, 2], compilacion_min: 9.5, fecha: '2026-12-01', etiqueta: 'maui-tesis-v1.0' }))
     fs.writeFileSync(rutaDev('equipo.json'), JSON.stringify({ refrigeracion: 'Caja oficial con ventilador' }))
   })
 
-  it('calcula E3, E4, E5 y la jornada del periodo', () => {
-    const r = calcularResultados(P, { noches: { ok: 2, total: 2 }, respaldosRemotos: ['2026-11-30', '2026-12-01'] }, FUENTES) as Record<string, Record<string, unknown>>
+  it('calcula E3, E4, E5 y la jornada de la última corrida', () => {
+    const r = calcularResultados(FUENTES) as Record<string, Record<string, unknown>>
     expect(r.equipo).toEqual({ almacenamiento: 'microSD SanDisk de 64 GB', so_version: '(Debian 13, núcleo 6.12)', node: process.versions.node, refrigeracion: 'Caja oficial con ventilador' })
     expect(r.e2).toMatchObject({ tamanoBaseMb: 3.2 })
     expect(r.e3).toEqual({
       cpu_max_pct: 97.5, rss_max_mb: 121.4, temp_max_c: 61.2, estrangulamiento: true,
-      // (204800 + 2048) sectores × 512 B = 101 MiB en 2 días
-      escritura_mb_dia: 50.5, potencia_media_w: 3,
+      // (204800 + 2048) sectores × 512 B = 101 MiB; los saltos negativos (reinicios) no cuentan
+      escritura_mb: 101, potencia_media_w: 2.75,
     })
     expect(r.e4).toEqual({ fases_min: [5, 3, 4, 12, 1, 1, 2, 1, 2, 3, 2], compilacion_min: 9.5 })
     expect(r.e5).toEqual({
       arranque_s: [30.8, 29.9, 33.1, 30.2, 31], reinicio_s: [9.5], respaldo_s: [1.2, 1.1], respaldo_mb: [3.4, 3.4], restauracion_s: [0.8],
-      disponibilidad_pct: 50.03, noches_ok: 2, noches: 2, respaldos_ok: 1, respaldos: 2,
     })
-    expect(r.jornada).toEqual({ pedidos: 20, p95_pedido_ms: 19, p95_cobro_ms: 60, errores: 1 })
+    expect(r.jornada).toEqual({ factor: 60, boletas: 68, operaciones: 286, duracion_min: 6.1, p95_pedido_ms: 14, p95_cobro_ms: 19, errores: 0 })
+  })
+
+  it('la plantilla es de una sola corrida: sin disponibilidad, noches ni respaldos por día', () => {
+    const plantilla = JSON.parse(fs.readFileSync(RUTA_PLANTILLA, 'utf-8'))
+    expect(Object.keys(plantilla.e3)).toEqual(['cpu_max_pct', 'rss_max_mb', 'temp_max_c', 'estrangulamiento', 'escritura_mb', 'potencia_media_w'])
+    expect(Object.keys(plantilla.e5)).toEqual(['arranque_s', 'reinicio_s', 'respaldo_s', 'respaldo_mb', 'restauracion_s'])
+    expect(Object.keys(plantilla.jornada)).toEqual(['factor', 'boletas', 'operaciones', 'duracion_min', 'p95_pedido_ms', 'p95_cobro_ms', 'errores'])
   })
 
   it('resultados.json valida contra la plantilla, que no se cambia', () => {
     const plantilla = JSON.parse(fs.readFileSync(RUTA_PLANTILLA, 'utf-8'))
     expect(Object.keys(plantilla)).toEqual(['equipo', 'e2', 'e3', 'e4', 'e5', 'jornada'])
-    const lleno = calcularResultados(P, { noches: null, respaldosRemotos: null }, FUENTES)
+    const lleno = calcularResultados(FUENTES)
     expect(validarContraPlantilla(lleno, plantilla)).toEqual([])
     expect(validarContraPlantilla({ ...lleno, extra: 1 }, plantilla)).toEqual(['extra: clave que no está en la plantilla'])
     const { e3: _e3, ...sinE3 } = lleno as Record<string, unknown>
@@ -468,11 +466,11 @@ describe('resumen y resultados.json (C8)', () => {
     const antes = process.env.MAUI_DEV_DIR
     process.env.MAUI_DEV_DIR = vacio
     try {
-      const r = calcularResultados(P, { noches: null, respaldosRemotos: null }, { raiz: path.join(TMP, 'nada'), vcgencmd: ['no-existe'] })
+      const r = calcularResultados({ raiz: path.join(TMP, 'nada'), vcgencmd: ['no-existe'] })
       expect(r.e2).toBeNull()
-      expect(r.e3).toEqual({ cpu_max_pct: null, rss_max_mb: null, temp_max_c: null, estrangulamiento: null, escritura_mb_dia: null, potencia_media_w: null })
-      expect(r.jornada).toEqual({ pedidos: null, p95_pedido_ms: null, p95_cobro_ms: null, errores: null })
-      const md = resumenMd(r, P, { permisos: null, pruebas: null, arranques: 0 })
+      expect(r.e3).toEqual({ cpu_max_pct: null, rss_max_mb: null, temp_max_c: null, estrangulamiento: null, escritura_mb: null, potencia_media_w: null })
+      expect(r.jornada).toEqual({ factor: null, boletas: null, operaciones: null, duracion_min: null, p95_pedido_ms: null, p95_cobro_ms: null, errores: null })
+      const md = resumenMd(r, { permisos: null, pruebas: null, arranques: 0, nocturna: null })
       expect(md).toMatch(/\| CPU máxima \(%\) \| pendiente \|/)
       expect(md).toMatch(/0 de 5/)
     } finally {
@@ -480,9 +478,4 @@ describe('resumen y resultados.json (C8)', () => {
     }
   })
 
-  it('noches con pronóstico y respaldos de la copia externa', () => {
-    const cal = { conVentas: new Set(['2026-12-01', '2026-12-02']), cerrados: new Set<string>() }
-    expect(nochesDelPeriodo(cal, [{ madeOn: '2026-12-01', status: 'ok' }, { madeOn: '2026-12-02', status: 'error' }], P)).toEqual({ ok: 1, total: 2 })
-    expect(fechasDeRclone('  3456789 2026-12-01 03:00:05.123456789 mauidisk-sim-20261201-0300.db.gz\n     12 2026-12-01 03:00:06.1 backup.log\n')).toEqual(['2026-12-01'])
-  })
 })
