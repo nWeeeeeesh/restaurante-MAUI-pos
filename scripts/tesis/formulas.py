@@ -122,11 +122,6 @@ def ingenieria_menu(porciones, margenes):
     return out
 
 
-def beneficio_potencial(mp_real, cm_real, mp_sug, cm_sug):
-    """Margen perdido + costo de la merma con la compra real, menos lo mismo con la sugerida."""
-    return (mp_real + cm_real) - (mp_sug + cm_sug)
-
-
 # ─────────────────────────────── 4.2 Pronóstico ───────────────────────────────
 
 def ventas_perdidas(platos_agotados, habitual, vendidas, receta_kg_insumo, f):
@@ -151,6 +146,11 @@ def cobertura(pedida, vida_util):
 def cantidad_sugerida(pronosticos, sigma_h, z, A):
     """F2. Σ pronósticos de los H días + z·σ_H − disponible; nunca negativa."""
     return max(0.0, suma(pronosticos) + z * sigma_h - A)
+
+
+def redondear_medio_kilo(q):
+    """Para mostrar la cantidad sugerida: al medio kilo superior (espejo de redondearMedioKilo)."""
+    return math.ceil(q * 2 - 1e-9) / 2
 
 
 def z_normal(p):
