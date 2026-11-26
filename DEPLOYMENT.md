@@ -100,8 +100,8 @@ sudo apt update && sudo apt upgrade -y
 
 sudo apt install -y git curl build-essential
 
-# Node.js 24 LTS via NodeSource (Node 20 quedó fuera de soporte en abril de 2026;
-# los package.json exigen >= 22)
+# Node.js 24 LTS via NodeSource (obligatorio: los package.json exigen >= 24 y el
+# package-lock.json necesita npm 11, que viene con Node 24)
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
 
@@ -370,7 +370,7 @@ Después: entrar como dueño y revisar que el Historial y los Reportes muestran 
 |---|---|
 | Ver logs en vivo | `journalctl -u mauidesk -f` |
 | Reiniciar el server | `sudo systemctl restart mauidesk` |
-| Actualizar a una versión nueva | Ver *Actualizar a una versión nueva* (abajo) |
+| Actualizar a una versión nueva | `scripts/actualizar.sh <etiqueta>`; detalle en *Actualizar a una versión nueva* (abajo) |
 | Backup manual | `/home/mauidesk/backup.sh` |
 | Probar puerto impresora | `nc -zv 192.168.1.100 9100` |
 | Espacio en disco | `df -h` |
@@ -378,14 +378,14 @@ Después: entrar como dueño y revisar que el Historial y los Reportes muestran 
 
 ### Actualizar a una versión nueva (con rollback)
 
-Hacerlo en un momento sin servicio. Los cambios de base de datos de cada versión son **aditivos**, así que volver a la versión anterior del código funciona con la base nueva.
+Hacerlo en un momento sin servicio. Los cambios de base de datos de cada versión son **aditivos**, así que volver a la versión anterior del código funciona con la base nueva. Se necesita **Node 24** (`node --version`).
 
 ```bash
 # 1. Backup previo, guardado también fuera del Pi
 sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '/home/mauidesk/backups/pre-update.db'"
 
-# 2. Bajar la versión nueva (ej. la etiqueta maui-v1.1)
-cd /home/mauidesk/MAUI && git fetch --tags && git checkout maui-v1.1
+# 2. Bajar la versión nueva (ej. la etiqueta maui-tesis-v1.0)
+cd /home/mauidesk/MAUI && git fetch --tags && git checkout maui-tesis-v1.0
 
 # 3. Detener el servicio (npm ci reemplaza node_modules) y compilar
 sudo systemctl stop mauidesk
@@ -405,47 +405,79 @@ journalctl -u mauidesk -n 50 --no-pager
 
 Después: prueba de humo con un dispositivo por rol (pedido → comanda con el número de mesa correcto → cobro → boleta → reportes).
 
-### Desplegar la entrega E1 del inventario (antes del 2026-11-09)
+### Desplegar la versión de la tesis (incrementos 1 a 3)
 
-La E1 (plan de la tesis v3) agrega la «Compra del día» en dos partes, la configuración del estudio y el export final. Debe quedar desplegada **antes del inicio de la línea base (2026-11-09)**. Las migraciones son aditivas.
+La etiqueta `maui-tesis-v1.0` trae los tres incrementos: la «Compra del día» (1), la rentabilidad operativa con recetas y calibración (2) y el pronóstico con la lista de compra y la tarea nocturna (3). Necesita **Node 24**. Las migraciones son aditivas: volver a la versión anterior funciona con la base nueva.
+
+En la Pi del local, `scripts/actualizar.sh maui-tesis-v1.0` hace los pasos 2 a 9 en orden y se detiene en el primer error (ver *Actualizar con un solo comando*). Estos son los pasos a mano:
 
 ```bash
-# 0. En una PC, probar primero la migración sobre una COPIA de la base de producción
-#    (bajada del backup diario) — nunca sobre la del local:
-#    gunzip -c mauidisk-<fecha>.db.gz > /tmp/copia.db
-#    cd server && DATABASE_URL=file:/tmp/copia.db npm run db:migrate   # "[migrate] OK"
-#    DATABASE_URL=file:/tmp/copia.db npm run db:seed                   # insumos, si no hay
+# 1. En la PC, con el repositorio en maui-tesis-v1.0: probar la migración sobre una COPIA
+#    del respaldo diario (nunca sobre la base del local)
+rclone copy gdrive:MauiDeskBackups/mauidisk-<fecha>.db.gz /tmp/
+gunzip -c /tmp/mauidisk-<fecha>.db.gz > /tmp/copia.db
+cd server
+DATABASE_URL=file:/tmp/copia.db npm run db:migrate               # debe terminar en "[migrate] OK"
+DATABASE_URL=file:/tmp/copia.db npm run db:seed                  # insumos, si no hay
+DATABASE_URL=file:/tmp/copia.db npm run db:recetas -- --dry-run  # platos no encontrados
+rm /tmp/copia.db
 
-# 1. En la Pi: backup previo (también fuera del local)
-sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '/home/mauidesk/backups/pre-e1.db'"
+# 2. En la Pi: respaldo previo, también fuera del local
+sqlite3 /home/mauidesk/MAUI/server/mauidisk.db ".backup '/home/mauidesk/backups/pre-maui-tesis-v1.0.db'"
+gzip -f /home/mauidesk/backups/pre-maui-tesis-v1.0.db
+rclone copy /home/mauidesk/backups/pre-maui-tesis-v1.0.db.gz gdrive:MauiDeskBackups/
 
-# 2. Agregar el número de local al .env (si falta, vale 1)
+# 3. Node 24 (si dice otra versión, instalarlo como en la Fase 3)
+node --version    # v24.x.x
+
+# 4. Número de local en el .env, si falta
 grep -q '^MAUI_LOCAL_ID=' /home/mauidesk/MAUI/server/.env || echo 'MAUI_LOCAL_ID=1' >> /home/mauidesk/MAUI/server/.env
 
-# 3. Bajar la versión (la etiqueta que se cree para E1, p. ej. maui-v1.2) y compilar
-cd /home/mauidesk/MAUI && git fetch --tags && git checkout <etiqueta-e1>
+# 5. Bajar la versión
+cd /home/mauidesk/MAUI && git fetch --tags && git checkout maui-tesis-v1.0
+
+# 6. Detener el servicio (npm ci reemplaza node_modules) y compilar
 sudo systemctl stop mauidesk
 cd server && npm ci && npm run build
 cd ../client && npm ci && npm run build
 
-# 4. Migrar y cargar los insumos del estudio (solo si la tabla está vacía)
+# 7. Migrar y sembrar (con menú ya cargado no toca menú, mesas ni usuarios)
 cd ../server && npm run db:migrate      # debe terminar en "[migrate] OK"
-npm run db:seed                          # "Supplies seeded." o nada si ya existían
+npm run db:seed
 
-# 5. Arrancar y revisar el log: debe decir "[startup] Local 1 (MAUI_LOCAL_ID)"
+# 8. Recetas aproximadas (server/data/recetas_aproximadas.csv): primero revisar
+#    los platos no encontrados; nunca crea platos ni toca los que ya tienen receta
+npm run db:recetas -- --dry-run
+npm run db:recetas
+
+# 9. Arrancar y revisar el log
 sudo systemctl start mauidesk
 journalctl -u mauidesk -n 50 --no-pager
+# Debe mostrar "[startup] Local 1 (MAUI_LOCAL_ID)" y, la primera vez, "[nightly] puesta al día"
 ```
 
-Después, con el dueño (no es código):
-1. Entrar como dueño → Inventario → Insumos → **Estudio**: cargar las fechas del sorteo (línea base 2026-11-09, primer grupo 2027-01-11, segundo 2027-02-01, fin 2027-04-04, mariscos 2027-04-05, segundo local ~2026-12-28) y el orden sorteado.
-2. Revisar que PESCADO, CALAMAR, PULPO, LANGOSTINO y CONCHAS figuren como críticos, activos y con su grupo.
-3. Hacer una «Compra del día» de prueba con fecha de ayer y corregirla una vez (debe reemplazarse, no duplicarse).
-4. El 2026-11-09, en «Al abrir», nota «Otro»: «Inicio de la línea base».
+La receta solo lleva insumos críticos: si el *dry-run* dice que omite una columna (por ejemplo `mixtura_g`, porque MIXTURA no existe o no es crítico), corregir el insumo con el propietario (punto 1 de abajo) y volver a correr `npm run db:recetas -- --reemplazar`. `otros_insumos_S` no se carga: el costo del plato usa los otros insumos del día.
 
-Si los insumos ya existían sin código o sin grupo, la migración los asigna por código (PESCADO → pescado, CALAMAR → calamar, PULPO/LANGOSTINO/CONCHAS → mariscos).
+**Después, con el propietario (no es código):**
+1. En **Inventario → Insumos**, revisar que PESCADO, CALAMAR, MIXTURA y LIMON sean críticos, con su rendimiento, su vida útil y su nivel de servicio. Valores del seed: vida útil 7, 6, 3 y 10 días; nivel de servicio 0.99, 0.90, 0.95 y 0.95 (99 %, 90 %, 95 % y 95 % en la pantalla). Si falta alguno, crearlo con ese código; PULPO, LANGOSTINO y CONCHAS dejan de ser críticos.
+2. En **Reportes → Tipo de gasto**, clasificar cada categoría como fija o variable.
+3. En **Recetas**, revisar las recetas cargadas.
+4. Hacer una «Compra del día» de prueba con fecha de ayer y corregirla una vez: debe reemplazarse, no duplicarse.
+5. Al día siguiente, abrir la **Lista de compra**.
 
-**Rollback:** `git checkout <versión anterior>` → `npm ci && npm run build` en server y client → `sudo systemctl restart mauidesk`. Restaurar `pre-update.db` solo si los datos se dañaron.
+**Rollback:** `git checkout <versión anterior>` → `npm ci && npm run build` en server y client → `sudo systemctl restart mauidesk`. Restaurar `pre-maui-tesis-v1.0.db.gz` (con `restore-backup.sh`, caso B de la Fase 11) solo si los datos se dañaron.
+
+### Actualizar con un solo comando
+
+`scripts/actualizar.sh <etiqueta>` hace en la Pi, en orden, los pasos 2 a 9 de la sección anterior y se detiene en el primer error: comprueba Node 24, deja el respaldo `pre-<etiqueta>.db.gz` en `/home/mauidesk/backups/` y en `gdrive:MauiDeskBackups/`, agrega `MAUI_LOCAL_ID=1` si falta, cambia a la etiqueta, compila (si `npm ci` falla por el lockfile, reintenta con `npx npm@11 ci`), migra, siembra, muestra el *dry-run* de las recetas y pide confirmar antes de cargarlas, arranca y espera el 200 de `/api/health`. Si falla después de cambiar de versión, imprime los comandos del rollback.
+
+```bash
+# La primera vez la Pi todavía no tiene el script: se toma de la etiqueta
+cd /home/mauidesk/MAUI && git fetch --tags
+git show maui-tesis-v1.0:scripts/actualizar.sh > /tmp/actualizar.sh
+bash /tmp/actualizar.sh maui-tesis-v1.0
+bash /tmp/actualizar.sh --help    # opciones y variables (MAUI_DIR, BACKUP_DIR, SERVICIO…)
+```
 
 ## Checklist final pre-producción
 

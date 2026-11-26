@@ -174,7 +174,8 @@ MODULES = [
                   "client/src/api/profitability.ts", "client/src/api/recipes.ts", "client/src/hooks/useProfitability.ts",
                   "client/src/hooks/useRecipes.ts", "client/src/pages/profitability/Profitability.tsx",
                   "client/src/pages/profitability/Recipes.tsx", "client/src/pages/profitability/ExpenseKinds.tsx",
-                  "server/scripts/perf.ts"],
+                  "server/scripts/perf.ts", "server/src/services/recipes-import.service.ts",
+                  "server/src/__tests__/recipes-import.test.ts", "server/scripts/load-recetas.ts"],
     },
     {
         "id": "pronostico", "name": "Pronóstico",
