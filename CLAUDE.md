@@ -47,7 +47,7 @@ Solo para desarrollo. **Cambiarlas en producción tras el primer login** (el ser
 
 ## Roles y permisos
 
-Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
+Cuatro roles: `owner` (dueño), `manager` (encargado: el dueño le delega el local), `cashier`, `waiter`. Un quinto, `developer`, existe solo en modo de pruebas (`MAUI_MODO_PRUEBAS=1`): usa la pantalla «Desarrollador» y `/api/dev/*`, y no aparece en Usuarios ni en la auditoría del negocio. La barrera real es el servidor (`requireRole` + reglas en los servicios); la UI solo oculta. Matriz completa en [docs/plan-maui-v1.1.md §2](docs/plan-maui-v1.1.md#2-decisiones) y en `server/src/__tests__/permissions.test.ts`. Resumen:
 - Mozo: pedidos, agregar ítems, "pedir cuenta", reimprimir comanda.
 - Cajero: + cobrar, dividir, pre-cuenta, reimprimir boletas del día, cancelar pedidos **sin cobros**, marcar platos agotados (desde el POS o Menú).
 - Encargado: + cancelar pedidos con cobros, gastos, reportes, historial completo, inventario («Compra del día» en sus dos partes, compras, merma, export) y ver los ajustes del local.
@@ -73,6 +73,8 @@ server/src/
                      costing + profitability (incremento 2) y forecast + demand (incremento 3), espejo de scripts/tesis/formulas.py
   repositories/      profitability.repo, forecast.repo: únicos que conocen el esquema en los incrementos 2 y 3 (lectura por lote)
   jobs/nightly.ts    pronóstico de cada noche de atención a las 23:30 de Lima; lo arranca index.ts (NIGHTLY_JOBS=off lo apaga)
+  dev/               modo de pruebas (MAUI_MODO_PRUEBAS=1): guardia de la base -sim.db, registro de recursos, impresora
+                     simulada, jornadas, recuperación, permisos, pruebas y descarga de resultados (server/data/dev/)
   services/
     order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
     billing.service.ts   cobro atómico (lecturas dentro de la tx, guardia bill_id IS NULL)
@@ -110,13 +112,16 @@ server/scripts/
   load-sim.ts        npm run db:sim: crea mauidisk-sim.db (solo URLs que terminan en -sim.db)
   perf.ts            npm run perf: tiempos de los incrementos 2 y 3 → docs/tesis/rendimiento.json
   load-recetas.ts    npm run db:recetas -- [--csv] [--reemplazar] [--dry-run]: recetas de server/data/recetas_aproximadas.csv
+  dev-usuario.ts     npm run dev:usuario -- <nombre> <contraseña>: usuario desarrollador (solo en modo de pruebas)
+  jornada.ts         npm run dev:jornada: jornada simulada a velocidad real contra el propio servicio (modo de pruebas)
 
 scripts/actualizar.sh  actualiza la Pi del local a una etiqueta (DEPLOYMENT.md)
+scripts/instalar.sh    instala en una Pi recién grabada las fases 3 a 11, cronometradas (--modo-pruebas para el banco de pruebas)
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
                      inventory/{Inventory, DailyTab (Hoy), HistoryTab, forms, SuppliesTab, SettingsSection, model, ui},
-                     profitability/{Profitability, Recipes, ExpenseKinds}, forecast/PurchaseList
+                     profitability/{Profitability, Recipes, ExpenseKinds}, forecast/PurchaseList, dev/Developer
   components/        ToastHost, ReconnectBanner, ProtectedRoute, ConfirmDialog, PrinterStatus, LowPortionsBanner, etc.
   hooks/             useProfitability, useRecipes, usePurchaseList (carga, error y datos)
   store/             zustand: auth, order (borrador), orders (activos + resync), toast, connection
@@ -211,6 +216,7 @@ Ver [server/.env.example](server/.env.example) — variables documentadas una po
 - `DATABASE_URL` (en Pi: ruta absoluta al SSD)
 - `MAUI_LOCAL_ID` (1 = local principal; 2 = segundo local; inválido → no arranca)
 - `NIGHTLY_JOBS` (`off` apaga la tarea nocturna del pronóstico; los tests la apagan en `vitest.config.ts`)
+- `MAUI_MODO_PRUEBAS` (`1` = banco de pruebas con datos simulados; exige una `DATABASE_URL` -sim.db; nunca en el local)
 - `PRINTER_TYPE` + (`PRINTER_HOST`/`PRINTER_PORT` o `PRINTER_NAME`)
 - Zona horaria del proceso: `TZ=America/Lima` (en la unidad systemd)
 

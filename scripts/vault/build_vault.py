@@ -196,6 +196,24 @@ MODULES = [
                   "client/src/components/LowPortionsBanner.tsx"],
     },
     {
+        "id": "modo-pruebas", "name": "Modo de pruebas",
+        "summary": "Banco de pruebas del artículo y la tesis en la Raspberry Pi, con datos simulados: perfil de desarrollador, registro de recursos, impresora simulada, jornadas, recuperación, permisos, pruebas y descarga de resultados.",
+        "rules": [
+            "Solo con `MAUI_MODO_PRUEBAS=1`: sin la variable, `/api/dev/*` responde 404 y el rol `developer` no inicia sesión. Con ella, los demás roles reciben 403.",
+            "`dev/guardia.ts` se importa primero en `index.ts`: en modo de pruebas exige una `DATABASE_URL` que termine en `-sim.db` (nunca se crea ni se toca `mauidisk.db`) y apunta la impresora a la simulada (127.0.0.1:9100).",
+            "Registro continuo con temporizadores `unref()` y lecturas asíncronas; un error de lectura deja el campo vacío. Resultados en `server/data/dev/` (fuera de git).",
+            "`articulo/resultados.json` sigue exactamente `server/data/resultados_plantilla.json` (`validarContraPlantilla`).",
+            "Lo pesado (perf, CI, jornada) corre en procesos hijo; las pruebas usan una base temporal propia.",
+        ],
+        "docs": [("DEPLOYMENT", "Instalar con un solo comando · Modo de pruebas · Pasar de pruebas al local")],
+        "files": ["server/src/dev/modo.ts", "server/src/dev/guardia.ts", "server/src/dev/arranque.ts", "server/src/dev/sistema.ts",
+                  "server/src/dev/registro.ts", "server/src/dev/impresora.ts", "server/src/dev/trabajos.ts", "server/src/dev/medir.ts",
+                  "server/src/dev/permisos.ts", "server/src/dev/pruebas.ts", "server/src/dev/recuperacion.ts", "server/src/dev/jornada.ts",
+                  "server/src/dev/jornada-plan.ts", "server/src/dev/descarga.ts", "server/src/routes/dev.ts", "server/src/schemas/dev.ts",
+                  "server/src/__tests__/dev.test.ts", "server/scripts/dev-usuario.ts", "server/scripts/jornada.ts",
+                  "client/src/api/dev.ts", "client/src/hooks/useDevEstado.ts", "client/src/pages/dev/Developer.tsx"],
+    },
+    {
         "id": "impresion", "name": "Impresión",
         "summary": "Impresora térmica ESC/POS por TCP: comanda de cocina, pre-cuenta, boleta y reimpresiones; estado de la impresora.",
         "rules": [

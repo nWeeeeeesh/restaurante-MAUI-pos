@@ -61,6 +61,74 @@ en ~30 min.
 
 ---
 
+## Instalar con un solo comando
+
+`scripts/instalar.sh` hace las fases 3 a 11 de esta guía sin intervención en una Pi recién grabada y cronometra cada una (medición E4 del artículo, Tabla I). Las fases 1 y 2 se hacen a mano: grabar la imagen con el usuario `mauidesk` y fijar la IP en el router. Su tiempo, medido con el cronómetro del celular, entra con `--fases12-min`.
+
+```bash
+# En la Pi, por SSH. El script todavía no está en la Pi: se baja solo
+curl -fsSLO https://raw.githubusercontent.com/<usuario>/<repo>/maui-tesis-v1.0/scripts/instalar.sh
+# rclone.conf con el remoto «gdrive» (rclone config en la PC; se copia con scp)
+
+# Banco de pruebas (datos simulados, sin el local):
+bash instalar.sh --repo <url> --etiqueta maui-tesis-v1.0 --modo-pruebas \
+  --dev-usuario <nombre> --dev-clave <clave> --rclone-conf ./rclone.conf \
+  --tailscale-authkey <clave> --fases12-min <minutos>
+
+# Para el local (base nueva, ticketera real):
+bash instalar.sh --repo <url> --etiqueta maui-tesis-v1.0 --impresora 192.168.1.100 \
+  --rclone-conf ./rclone.conf --tailscale-authkey <clave> --fases12-min <minutos>
+```
+
+- **Fase 4:** mide aparte los dos `npm run build`; `compilacion_min` es la suma.
+- **Fase 9:** en modo de pruebas hace por la API un pedido, la comanda, el cobro y la boleta, con la impresora simulada. Para el local solo comprueba la sesión, el menú y que la ticketera responda: no imprime nada ni deja ventas en la base. La prueba con papel es la Fase 9, con el propietario.
+- **Fase 10:** `tailscale up --authkey`. Sin `--tailscale-authkey` se omite y su tiempo queda en `null`.
+- **Fase 11:** `backup.sh`, el cron de las 3:00 y `rclone.conf`. En modo de pruebas respalda `mauidisk-sim.db` y la copia externa va a `gdrive:MauiDeskPrueba/`.
+- **Al terminar:** escribe `server/data/dev/instalacion-tiempos.json` (`fases_min` con las 11 fases, `compilacion_min`, fecha y etiqueta) y lo imprime.
+- **Si una fase falla:** se detiene, dice cuál y deja `/home/mauidesk/instalar.log`. Corregir y retomar con `--desde <fase>`; los tiempos de las fases ya hechas se conservan.
+
+`bash instalar.sh --help` lista todas las opciones.
+
+## Modo de pruebas (banco de pruebas del artículo)
+
+Con `MAUI_MODO_PRUEBAS=1` en `server/.env`, la Pi es un banco de pruebas con **datos simulados**. Todo lo que necesitan el artículo y la tesis sale desde el navegador, con el usuario desarrollador, en la pantalla **Desarrollador**.
+
+| Pieza | Qué hace |
+|---|---|
+| Base | Exige `DATABASE_URL=file:…/mauidisk-sim.db`; con otra base el servidor no arranca, así nunca se crea ni se toca `mauidisk.db` |
+| Impresora | Simulada en `127.0.0.1:9100`: la comanda y la boleta recorren el camino completo sin papel (`impresiones.csv`) |
+| Registro continuo | Recursos cada 10 s (`recursos.csv`), un latido por minuto (`latidos.csv`) y una fila por arranque (`arranques.csv`) |
+| Desarrollador | Rol `developer`, creado con `npm run dev:usuario -- <nombre> <contraseña>`; no aparece en Usuarios ni en la auditoría del negocio |
+| Resultados | `server/data/dev/` (fuera de git); «Descargar todo» arma `maui-resultados-<fecha>.tar.gz` |
+
+Sin la variable, `/api/dev/*` responde 404, el desarrollador no puede iniciar sesión y la pantalla no aparece. Las pruebas de recuperación cortan el servicio con `SIGKILL` y dependen de `Restart=always` y `RestartSec=5` de la unidad (Fase 8).
+
+## Pasar de pruebas al local
+
+Cuando la Pi del banco de pruebas se lleva al local:
+
+```bash
+sudo systemctl stop mauidesk
+cd /home/mauidesk/MAUI/server
+# 1. Quitar el modo de pruebas y sus variables
+sed -i '/^MAUI_MODO_PRUEBAS=/d;/^BACKUP_SCRIPT=/d;/^MAUI_BACKUP_DIR=/d;/^MAUI_RCLONE_REMOTO=/d' .env
+# 2. Base nueva (la simulada queda aparte, no se borra)
+sed -i 's|^DATABASE_URL=.*|DATABASE_URL=file:/home/mauidesk/MAUI/server/mauidisk.db|' .env
+npm run db:push -- --force && npm run db:seed && npm run db:migrate   # "[migrate] OK"
+npm run db:recetas -- --dry-run && npm run db:recetas
+# 3. Impresora real (Fase 6)
+sed -i 's|^PRINTER_HOST=.*|PRINTER_HOST=192.168.1.100|' .env
+# 4. El usuario desarrollador: la base nueva no lo tiene; en la simulada se inhabilita
+#    (la auditoría lo referencia, por eso no se borra la fila)
+sqlite3 mauidisk-sim.db "UPDATE users SET active = 0 WHERE role = 'developer'"
+# 5. Respaldos del local: backup.sh sobre mauidisk.db y la copia a gdrive:MauiDeskBackups/
+sed -i 's|mauidisk-sim|mauidisk|g; s|MauiDeskPrueba|MauiDeskBackups|g' /home/mauidesk/backup.sh
+sudo systemctl start mauidesk
+journalctl -u mauidesk -n 30 --no-pager   # sin la línea "MODO DE PRUEBAS"
+```
+
+Después, la Fase 9 con el propietario (pedido, comanda y boleta en papel) y el cambio de las contraseñas seed. Los resultados del banco de pruebas quedan en `server/data/dev/`: descargarlos antes con «Descargar todo».
+
 ## Fase 1 — Flashear la microSD y bootear el Pi
 
 1. En tu PC, descargar **Raspberry Pi Imager** desde https://www.raspberrypi.com/software/
