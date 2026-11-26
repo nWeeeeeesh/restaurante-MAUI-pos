@@ -31,7 +31,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/tables')
+      navigate(useAuthStore.getState().user?.role === 'developer' ? '/developer' : '/tables')
     } catch {
       setError('Usuario o contraseña incorrectos')
     } finally {

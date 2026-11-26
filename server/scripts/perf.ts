@@ -1,6 +1,7 @@
-// npm run perf — tiempos de respuesta del cálculo (RNF09, plan-sistema T12 y T18) con
-// la base simulada (npm run db:sim). Guarda la mediana y el p95 de 20 repeticiones en
-// docs/tesis/rendimiento.json, conservando las secciones que no mide esta ejecución.
+// npm run perf [-- --out <ruta>] — tiempos de respuesta del cálculo (RNF09, plan-sistema
+// T12 y T18) con la base simulada (npm run db:sim). Guarda la mediana y el p95 de 20
+// repeticiones y el tamaño de la base en <ruta> (por defecto docs/tesis/rendimiento.json),
+// conservando las secciones que no mide esta ejecución.
 // La medición en la Raspberry Pi es la prueba de aceptación PA-07 (manual).
 import * as fs from 'fs'
 import * as os from 'os'
@@ -8,7 +9,14 @@ import * as path from 'path'
 
 const DEFAULT_URL = 'file:./mauidisk-sim.db'
 const REPS = 20
-const OUT = path.join(__dirname, '..', '..', 'docs', 'tesis', 'rendimiento.json')
+const OUT_DEFECTO = path.join(__dirname, '..', '..', 'docs', 'tesis', 'rendimiento.json')
+
+function rutaSalida(args: string[]): string {
+  const i = args.indexOf('--out')
+  if (i === -1) return OUT_DEFECTO
+  if (!args[i + 1]) throw new Error('--out necesita una ruta')
+  return path.resolve(args[i + 1])
+}
 
 export interface Medicion {
   repeticiones: number
@@ -43,6 +51,7 @@ export async function medir(fn: () => Promise<unknown>, limiteMs: number, reps =
 }
 
 async function main() {
+  const OUT = rutaSalida(process.argv.slice(2))
   const url = process.env.DATABASE_URL || DEFAULT_URL
   if (!url.startsWith('file:') || !url.endsWith('-sim.db')) {
     console.error(`perf: se mide solo con la base simulada (-sim.db); DATABASE_URL es «${url}».`)
@@ -75,6 +84,7 @@ async function main() {
     equipo: { plataforma: `${os.platform()} ${os.release()}`, cpu: os.cpus()[0]?.model ?? '?', nucleos: os.cpus().length, node: process.version },
     medidoEn: new Date().toISOString(),
     datos: 'fixtures/sim12 (72 días de atención, npm run db:sim)',
+    tamanoBaseMb: Math.round(fs.statSync(url.slice('file:'.length)).size / 1048576 * 10) / 10,
     incremento2: {
       'obtenerRentabilidad (agosto, por semana)': mes,
       'obtenerRentabilidad (12 semanas, por semana)': semanas,

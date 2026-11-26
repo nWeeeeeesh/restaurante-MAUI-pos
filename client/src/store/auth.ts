@@ -3,7 +3,8 @@ import api from '../api/client'
 import { useOrdersStore } from './orders'
 import { useOrderStore } from './order'
 
-export type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
+// developer: solo en modo de pruebas (MAUI_MODO_PRUEBAS=1), con su pantalla «Desarrollador»
+export type Role = 'owner' | 'manager' | 'cashier' | 'waiter' | 'developer'
 
 interface User {
   id: number

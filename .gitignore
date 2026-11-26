@@ -11,6 +11,9 @@ build/
 .env.local
 .env.*.local
 
+# resultados del modo de pruebas (perfil de desarrollador)
+server/data/dev/
+
 # database (datos de producción no deben versionarse)
 *.db
 *.db-journal

@@ -7,7 +7,8 @@ export const users = sqliteTable('users', {
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   // 'manager' = Encargado: el dueño delega el local (D5). La columna es texto sin CHECK.
-  role: text('role', { enum: ['owner', 'manager', 'cashier', 'waiter'] }).notNull(),
+  // developer: solo en modo de pruebas (MAUI_MODO_PRUEBAS=1); SQLite guarda texto, sin CHECK
+  role: text('role', { enum: ['owner', 'manager', 'cashier', 'waiter', 'developer'] }).notNull(),
   active: integer('active', { mode: 'boolean' }).default(true),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
 })

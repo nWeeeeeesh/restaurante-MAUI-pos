@@ -25,6 +25,8 @@ export default function ProtectedRoute({ children, roles }: Props) {
   }
 
   if (!token || !user) return <Navigate to="/login" replace />
+  // El desarrollador (modo de pruebas) solo usa su pantalla
+  if (user.role === 'developer' && !roles?.includes('developer')) return <Navigate to="/developer" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/pos" replace />
 
   return <Layout>{children}</Layout>

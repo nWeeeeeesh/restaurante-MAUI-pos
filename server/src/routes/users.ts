@@ -17,6 +17,9 @@ import {
 
 const router = Router()
 
+const esDesarrollador = async (id: number) =>
+  (await db.select({ role: users.role }).from(users).where(eq(users.id, id)))[0]?.role === 'developer'
+
 function publicShape(u: typeof users.$inferSelect) {
   return {
     id: u.id, name: u.name, username: u.username,
@@ -44,7 +47,8 @@ router.post(
 // GET /api/users — listar (solo owner)
 router.get('/', requireAuth, requireRole('owner'), async (_req, res) => {
   const all = await db.select().from(users).orderBy(users.id)
-  res.json(all.map(publicShape))
+  // El desarrollador (modo de pruebas) no es un usuario del negocio
+  res.json(all.filter(u => u.role !== 'developer').map(publicShape))
 })
 
 // POST /api/users — crear (solo owner)
@@ -76,6 +80,7 @@ router.patch(
   requireAuth, requireRole('owner'), validateBody(UpdateUserSchema),
   async (req, res) => {
     const id = Number(req.params.id)
+    if (await esDesarrollador(id)) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
     const updates: Partial<typeof users.$inferInsert> = { ...req.body }
 
     if (updates.username !== undefined) {
@@ -127,7 +132,7 @@ router.post(
     const id = Number(req.params.id)
     const { password } = req.body
     const [u] = await db.select().from(users).where(eq(users.id, id))
-    if (!u) { res.status(404).json({ error: 'Usuario no encontrado' }); return }
+    if (!u || u.role === 'developer') { res.status(404).json({ error: 'Usuario no encontrado' }); return }
     const passwordHash = await bcrypt.hash(password, 10)
     await withWriteLock(() => db.transaction(async (tx) => {
       await tx.update(users).set({ passwordHash }).where(eq(users.id, id))

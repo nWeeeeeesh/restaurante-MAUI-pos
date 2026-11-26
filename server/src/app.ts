@@ -17,6 +17,7 @@ import settingsRoutes from './routes/settings'
 import profitabilityRoutes from './routes/profitability'
 import recipesRoutes from './routes/recipes'
 import forecastRoutes from './routes/forecast'
+import devRoutes from './routes/dev'
 import { errorHandler } from './middleware/error'
 
 export type AllowedOrigins = string[] | '*'
@@ -47,6 +48,7 @@ export function createApp(opts: { allowedOrigins: AllowedOrigins; serveClient?: 
   app.use('/api/profitability', profitabilityRoutes)
   app.use('/api/recipes', recipesRoutes)
   app.use('/api/forecast', forecastRoutes)
+  app.use('/api/dev', devRoutes)
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', app: 'MauiDesk' }))
 
