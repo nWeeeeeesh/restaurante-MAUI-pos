@@ -16,6 +16,15 @@ export const ProgramacionSchema = z.object({
   desde: fecha.optional(),
 })
 
+export const TodoEnUnoSchema = z.object({
+  confirmar: z.literal(true),
+  hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora HH:MM').default('12:00'),
+})
+
+export const ReintentarSchema = z.object({
+  desde: z.enum(['medir', 'permisos', 'pruebas', 'programar', 'recuperacion', 'descarga']),
+})
+
 export const PeriodoSchema = z.object({
   desde: fecha.optional(),
   hasta: fecha.optional(),

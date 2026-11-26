@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
-import { CheckCircle2, CircleDashed, Download, FlaskConical, Gauge, Play, RotateCcw, ShieldCheck, Square, Timer, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Clock, Download, FlaskConical, Gauge, Loader2, Play, Plug, RotateCcw, ShieldCheck, Square, Timer, XCircle, Zap } from 'lucide-react'
 import {
-  cancelarRecuperacion, correrJornada, descargarTodo, detenerJornada, iniciarRecuperacion, lanzar, programarJornadas, putEquipo,
+  cancelarRecuperacion, cancelarTodoEnUno, correrJornada, iniciarTodoEnUno, reintentarTodoEnUno, type PasoTodo, descargarTodo, detenerJornada, iniciarRecuperacion, lanzar, programarJornadas, putEquipo,
   quitarProgramacion, type EstadoDev, type Parte, type Trabajo,
 } from '../../api/dev'
 import { useDevEstado } from '../../hooks/useDevEstado'
@@ -55,6 +55,14 @@ function Avance({ t }: { t?: Trabajo }) {
   )
 }
 
+function IconoPaso({ estado }: { estado: PasoTodo['estado'] }) {
+  if (estado === 'hecho') return <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+  if (estado === 'error') return <XCircle size={14} className="text-red-600 shrink-0" />
+  if (estado === 'corriendo') return <Loader2 size={14} className="text-[#0077B6] animate-spin shrink-0" />
+  if (estado === 'esperando') return <Clock size={14} className="text-amber-600 shrink-0" />
+  return <CircleDashed size={14} className="text-[#94A3B8] shrink-0" />
+}
+
 function Boton({ onClick, disabled, children, variante = 'primario' }: { onClick: () => void; disabled?: boolean; children: ReactNode; variante?: 'primario' | 'secundario' | 'peligro' }) {
   const estilos = {
     primario: 'bg-[#0077B6] text-white hover:bg-[#00629A]',
@@ -77,6 +85,8 @@ export default function Developer() {
   const [equipo, setEquipo] = useState<{ refrigeracion?: string; almacenamiento?: string }>({})
   const [periodo, setPeriodo] = useState<{ desde?: string; hasta?: string }>({})
   const [prog, setProg] = useState<{ hora?: string; dias?: number }>({})
+  const [confirmarTodo, setConfirmarTodo] = useState(false)
+  const [horaTodo, setHoraTodo] = useState('12:00')
 
   if (!data) {
     return <div className="p-4 text-sm text-[#64748B]">{error ?? 'Cargando…'}</div>
@@ -109,6 +119,49 @@ export default function Developer() {
         <p className="text-xs text-[#64748B]">Modo de pruebas con datos simulados. Los resultados quedan en <code>{d.dir}</code>.</p>
         {error && <p className="text-xs text-red-600 font-semibold mt-1">{error}</p>}
       </div>
+
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900">
+        <Plug size={16} className="shrink-0 mt-0.5" />
+        <p><b>Falta: desenchufar y enchufar la Pi 5 veces (arranques: {d.arranques.hechos} de {d.arranques.de}).</b> Es lo único que el sistema no puede hacer solo.</p>
+      </div>
+
+      <Seccion titulo="Todo en uno" icono={<Zap size={16} className="text-[#0077B6]" />}
+        ayuda="Un clic: medir cálculos, verificar permisos, correr las pruebas, programar 7 jornadas desde mañana y, la mañana siguiente a la última (09:00), las pruebas de recuperación. Sigue sola aunque la Pi se reinicie.">
+        {(!d.todoEnUno || d.todoEnUno.estado !== 'corriendo') && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs font-semibold text-[#334155]">Hora de las jornadas
+              <input type="time" className={inputCls} value={horaTodo} onChange={e => setHoraTodo(e.target.value)} />
+            </label>
+            <Boton disabled={ocupado || enviando !== null || !!d.jornada.enCurso} onClick={() => setConfirmarTodo(true)}><Zap size={14} />Todo en uno</Boton>
+          </div>
+        )}
+        {d.todoEnUno && (
+          <div className="space-y-1">
+            <p className={`text-xs font-bold ${d.todoEnUno.estado === 'detenido' ? 'text-red-600' : d.todoEnUno.estado === 'listo' ? 'text-emerald-700' : 'text-[#0077B6]'}`}>
+              {d.todoEnUno.estado === 'listo' ? 'Listo para descargar' : d.todoEnUno.estado === 'detenido' ? 'Detenido' : 'En marcha'} · iniciado el {d.todoEnUno.creado.replace('T', ' ')}
+            </p>
+            <ul className="divide-y divide-[#F1F5F9]">
+              {d.todoEnUno.pasos.map(p => (
+                <li key={p.id} className="py-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-semibold text-[#0F172A]"><IconoPaso estado={p.estado} />{p.nombre}</span>
+                    {p.estado === 'error' && d.todoEnUno!.estado === 'detenido' && (
+                      <Boton variante="secundario" disabled={enviando !== null || ocupado} onClick={() => accion('reintentar', () => reintentarTodoEnUno(p.id), 'Sigue desde ese paso')}>
+                        <RotateCcw size={12} />Reintentar desde aquí
+                      </Boton>
+                    )}
+                  </div>
+                  {(p.detalle || p.error) && <p className={`ml-5 ${p.error ? 'text-red-600' : 'text-[#64748B]'}`}>{p.error ?? p.detalle}</p>}
+                  {p.estado === 'corriendo' && ['medir', 'permisos', 'pruebas', 'recuperacion'].includes(p.id) && <div className="ml-5 mt-1"><Avance t={t[p.id]} /></div>}
+                </li>
+              ))}
+            </ul>
+            {d.todoEnUno.estado === 'corriendo' && (
+              <Boton variante="secundario" disabled={enviando !== null} onClick={() => accion('cancelarTodo', cancelarTodoEnUno, 'Plan detenido')}><Square size={14} />Detener el plan</Boton>
+            )}
+          </div>
+        )}
+      </Seccion>
 
       <Seccion titulo="Estado" icono={<CheckCircle2 size={16} className="text-[#0077B6]" />} ayuda="Qué partes ya tienen datos para el artículo y la tesis.">
         <ul className="divide-y divide-[#F1F5F9]">
@@ -252,6 +305,17 @@ export default function Developer() {
         <p className="text-xs text-[#64748B]">Por defecto, los últimos 7 días completos ({d.periodo.desde} a {d.periodo.hasta}).</p>
         <Boton disabled={enviando !== null} onClick={() => accion('descargar', () => descargarTodo({ desde, hasta }), 'Descarga lista')}><Download size={14} />{enviando === 'descargar' ? 'Armando…' : 'Descargar todo'}</Boton>
       </Seccion>
+
+      <ConfirmDialog
+        open={confirmarTodo}
+        title="¿Empezar «Todo en uno»?"
+        message={`Mide los cálculos, verifica los permisos y corre las pruebas ahora (varios minutos). Programa 7 jornadas desde mañana a las ${horaTodo} y, la mañana siguiente a la última, a las 09:00, corre las pruebas de recuperación: el servicio se cortará 5 veces. Deja la Pi encendida toda la semana.`}
+        confirmLabel="Empezar"
+        variant="warning"
+        loading={enviando === 'todo'}
+        onCancel={() => setConfirmarTodo(false)}
+        onConfirm={() => { setConfirmarTodo(false); void accion('todo', () => iniciarTodoEnUno(horaTodo), '«Todo en uno» en marcha') }}
+      />
 
       <ConfirmDialog
         open={confirmar}

@@ -8,7 +8,9 @@ import { db } from '../db'
 import { forecastRuns } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
 import { validateBody, validateQuery } from '../middleware/validate'
-import { ConfirmarSchema, EquipoSchema, PeriodoSchema, ProgramacionSchema, type EquipoInput, type ProgramacionInput } from '../schemas/dev'
+import {
+  ConfirmarSchema, EquipoSchema, PeriodoSchema, ProgramacionSchema, ReintentarSchema, TodoEnUnoSchema, type EquipoInput, type ProgramacionInput,
+} from '../schemas/dev'
 import { audit } from '../services/audit'
 import { calendarioHasta } from '../services/forecast.service'
 import { currentLocalId } from '../utils/local'
@@ -25,6 +27,8 @@ import {
   soVersion, VECES_ARRANQUE, type Periodo,
 } from '../dev/descarga'
 import { fuentesPorDefecto } from '../dev/sistema'
+import { cancelarTodoEnUno, iniciarTodoEnUno, planTodo, reintentarDesde, type IdPaso } from '../dev/todo-en-uno'
+import { dependenciasReales } from '../dev/todo-en-uno-deps'
 
 const router = Router()
 const puerto = () => Number(process.env.PORT || 3001)
@@ -53,6 +57,7 @@ router.get('/estado', async (_req, res) => {
     dir: dirDev(),
     equipo: { ...(leerJson<EquipoInput>(rutaDev('equipo.json')) ?? {}), detectado: { almacenamiento: almacenamiento(f), so_version: soVersion(f), node: process.versions.node } },
     trabajos: trabajos(),
+    todoEnUno: planTodo(),
     enCurso: trabajoEnCurso()?.tipo ?? null,
     partes: {
       registro: parte('recursos.csv'),
@@ -94,6 +99,24 @@ router.delete('/recuperacion', async (req, res) => {
   const habia = cancelarRecuperacion()
   await registrar(req.user!.id, 'recuperacion.cancelar')
   res.json({ cancelada: habia })
+})
+
+// «Todo en uno»: medir, permisos, pruebas, 7 jornadas y, después, recuperación
+router.post('/todo-en-uno', validateBody(TodoEnUnoSchema), async (req, res) => {
+  const plan = iniciarTodoEnUno(dependenciasReales(puerto()), { hora: (req.body as { hora: string }).hora })
+  await registrar(req.user!.id, 'todo-en-uno', { hora: plan.hora, desde: plan.desde })
+  res.status(202).json(plan)
+})
+router.post('/todo-en-uno/reintentar', validateBody(ReintentarSchema), async (req, res) => {
+  const desde = (req.body as { desde: IdPaso }).desde
+  const plan = reintentarDesde(dependenciasReales(puerto()), desde)
+  await registrar(req.user!.id, 'todo-en-uno.reintentar', { desde })
+  res.status(202).json(plan)
+})
+router.delete('/todo-en-uno', async (req, res) => {
+  const plan = cancelarTodoEnUno()
+  await registrar(req.user!.id, 'todo-en-uno.cancelar')
+  res.json(plan)
 })
 
 router.post('/jornada', async (req, res) => {

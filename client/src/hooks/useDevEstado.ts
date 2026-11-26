@@ -10,7 +10,7 @@ function errorText(err: unknown): string {
 export function useDevEstado() {
   const [version, setVersion] = useState(0)
   const [state, setState] = useState<{ version: number; data: EstadoDev | null; error: string | null }>({ version: -1, data: null, error: null })
-  const ocupado = !!state.data && (!!state.data.enCurso || state.data.recuperacion.estado === 'corriendo' || !!state.data.jornada.enCurso)
+  const ocupado = !!state.data && (!!state.data.enCurso || state.data.recuperacion.estado === 'corriendo' || !!state.data.jornada.enCurso || state.data.todoEnUno?.pasos.some(p => p.estado === 'corriendo') === true)
 
   useEffect(() => {
     let cancelled = false

@@ -16,11 +16,24 @@ export interface FilaPermiso { rol: string; usuario: string; pantalla: string; r
 export interface Periodo { desde: string; hasta: string }
 export interface Programacion { hora: string; dias: number; desde: string; ejecutadas: string[] }
 
+export type IdPaso = 'medir' | 'permisos' | 'pruebas' | 'programar' | 'recuperacion' | 'descarga'
+export interface PasoTodo {
+  id: IdPaso
+  nombre: string
+  estado: 'pendiente' | 'corriendo' | 'esperando' | 'hecho' | 'error'
+  inicio: string | null
+  fin: string | null
+  error: string | null
+  detalle: string | null
+}
+export interface PlanTodo { creado: string; hora: string; dias: number; desde: string; recuperacionEn: string; estado: 'corriendo' | 'detenido' | 'listo'; pasos: PasoTodo[] }
+
 export interface EstadoDev {
   periodo: Periodo
   dir: string
   equipo: { refrigeracion?: string; almacenamiento?: string; detectado: { almacenamiento: string | null; so_version: string | null; node: string } }
   trabajos: Record<string, Trabajo>
+  todoEnUno: PlanTodo | null
   enCurso: string | null
   partes: Record<'registro' | 'medir' | 'permisos' | 'pruebas' | 'recuperacion' | 'jornada' | 'instalacion' | 'impresiones', Parte>
   arranques: { hechos: number; de: number }
@@ -41,6 +54,9 @@ export const putEquipo = (body: { refrigeracion?: string; almacenamiento?: strin
 export const lanzar = (que: 'medir' | 'permisos' | 'pruebas') => api.post<Trabajo>(`/dev/${que}`).then(r => r.data)
 export const iniciarRecuperacion = () => api.post<Trabajo>('/dev/recuperacion', { confirmar: true }).then(r => r.data)
 export const cancelarRecuperacion = () => api.delete('/dev/recuperacion').then(r => r.data)
+export const iniciarTodoEnUno = (hora: string) => api.post<PlanTodo>('/dev/todo-en-uno', { confirmar: true, hora }).then(r => r.data)
+export const reintentarTodoEnUno = (desde: IdPaso) => api.post<PlanTodo>('/dev/todo-en-uno/reintentar', { desde }).then(r => r.data)
+export const cancelarTodoEnUno = () => api.delete('/dev/todo-en-uno').then(r => r.data)
 export const correrJornada = () => api.post('/dev/jornada').then(r => r.data)
 export const detenerJornada = () => api.delete('/dev/jornada').then(r => r.data)
 export const programarJornadas = (body: { hora: string; dias: number }) => api.put('/dev/jornada/programacion', body).then(r => r.data)

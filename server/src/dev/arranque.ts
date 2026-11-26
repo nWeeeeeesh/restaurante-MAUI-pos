@@ -8,6 +8,8 @@ import { programarJornadas } from './jornada'
 import { dirDev, modoPruebas, rutaDev } from './modo'
 import { reanudarRecuperacion } from './recuperacion'
 import { registrarArranque, registrarLatidos, registrarRecursos } from './registro'
+import { reanudarTodoEnUno } from './todo-en-uno'
+import { dependenciasReales } from './todo-en-uno-deps'
 
 export async function prepararModoPruebas() {
   if (!modoPruebas()) return
@@ -25,8 +27,10 @@ export function iniciarModoPruebas(puerto: number) {
   registrarRecursos(rutaDev('recursos.csv'), 10_000)
   registrarLatidos()
   programarJornadas(puerto)
-  void registrarArranque(puerto).then(a => {
-    if (a?.motivo === 'prueba_reinicio') return reanudarRecuperacion(a.primer200)
+  void registrarArranque(puerto).then(async a => {
+    if (a?.motivo === 'prueba_reinicio') await reanudarRecuperacion(a.primer200)
+    // Después de medir el reinicio: «Todo en uno» sigue donde quedó
+    if (reanudarTodoEnUno(dependenciasReales(puerto))) console.log('[dev] «Todo en uno» reanudado')
   }).catch(e => console.log(`[dev] Registro del arranque falló: ${(e as Error).message}`))
   console.log(`[startup] Registro de recursos en ${dirDev()}; perfil de desarrollador en /api/dev`)
 }

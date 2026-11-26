@@ -8,13 +8,20 @@ import * as os from 'os'
 import * as path from 'path'
 import { spawnSync } from 'child_process'
 import { setupHttpApp } from './helpers/http'
-import { errorModoPruebas, rutaDev } from '../dev/modo'
+import { errorModoPruebas, escribirJson, fechaLocal, leerJson, rutaDev } from '../dev/modo'
 import { CABECERA_RECURSOS, cpuPct, discoDe, muestra, potenciaDe, tiemposCpu, type Fuentes } from '../dev/sistema'
 import { registrarRecursos } from '../dev/registro'
 import { iniciarImpresoraSimulada, tipoDeTrabajo } from '../dev/impresora'
 import { planSim12, percentil } from '../dev/jornada-plan'
 import { proximaJornada } from '../dev/jornada'
 import { entornoPruebas, totalesVitest } from '../dev/pruebas'
+import { respaldos, type EstadoRecuperacion } from '../dev/recuperacion'
+import { iniciarTrabajo } from '../dev/trabajos'
+import type { Programacion } from '../dev/jornada'
+import {
+  iniciarTodoEnUno, momentoRecuperacion, planTodo, reanudarTodoEnUno, reintentarDesde, type Dependencias, type PlanTodo,
+} from '../dev/todo-en-uno'
+import { addDaysIso } from '../domain/calendar'
 import {
   almacenamiento, calcularResultados, fechasDeRclone, nochesDelPeriodo, periodoPorDefecto, RUTA_PLANTILLA, resumenMd, soVersion,
   validarContraPlantilla,
@@ -107,6 +114,9 @@ describe('[RNF06] /api/dev y el rol developer', () => {
     expect(estado.status).toBe(200)
     expect(estado.body.arranques).toEqual({ hechos: 0, de: 5 })
     expect(estado.body.periodo).toEqual(periodoPorDefecto())
+    // «Todo en uno» pide confirmación
+    expect((await request(ctx.app).post('/api/dev/todo-en-uno').set('Authorization', auth.developer).send({})).status).toBe(400)
+    expect((await request(ctx.app).post('/api/dev/todo-en-uno').set('Authorization', auth.manager).send({ confirmar: true })).status).toBe(403)
   })
 
   it('no aparece en Usuarios ni en la auditoría del negocio, pero sus acciones quedan en audit_log', async () => {
@@ -243,6 +253,140 @@ describe('jornada simulada (C4)', () => {
     expect(percentil([5, 1, 3, 2, 4], 0.5)).toBe(3)
     expect(percentil(Array.from({ length: 20 }, (_, i) => i + 1), 0.95)).toBe(19)
     expect(percentil([], 0.95)).toBeNull()
+  })
+})
+
+describe('pruebas de recuperación: respaldos seguidos (C5)', () => {
+  // El bash disponible: en Windows puede ser el de WSL (/mnt/c/…) o el de Git (/c/…)
+  const sonda = spawnSync('bash', ['-c', 'uname -s'], { encoding: 'utf-8' })
+  const hayBash = sonda.status === 0
+  const rutaBash = (p: string) => {
+    const m = /^([A-Za-z]):[\\/](.*)$/.exec(p)
+    if (process.platform !== 'win32' || !m) return p
+    const resto = m[2].replace(/\\/g, '/')
+    return /Linux/.test(sonda.stdout) ? `/mnt/${m[1].toLowerCase()}/${resto}` : `/${m[1].toLowerCase()}/${resto}`
+  }
+
+  it.skipIf(!hayBash)('[RNF05] dos respaldos seguidos con un backup.sh que nombra al segundo no chocan', async () => {
+    const dev = path.join(TMP, 'dev-respaldos')
+    const dir = path.join(TMP, 'respaldos')
+    fs.mkdirSync(dir, { recursive: true })
+    const script = path.join(TMP, 'backup-falso.sh')
+    // Como el backup.sh de la Fase 11: gzip se niega a sobrescribir un .gz existente
+    fs.writeFileSync(script, `#!/bin/bash\nset -e\nDATE=$(date +%Y%m%d-%H%M%S)\nDEST=${rutaBash(dir)}/mauidisk-sim-$DATE.db\necho datos > "$DEST"\ngzip "$DEST"\n`)
+    const antes = { dev: process.env.MAUI_DEV_DIR, script: process.env.BACKUP_SCRIPT, dir: process.env.MAUI_BACKUP_DIR }
+    Object.assign(process.env, { MAUI_DEV_DIR: dev, BACKUP_SCRIPT: rutaBash(script), MAUI_BACKUP_DIR: dir })
+    try {
+      await respaldos(() => undefined, 2)
+      const gz = fs.readdirSync(dir).filter(f => f.endsWith('.db.gz'))
+      expect(gz).toHaveLength(2)
+      const filas = fs.readFileSync(path.join(dev, 'respaldo.csv'), 'utf-8').trim().split('\n').slice(1)
+      expect(filas).toHaveLength(2)
+      // Duración con 2 decimales: con 1 salían «0» en la Tabla V
+      for (const f of filas) expect(f.split(',')[2]).toMatch(/^\d+(\.\d{1,2})?$/)
+    } finally {
+      process.env.MAUI_DEV_DIR = antes.dev
+      for (const [k, v] of [['BACKUP_SCRIPT', antes.script], ['MAUI_BACKUP_DIR', antes.dir]] as const) {
+        if (v === undefined) delete process.env[k]
+        else process.env[k] = v
+      }
+    }
+  }, 30_000)
+})
+
+describe('«Todo en uno»: encadenamiento con tiempos acortados', () => {
+  const DEV = path.join(TMP, 'dev-todo')
+  let devAntes: string | undefined
+  const llamadas: string[] = []
+  const programadas: Programacion[] = []
+  let fallarPruebas = true
+
+  const deps = (): Dependencias => ({
+    correr: tipo => iniciarTrabajo(`todo-${tipo}`, async () => {
+      llamadas.push(tipo)
+      await new Promise(r => setTimeout(r, 20))
+      if (tipo === 'pruebas' && fallarPruebas) { fallarPruebas = false; throw new Error('2 pruebas fallidas') }
+      if (tipo === 'recuperacion') {
+        // Los cortes de verdad reinician el proceso; aquí solo cambia el estado como lo dejaría el quinto reinicio
+        escribirJson(rutaDev('recuperacion.json'), { estado: 'corriendo', fase: 'Respaldo 1 de 5', inicio: '', fin: null, error: null })
+        setTimeout(() => escribirJson(rutaDev('recuperacion.json'), { estado: 'hecho', fase: 'Terminado', inicio: '', fin: '', error: null }), 80)
+      }
+    }),
+    programar: p => { programadas.push(p) },
+    estadoRecuperacion: () => leerJson<EstadoRecuperacion>(rutaDev('recuperacion.json')),
+    jornadaEnCurso: () => null,
+    verificarDescarga: () => undefined,
+    ahora: () => new Date(),
+  })
+
+  async function hasta(cond: (p: PlanTodo) => boolean) {
+    for (let i = 0; i < 300; i++) {
+      const p = planTodo()
+      if (p && cond(p)) return p
+      await new Promise(r => setTimeout(r, 20))
+    }
+    throw new Error(`el plan no llegó al estado esperado: ${JSON.stringify(planTodo())}`)
+  }
+
+  beforeAll(() => {
+    devAntes = process.env.MAUI_DEV_DIR
+    Object.assign(process.env, { MAUI_DEV_DIR: DEV, MAUI_TODO_ESPERA_RECUPERACION_MS: '150', MAUI_TODO_SONDEO_MS: '30' })
+  })
+  afterAll(() => {
+    process.env.MAUI_DEV_DIR = devAntes
+    delete process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
+    delete process.env.MAUI_TODO_SONDEO_MS
+  })
+
+  it('se detiene en el paso que falla y sigue desde ahí hasta dejar la descarga lista', async () => {
+    const plan = iniciarTodoEnUno(deps())
+    expect(plan.desde).toBe(addDaysIso(fechaLocal().slice(0, 10), 1))
+    expect(() => iniciarTodoEnUno(deps())).toThrow(/en marcha/)
+
+    const detenido = await hasta(p => p.estado === 'detenido')
+    expect(detenido.pasos.map(p => p.estado)).toEqual(['hecho', 'hecho', 'error', 'pendiente', 'pendiente', 'pendiente'])
+    expect(detenido.pasos[2].error).toBe('2 pruebas fallidas')
+    expect(programadas).toHaveLength(0)
+
+    reintentarDesde(deps(), 'pruebas')
+    const esperando = await hasta(p => p.pasos[4].estado === 'esperando')
+    expect(esperando.pasos[3].detalle).toMatch(/^7 jornadas desde el \d{4}-\d{2}-\d{2} a las 12:00$/)
+    const listo = await hasta(p => p.estado === 'listo')
+    expect(listo.pasos.every(p => p.estado === 'hecho')).toBe(true)
+    expect(listo.pasos[5].detalle).toBe('Listo para descargar')
+    expect(llamadas).toEqual(['medir', 'permisos', 'pruebas', 'pruebas', 'recuperacion'])
+    expect(programadas).toEqual([{ hora: '12:00', dias: 7, desde: plan.desde, ejecutadas: [] }])
+    // El plan quedó en disco
+    expect(JSON.parse(fs.readFileSync(path.join(DEV, 'todo-en-uno.json'), 'utf-8')).estado).toBe('listo')
+  })
+
+  it('al arrancar repite el paso que un reinicio cortó y espera el fin de los cortes de C5', async () => {
+    llamadas.length = 0
+    const p = planTodo()!
+    p.estado = 'corriendo'
+    for (const x of p.pasos) Object.assign(x, { estado: 'hecho' })
+    p.pasos[2].estado = 'corriendo' // pruebas, cortado por el reinicio
+    p.pasos[4].estado = 'corriendo' // recuperación entre cortes
+    p.pasos[5].estado = 'pendiente'
+    escribirJson(path.join(DEV, 'todo-en-uno.json'), p)
+    escribirJson(path.join(DEV, 'recuperacion.json'), { estado: 'corriendo', fase: 'Reinicio 3 de 5', inicio: '', fin: null, error: null })
+
+    expect(reanudarTodoEnUno(deps())).not.toBeNull()
+    await hasta(x => x.pasos[4].detalle === 'Reinicio 3 de 5')
+    expect(planTodo()!.estado).toBe('corriendo')
+    escribirJson(path.join(DEV, 'recuperacion.json'), { estado: 'hecho', fase: 'Terminado', inicio: '', fin: '', error: null })
+    await hasta(x => x.estado === 'listo')
+    expect(llamadas).toEqual(['pruebas'])
+  })
+
+  it('sin acortar, la recuperación es la mañana siguiente a la última jornada, a las 09:00', () => {
+    const ms = process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
+    delete process.env.MAUI_TODO_ESPERA_RECUPERACION_MS
+    try {
+      expect(momentoRecuperacion('2026-12-01', 7, new Date())).toBe(new Date('2026-12-08T09:00:00').toISOString())
+    } finally {
+      process.env.MAUI_TODO_ESPERA_RECUPERACION_MS = ms
+    }
   })
 })
 

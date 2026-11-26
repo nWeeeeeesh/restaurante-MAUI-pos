@@ -209,7 +209,7 @@ MODULES = [
         "files": ["server/src/dev/modo.ts", "server/src/dev/guardia.ts", "server/src/dev/arranque.ts", "server/src/dev/sistema.ts",
                   "server/src/dev/registro.ts", "server/src/dev/impresora.ts", "server/src/dev/trabajos.ts", "server/src/dev/medir.ts",
                   "server/src/dev/permisos.ts", "server/src/dev/pruebas.ts", "server/src/dev/recuperacion.ts", "server/src/dev/jornada.ts",
-                  "server/src/dev/jornada-plan.ts", "server/src/dev/descarga.ts", "server/src/routes/dev.ts", "server/src/schemas/dev.ts",
+                  "server/src/dev/jornada-plan.ts", "server/src/dev/descarga.ts", "server/src/dev/todo-en-uno.ts", "server/src/dev/todo-en-uno-deps.ts", "server/src/routes/dev.ts", "server/src/schemas/dev.ts",
                   "server/src/__tests__/dev.test.ts", "server/scripts/dev-usuario.ts", "server/scripts/jornada.ts",
                   "client/src/api/dev.ts", "client/src/hooks/useDevEstado.ts", "client/src/pages/dev/Developer.tsx"],
     },

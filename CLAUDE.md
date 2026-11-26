@@ -74,7 +74,8 @@ server/src/
   repositories/      profitability.repo, forecast.repo: únicos que conocen el esquema en los incrementos 2 y 3 (lectura por lote)
   jobs/nightly.ts    pronóstico de cada noche de atención a las 23:30 de Lima; lo arranca index.ts (NIGHTLY_JOBS=off lo apaga)
   dev/               modo de pruebas (MAUI_MODO_PRUEBAS=1): guardia de la base -sim.db, registro de recursos, impresora
-                     simulada, jornadas, recuperación, permisos, pruebas y descarga de resultados (server/data/dev/)
+                     simulada, jornadas, recuperación, permisos, pruebas, descarga de resultados y «Todo en uno»
+                     (server/data/dev/)
   services/
     order.service.ts     precios desde el catálogo, crear pedido, agregar ítems, estados, cancelar
     billing.service.ts   cobro atómico (lecturas dentro de la tx, guardia bill_id IS NULL)
