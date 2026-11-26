@@ -12,40 +12,40 @@ const SERVER = path.join(__dirname, '..')
 const DOCS = path.join(SERVER, '..', 'docs', 'tesis')
 const OUT = path.join(DOCS, 'evidencias.md')
 
-// Requisitos de la tesis. Los nombres vienen de plan-sistema y de CLAUDE.md; `manual`
-// indica cómo se acepta cuando no hay prueba automática.
+// Requisitos de la tesis: Tablas 10 y 11, con sus textos. `manual` indica dónde se
+// verifican los que no tienen prueba automática (docs/tesis/aceptacion.md).
 const RF: [string, string, string?][] = [
-  ['RF01', 'Registro de la «Compra del día» (incremento 1)', 'PA-01'],
-  ['RF02', '«Hoy no compré»'],
-  ['RF03', 'Registro del incremento 1', 'PA-01'],
-  ['RF04', 'Registro del incremento 1', 'PA-01'],
-  ['RF05', 'Traslados entre locales'],
-  ['RF06', 'Tipo de gasto fijo o variable'],
-  ['RF07', 'Exportación del dataset'],
-  ['RF08', 'Recetas en gramos limpios y unidad de compra'],
-  ['RF09', 'Calibración de recetas (F12)'],
-  ['RF10', 'Costo promedio ponderado (F8)'],
-  ['RF11', 'Costo y margen por plato (F13, F14)'],
-  ['RF12', 'Rentabilidad operativa del periodo (F9, F10, F11, F15)'],
-  ['RF13', 'Ingeniería de menú'],
-  ['RF14', 'Totales trazables a los registros'],
-  ['RF15', 'Stock teórico (F6)'],
-  ['RF16', 'Pronóstico de demanda (F4, F5, métodos y selección)'],
-  ['RF17', 'Cantidad sugerida y lista de compra (F2)'],
-  ['RF18', 'Aviso de pocas porciones'],
-  ['RF19', 'Propuesta de agotado confirmada por una persona'],
+  ['RF01', 'Registrar al abrir, por insumo crítico, lo que quedaba y lo que se botó, con las notas del día'],
+  ['RF02', 'Registrar al volver de comprar lo comprado y su precio por kg, o «Hoy no compré»'],
+  ['RF03', 'Registrar el monto diario de otros insumos'],
+  ['RF04', 'Registrar lo enviado al otro local y lo recibido (traslados)'],
+  ['RF05', 'Marcar y desmarcar un plato como agotado desde el POS, con autor y hora'],
+  ['RF06', 'Configurar por insumo la vida útil y el nivel de servicio, y clasificar los gastos en fijos y variables'],
+  ['RF07', 'Exportar los datos con columnas fijas y diccionario'],
+  ['RF08', 'Registrar las recetas (gramos limpios por porción) y el rendimiento de cada insumo'],
+  ['RF09', 'Calcular el factor de calibración de cada insumo'],
+  ['RF10', 'Calcular el costo promedio ponderado con cada compra'],
+  ['RF11', 'Calcular el costo y el margen de contribución de cada plato'],
+  ['RF12', 'Calcular por día, semana y mes el costo de lo vendido, food cost, utilidad bruta y operativa, merma y punto de equilibrio'],
+  ['RF13', 'Clasificar los platos según la ingeniería de menú'],
+  ['RF14', 'Mostrar el panel de rentabilidad con los indicadores de RF11 a RF13'],
+  ['RF15', 'Calcular el stock teórico de cada insumo durante el día'],
+  ['RF16', 'Pronosticar cada noche la demanda diaria de los insumos críticos y guardarla'],
+  ['RF17', 'Mostrar e imprimir la lista de compra para los días que cubrirá la compra'],
+  ['RF18', 'Avisar en el POS cuando queden pocas porciones de un plato'],
+  ['RF19', 'Proponer marcar un plato como agotado, sin marcarlo hasta que una persona lo confirme'],
 ]
 const RNF: [string, string, string?][] = [
-  ['RNF01', '—', 'PA (revisión manual, T20)'],
-  ['RNF02', 'Ayuda de una línea en cada campo de captura', 'Revisión de pantallas (T20)'],
-  ['RNF03', '—', 'PA (revisión manual, T20)'],
-  ['RNF04', '—', 'PA (revisión manual, T20)'],
-  ['RNF05', '—', 'PA (revisión manual, T20)'],
-  ['RNF06', 'Permisos por rol (401 / 403)'],
-  ['RNF07', 'Esquema solo aditivo'],
-  ['RNF08', '—', 'PA (revisión manual, T20)'],
-  ['RNF09', 'Tiempos de respuesta', 'PA-07 en la Raspberry Pi'],
-  ['RNF10', '—', 'PA (revisión manual, T20)'],
+  ['RNF01', 'Cada parte del registro se completa en 60 s o menos desde un celular', 'PA-01'],
+  ['RNF02', 'Cada campo tiene una ayuda de una línea', 'revisión de pantallas'],
+  ['RNF03', 'Opera sin internet dentro de la red local', 'PA-08'],
+  ['RNF04', 'Cada guardado es atómico; volver a guardar una parte la reemplaza sin duplicarla'],
+  ['RNF05', 'Respaldo diario con restauración probada', 'PA-08 (restauración del respaldo)'],
+  ['RNF06', 'Cada función exige su rol y cada cambio queda en la auditoría'],
+  ['RNF07', 'Cambios al esquema solo aditivos; cada regla con prueba automatizada'],
+  ['RNF08', 'Un nuevo local se instala con la misma versión y su propio identificador', 'instalación con instalar.sh (DEPLOYMENT.md)'],
+  ['RNF09', 'Panel de un mes ≤ 3 s en la Raspberry Pi; tarea nocturna antes de la apertura'],
+  ['RNF10', 'Funciona en el navegador del celular y comparte el servidor con el POS sin afectarlo', 'PA-08'],
 ]
 const RD: [string, string, string?][] = [
   ['RD01', 'La «Compra del día» nunca muestra el pronóstico'],
@@ -147,8 +147,6 @@ La medición en la Raspberry Pi es la prueba de aceptación PA-07 ([aceptacion.m
 ## 4. Requisitos sin prueba automática
 
 ${sinPrueba.length === 0 ? 'Ninguno.' : sinPrueba.map(([id, d, m]) => `- **${id}** (${d}): ${m ? `se acepta de forma manual (${m}).` : '**sin prueba ni aceptación manual definida.**'}`).join('\n')}
-
-Los requisitos del incremento 1 sin etiqueta (RF01, RF03, RF04) tienen pruebas en \`inventory.daily.test.ts\`, \`inventory.test.ts\` y \`inventory.transfers.test.ts\`, pero sin el ID en el nombre, porque el repositorio no define a qué corresponde cada uno. Al ponerles la etiqueta, este informe los cuenta.
 
 ## 5. Pruebas por archivo
 

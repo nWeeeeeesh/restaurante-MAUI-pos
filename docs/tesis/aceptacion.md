@@ -15,14 +15,14 @@ Sistema de pronóstico de demanda y cálculo de rentabilidad operativa para la c
 
 | PA | Incremento | Qué se acepta | Requisitos | Dónde | Resultado | Fecha | Evidencia |
 |---|---|---|---|---|---|---|---|
-| PA-01 | 1 | El encargado registra la «Compra del día» completa desde su celular | RF01–RF05, RNF02 | Local | Pendiente | | |
+| PA-01 | 1 | El encargado registra la «Compra del día» completa desde su celular | RF01–RF04, RNF01, RNF02 | Local | Pendiente | | |
 | PA-02 | 1 | «Hoy no compré» y export del dataset v2 | RF02, RF07, RD05 | PC | **Aceptada** | 2026-11-06 | Pruebas `[PI-02]`, `[PI-07]` |
 | PA-03 | 2 | La rentabilidad de un periodo coincide con el cálculo de referencia | RF10, RF12, RF14 | PC | **Aceptada** | 2026-11-06 | `[PP-01]`, `[PI-09]`; [captura](capturas/rentabilidad-desktop.png) |
 | PA-04 | 2 | Recetas, calibración, costo y margen por plato, tipo de gasto | RF06, RF08, RF09, RF11, RF13 | PC | **Aceptada** | 2026-11-06 | `[PI-06]`, `[PI-08]`; [recetas](capturas/recetas-desktop.png), [gasto](capturas/gastos-mobile.png), [insumo](capturas/insumo-mobile.png) |
 | PA-05 | 3 | Lista de compra con pronóstico, cobertura editable e impresión | RF15, RF16, RF17, RD04 | PC | **Aceptada** | 2026-11-06 | `[PP-02]`, `[PP-03]`, `[PI-10]`, `[PI-12]`; [captura](capturas/lista-desktop.png) |
-| PA-06 | 3 | Aviso de pocas porciones; el agotado lo confirma una persona; la «Compra del día» no muestra el pronóstico | RF18, RF19, RD01, RD02 | PC | **Aceptada** | 2026-11-06 | `[PI-11]`, `[PI-13]`, `[PI-14]`; [captura](capturas/pos-mobile.png) |
+| PA-06 | 3 | Aviso de pocas porciones; el agotado lo confirma una persona; la «Compra del día» no muestra el pronóstico | RF05, RF18, RF19, RD01, RD02 | PC | **Aceptada** | 2026-11-06 | `[PI-11]`, `[PI-13]`, `[PI-14]`; [captura](capturas/pos-mobile.png) |
 | PA-07 | 2 y 3 | Tiempos de respuesta en la Raspberry Pi | RNF09 | Local | Pendiente | | `npm run perf` en la Pi |
-| PA-08 | 3 | La tarea nocturna corre sola una semana y cada rol ve solo lo suyo | RF16, RNF06 | Local | Pendiente | | `forecast_runs`, celulares por rol |
+| PA-08 | 3 | La tarea nocturna corre sola una semana, cada rol ve solo lo suyo y el respaldo se restaura | RF16, RNF03, RNF05, RNF06, RNF10 | Local | Pendiente | | `forecast_runs`, celulares por rol |
 
 ## Criterios por prueba
 
@@ -31,7 +31,7 @@ Sistema de pronóstico de demanda y cálculo de rentabilidad operativa para la c
 2. Al volver del mercado completa **«Al volver de comprar»**: cantidad, precio y proveedor de cada compra, y el monto de otros insumos. Guarda.
 3. Un día sin compras usa **«Hoy no compré»**.
 
-**Se acepta si:** cada parte se guarda en menos de 3 minutos (`daily_parts.duracion_ms`); al día siguiente el «Hoy empezaste con» muestra lo registrado; el export `daily` del día tiene una fila por crítico.
+**Se acepta si:** cada parte se guarda en 60 s o menos (RNF01, `daily_parts.duracion_ms`); al día siguiente el «Hoy empezaste con» muestra lo registrado; el export `daily` del día tiene una fila por crítico.
 
 ### PA-02 · «Hoy no compré» y dataset v2 (PC)
 1. En **Hoy**, «Al volver de comprar» → **Hoy no compré**. Con una compra escrita, el botón queda deshabilitado.
@@ -82,8 +82,9 @@ Sistema de pronóstico de demanda y cálculo de rentabilidad operativa para la c
 1. Durante 7 días de atención, el sistema queda encendido sin tocar nada.
 2. Cada mañana, el encargado imprime la lista de compra.
 3. El mozo, el cajero, el encargado y el dueño revisan su menú en su celular.
+4. Restaura el respaldo de la noche anterior en una base nueva (DEPLOYMENT.md) y comprueba que la “Compra del día” y las ventas del último día están completas.
 
-**Se acepta si:** hay una fila `ok` en `forecast_runs` por cada noche de atención; la lista se imprime en la ticketera real; el mozo no ve Rentabilidad, Recetas ni Lista de compra; el cajero y el encargado no ven Rentabilidad ni Recetas.
+**Se acepta si:** hay una fila `ok` en `forecast_runs` por cada noche de atención; la lista se imprime en la ticketera real; el mozo no ve Rentabilidad, Recetas ni Lista de compra; el cajero y el encargado no ven Rentabilidad ni Recetas; la base restaurada pasa `PRAGMA integrity_check` y tiene la «Compra del día» y las boletas del último día (RNF05).
 
 ## Revisión de cada pantalla
 
