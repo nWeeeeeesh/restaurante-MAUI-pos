@@ -25,7 +25,7 @@ beforeAll(async () => {
 const availabilityEvents = () => emit.mock.calls.filter(([event]) => event === 'menu:availability').map(([, payload]) => payload)
 
 describe('evento menu:availability', () => {
-  it('se emite al marcar agotado o habilitar, no al repetir el mismo estado', async () => {
+  it('[RF05] se emite al marcar agotado o habilitar, no al repetir el mismo estado', async () => {
     emit.mockClear()
     for (const available of [false, false, true]) {
       await request(ctx.app).patch(`/api/menu/dishes/${dishId}/availability`).set('Authorization', cashier).send({ available })
@@ -33,7 +33,7 @@ describe('evento menu:availability', () => {
     expect(availabilityEvents()).toEqual([{ dishId, available: false }, { dishId, available: true }])
   })
 
-  it('también desde la edición del dueño, solo si cambia la disponibilidad', async () => {
+  it('[RF05] también desde la edición del dueño, solo si cambia la disponibilidad', async () => {
     emit.mockClear()
     await request(ctx.app).patch(`/api/menu/dishes/${dishId}`).set('Authorization', owner).send({ price: 36 })
     await request(ctx.app).patch(`/api/menu/dishes/${dishId}`).set('Authorization', owner).send({ available: false })

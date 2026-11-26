@@ -64,7 +64,7 @@ describe('matriz de permisos', () => {
 
   // Plan inventario v2 §2.4: el cajero también marca agotado (es quien se entera
   // primero en el salón); precios y altas siguen siendo del dueño
-  it('marcar plato agotado: cajero, encargado y dueño', async () => {
+  it('[RF05][RNF06] marcar plato agotado: cajero, encargado y dueño', async () => {
     await expectMatrix(only('owner', 'manager', 'cashier'), a =>
       request(ctx.app).patch(`/api/menu/dishes/${dishId}/availability`).set('Authorization', a).send({ available: true }))
     await expectMatrix(only('owner', 'manager', 'cashier'), a =>

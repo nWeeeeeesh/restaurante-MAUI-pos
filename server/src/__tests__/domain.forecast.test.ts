@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  ventasPerdidas, demandaNoCensurada, stockTeorico, cantidadSugerida, cobertura, beneficioPotencial, zNormal,
+  ventasPerdidas, demandaNoCensurada, stockTeorico, cantidadSugerida, cobertura, zNormal,
   pronosticar, seleccionar, respaldo, ingenuoEstacional, promedioEstacional, redondearMedioKilo, gauss, METODOS,
 } from '../domain/forecast'
 
@@ -36,8 +36,9 @@ describe('dominio de pronóstico (incremento 3)', () => {
     expect(cobertura(2, null)).toBe(2)
   })
 
-  it('[PU-18][RF17] beneficio potencial', () => {
-    expect(beneficioPotencial(120, 15, 40, 25)).toBeCloseTo(70.00, TOL)
+  it('[PU-18][RF17] redondeo de la cantidad sugerida al medio kilo superior', () => {
+    expect(redondearMedioKilo(15.95)).toBe(16.0)
+    expect(redondearMedioKilo(16.0)).toBe(16.0)
   })
 
   it('[RF17] z(0.85) = 1.0364 y z(0.99) = 2.3263', () => {

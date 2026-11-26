@@ -57,7 +57,8 @@ caso('PU-14', 'stock teórico (F6)', F.stock_teorico(6.0, 10.0, f, 30 * 0.25), 7
 caso('PU-15', 'cantidad sugerida (F2)', F.cantidad_sugerida([12.0, 11.0], 2.0, F.z_normal(0.85), 4.0), 21.07)
 caso('PU-16', 'cobertura limitada', F.cobertura(5, 3), 3)
 caso('PU-17', 'receta en la unidad de compra', F.kg_por_porcion(180, 0.80), 0.225, tol=0.0001)
-caso('PU-18', 'beneficio potencial', F.beneficio_potencial(120, 15, 40, 25), 70.00)
+caso('PU-18', 'redondeo de la cantidad sugerida (15.95)', F.redondear_medio_kilo(15.95), 16.0)
+caso('PU-18', 'redondeo de la cantidad sugerida (16.0)', F.redondear_medio_kilo(16.0), 16.0)
 
 # ── Resultado conocido (T14) ──
 semana = [1, 2, 3, 4, 5, 6]

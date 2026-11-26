@@ -52,11 +52,6 @@ export function redondearMedioKilo(q: number): number {
   return Math.ceil(q * 2 - 1e-9) / 2
 }
 
-// (margen perdido + merma) con la compra real − lo mismo con la sugerida
-export function beneficioPotencial(margenPerdidoReal: number, costoMermaReal: number, margenPerdidoSugerida: number, costoMermaSugerida: number): number {
-  return (margenPerdidoReal + costoMermaReal) - (margenPerdidoSugerida + costoMermaSugerida)
-}
-
 // Inversa de la normal estándar (Acklam, error relativo < 1.15e-9)
 export function zNormal(p: number): number {
   if (!(p > 0 && p < 1)) throw new RangeError('p debe estar en (0, 1)')

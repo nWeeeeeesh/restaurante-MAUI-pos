@@ -371,10 +371,10 @@ Actualiza `docs/architecture/api.md`, `data-model.md`, `modules.md` y `architect
 | PU-15 | Cantidad sugerida (F2) | H = 2; pronósticos 12.0 y 11.0; σ_H = 2.0; nivel 85 % (z = 1.0364); A = 4.0 | 21.07 | RF17 |
 | PU-16 | Cobertura limitada | pedida 5; vida útil 3 | 3 | RF17 |
 | PU-17 | Receta en la unidad de compra | 180 g; r = 0.80 | 0.225 kg | RF08 |
-| PU-18 | Beneficio potencial | (120 + 15) real − (40 + 25) sugerida | 70.00 | RF17 |
+| PU-18 | Redondeo de la cantidad sugerida al medio kilo superior | 15.95 y 16.0 | 16.0 y 16.0 | RF17 |
 
 > Nota sobre PU-09: c = 0.25 × 1.0952 × 23.25 + (120 / 1450) × 30 = 6.366 + 2.483 = 8.85. Si tu implementación da otro valor, revisa la asignación de otros insumos.
-> PU-18 queda como función del dominio (`beneficioPotencial`), aunque la tesis ya no lo usa como indicador.
+> PU-18 es el redondeo de la cantidad sugerida (`redondearMedioKilo`). El beneficio potencial se retiró del dominio y de la referencia (tarea de despliegue, bloque B).
 
 ## 6. Requisitos que este plan cubre
 
@@ -474,7 +474,7 @@ _(Claude Code: anota aquí, con fecha, cada desviación del plan, la decisión q
 - **2026-11-06 · T13.** Tablas `demand_forecasts` (índice único `uq_demand_forecasts_night`, requerido porque de él depende RD04), `purchase_suggestions` y `forecast_runs`, cada una con su índice. Se agregó la columna nulable `purchase_suggestions.available_source` (`conteo` | `teorico`): guarda de dónde salió el disponible A, para la trazabilidad de cada valor. `forecast_runs.status` es `running` | `ok` | `error`. La migración es idempotente y tiene prueba. Pruebas: 207.
 - **2026-11-06 · T14.** `domain/forecast.ts` replica `formulas.py` con el mismo orden de operaciones:
   - **Rejilla y empates.** Se arma con `k·5/100`, que da los mismos doubles que `round(0.05·k, 2)`. El pivote de Gauss toma el primero en empate, como el `max` de Python. El método elegido es el primero con el MAE menor.
-  - **Funciones agregadas.** `demandaNoCensurada` (F5), `redondearMedioKilo` (al alza, solo para mostrar), `beneficioPotencial` (PU-18), `MODEL_VERSION` y `gauss`, exportada para probarla.
+  - **Funciones agregadas.** `demandaNoCensurada` (F5), `redondearMedioKilo` (al alza, solo para mostrar; PU-18 desde el bloque B de la tarea de despliegue), `MODEL_VERSION` y `gauss`, exportada para probarla.
   - **Pruebas.** Cubren PU-13 a PU-16 y PU-18, los casos de resultado conocido (demanda constante, patrón semanal con MAE 0 y elección del ingenuo en empate, respaldo con historia corta, demanda cero, z con 4 decimales) y dos más: un día imputado no entra en el error, y Gauss con un sistema singular.
   - **Corrección a mi propia prueba.** El caso de respaldo esperaba un promedio de dos semanas, pero con menos de 12 días solo hay una semana previa por día. Corregí la expectativa; el código ya hacía lo correcto.
   - Pruebas: 219.

@@ -67,7 +67,7 @@ async function sale(date: string) {
 }
 
 describe('parte A · «Al abrir»', () => {
-  it('guarda apertura, merma (también 0) y notas, con modo de entrada, autor y duración', async () => {
+  it('[RF01] guarda apertura, merma (también 0) y notas, con modo de entrada, autor y duración', async () => {
     const res = await apertura(today, fullOpening(2, 1, 0), { notes: [{ kind: 'dueno_ausente' }] })
     expect(res.status).toBe(200)
     const r = await rowsFor(today)
@@ -83,7 +83,7 @@ describe('parte A · «Al abrir»', () => {
     expect(r.parts[0]).toMatchObject({ part: 'apertura', durationMs: 41000, isCorrection: false, clientVersion: 'test', localId: 1 })
   })
 
-  it('quedaba es obligatorio para todos los críticos activos', async () => {
+  it('[RF01] quedaba es obligatorio para todos los críticos activos', async () => {
     const day = addDays(today, -2)
     const res = await apertura(day, [{ supplyId: pescado, opening: 1 }, { supplyId: calamar, opening: 1 }])
     expect(res.status).toBe(400)
@@ -92,7 +92,7 @@ describe('parte A · «Al abrir»', () => {
     expect((await rowsFor(day)).parts).toHaveLength(0)
   })
 
-  it('volver a guardarla corrige sin duplicar, marca is_correction y deja audit', async () => {
+  it('[RF01][RNF04] volver a guardarla corrige sin duplicar, marca is_correction y deja audit', async () => {
     const res = await apertura(today, fullOpening(2.5, 1, 0))
     expect(res.status).toBe(200)
     const r = await rowsFor(today)
@@ -106,7 +106,7 @@ describe('parte A · «Al abrir»', () => {
     expect(JSON.parse(logs[logs.length - 1].data!)).toMatchObject({ date: today, part: 'apertura', before: { counts: expect.any(Array) } })
   })
 
-  it('la merma se imputa al día operativo anterior (el último con ventas)', async () => {
+  it('[RF01] la merma se imputa al día operativo anterior (el último con ventas)', async () => {
     const day = addDays(today, -1)
     await sale(addDays(today, -4))
     await apertura(day, fullOpening(1, 1, 1))
@@ -116,7 +116,7 @@ describe('parte A · «Al abrir»', () => {
 })
 
 describe('parte B · «Al volver de comprar»', () => {
-  it('guarda compras con modo de cantidad y de precio, y otros insumos; no toca la parte A', async () => {
+  it('[RF02][RF03] guarda compras con modo de cantidad y de precio, y otros insumos; no toca la parte A', async () => {
     const res = await compra(today, [
       { supplyId: pescado, purchased: 3, purchasedMode: 'copied', unitPrice: 25, priceMode: 'copied', supplier: 'Terminal' },
       { supplyId: calamar, purchased: 2, purchasedMode: 'typed', unitPrice: 24, priceMode: 'typed', totalCost: 47 },
@@ -134,7 +134,7 @@ describe('parte B · «Al volver de comprar»', () => {
     expect(r.parts.filter(p => p.part === 'compra').map(p => p.isCorrection)).toEqual([false])
   })
 
-  it('volver a guardarla reemplaza solo lo suyo; guardar A después no borra B', async () => {
+  it('[RF02][RNF04] volver a guardarla reemplaza solo lo suyo; guardar A después no borra B', async () => {
     await compra(today, [{ supplyId: pescado, purchased: 4, unitPrice: 25 }], { otherCost: { amount: 40, mode: 'copied' } })
     let r = await rowsFor(today)
     expect(r.purchases.map(p => [p.supplyId, p.quantity])).toEqual([[pescado, 4]])
@@ -151,7 +151,7 @@ describe('parte B · «Al volver de comprar»', () => {
     expect((await rowsFor(today)).other).toHaveLength(0)
   })
 
-  it('no toca las compras manuales del mismo día', async () => {
+  it('[RF02] no toca las compras manuales del mismo día', async () => {
     const manual = await request(ctx.app).post('/api/inventory/purchases').set('Authorization', manager)
       .send({ supplyId: choclo, quantity: 5, totalCost: 10, purchasedAt: today })
     await compra(today, [{ supplyId: pescado, purchased: 4, unitPrice: 25 }])
@@ -159,7 +159,7 @@ describe('parte B · «Al volver de comprar»', () => {
     expect(still).toMatchObject({ source: 'manual', quantity: 5, entryMode: 'typed', priceEntryMode: 'typed' })
   })
 
-  it('una compra sin precio, fechas fuera de los 7 días o insumos inválidos → error sin guardar', async () => {
+  it('[RF02][RNF04] una compra sin precio, fechas fuera de los 7 días o insumos inválidos → error sin guardar', async () => {
     expect((await compra(today, [{ supplyId: pulpo, purchased: 2 }])).status).toBe(400)
     const old = await compra(addDays(today, -8), [{ supplyId: pulpo, purchased: 1, unitPrice: 30 }])
     expect(old.status).toBe(400)
@@ -199,7 +199,7 @@ describe('«Hoy no compré»', () => {
 })
 
 describe('GET /api/inventory/daily/:date', () => {
-  it('devuelve lo guardado, el estado de cada parte y la compra de referencia', async () => {
+  it('[RF01][RF02] devuelve lo guardado, el estado de cada parte y la compra de referencia', async () => {
     const day = addDays(today, -3)
     const buy = (supplyId: number, purchasedAt: string, quantity: number, totalCost: number, supplier?: string) =>
       ctx.db.insert(ctx.schema.supplyPurchases).values({ supplyId, purchasedAt, quantity, totalCost, supplier })
