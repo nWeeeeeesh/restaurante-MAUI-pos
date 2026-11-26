@@ -20,7 +20,7 @@ beforeAll(async () => {
 const audits = async (action: string) =>
   Number((await ctx.db.all<{ n: number }>(sql`SELECT COUNT(*) AS n FROM audit_log WHERE action = ${action}`))[0].n)
 
-describe('GET /api/profitability', () => {
+describe('[RF14] GET /api/profitability', () => {
   it('responde la rentabilidad del periodo con su serie', async () => {
     const res = await request(ctx.app).get(`/api/profitability?from=${FROM}&to=${TO}&groupBy=week`).set('Authorization', owner)
     expect(res.status).toBe(200)
@@ -94,7 +94,7 @@ describe('[PI-08][RF08] recetas', () => {
   })
 })
 
-describe('PATCH /api/inventory/supplies/:id (rendimiento, vida útil, nivel de servicio)', () => {
+describe('[RF06][RF08] PATCH /api/inventory/supplies/:id (rendimiento, vida útil, nivel de servicio)', () => {
   it('guarda los parámetros y valida sus rangos', async () => {
     const id = sim.supplyId.get('CALAMAR')!
     const ok = await request(ctx.app).patch(`/api/inventory/supplies/${id}`).set('Authorization', owner)

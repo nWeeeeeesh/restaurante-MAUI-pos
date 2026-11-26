@@ -18,7 +18,7 @@ beforeAll(async () => {
 })
 
 describe('dominio de ajustes', () => {
-  it('[RF05] los traslados se habilitan desde la fecha de apertura del segundo local', () => {
+  it('[RF04] los traslados se habilitan desde la fecha de apertura del segundo local', () => {
     expect(transfersEnabled({}, '2027-01-01')).toBe(false)
     expect(transfersEnabled({ second_local_opened_on: '2026-12-28' }, '2026-12-27')).toBe(false)
     expect(transfersEnabled({ second_local_opened_on: '2026-12-28' }, '2026-12-28')).toBe(true)

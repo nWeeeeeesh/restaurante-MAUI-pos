@@ -74,7 +74,7 @@ describe('baja de platos (TD-31)', () => {
     expect(res.body.code).toBe('DISH_UNAVAILABLE')
   })
 
-  it('marcar agotado desde la edición del dueño también cuenta como quiebre (dish.availability)', async () => {
+  it('[RF05] marcar agotado desde la edición del dueño también cuenta como quiebre (dish.availability)', async () => {
     const [dish] = await ctx.db.insert(ctx.schema.dishes).values({ categoryId: catId, name: 'Jalea', price: 40, hasSpiceLevel: false }).returning()
     await request(ctx.app).patch(`/api/menu/dishes/${dish.id}`).set('Authorization', owner).send({ available: false, price: 42 })
     // Cambiar solo el precio no es un quiebre
@@ -85,7 +85,7 @@ describe('baja de platos (TD-31)', () => {
     expect(JSON.parse(availability[0].data!)).toMatchObject({ name: 'Jalea', available: false })
   })
 
-  it('marcar agotado dos veces registra un solo quiebre', async () => {
+  it('[RF05] marcar agotado dos veces registra un solo quiebre', async () => {
     const manager = (await ctx.as('manager')).auth
     const [dish] = await ctx.db.insert(ctx.schema.dishes).values({ categoryId: catId, name: 'Arroz con mariscos', price: 38, hasSpiceLevel: false }).returning()
     for (const available of [false, false, true]) {

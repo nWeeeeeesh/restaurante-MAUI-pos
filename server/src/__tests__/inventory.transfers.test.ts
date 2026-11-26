@@ -30,7 +30,7 @@ const openSecondLocal = async (date: string) => {
 }
 
 describe('otros insumos del día', () => {
-  it('es idempotente por fecha y parte: uno por día, se reemplaza al corregir', async () => {
+  it('[RF03][RNF04] es idempotente por fecha y parte: uno por día, se reemplaza al corregir', async () => {
     const day = addDays(today, -1)
     await compra(day, [], { otherCost: { amount: 30, mode: 'typed' } })
     await compra(day, [], { otherCost: { amount: 32.5, mode: 'typed' } })
@@ -42,7 +42,7 @@ describe('otros insumos del día', () => {
 })
 
 describe('traslados', () => {
-  it('se rechazan mientras no abra el segundo local', async () => {
+  it('[RF04] se rechazan mientras no abra el segundo local', async () => {
     const res = await compra(today, [{ supplyId: calamar, transfer: 1 }])
     expect(res.status).toBe(400)
     expect(res.body.code).toBe('TRANSFERS_NOT_ENABLED')
@@ -51,7 +51,7 @@ describe('traslados', () => {
     expect(await transfersOn(today)).toHaveLength(0)
   })
 
-  it('el local 1 registra envíos al local 2, idempotentes por fecha', async () => {
+  it('[RF04][RNF04] el local 1 registra envíos al local 2, idempotentes por fecha', async () => {
     await openSecondLocal(today)
     expect((await compra(today, [{ supplyId: calamar, transfer: 1.5, transferMode: 'typed' }])).status).toBe(200)
     await compra(today, [{ supplyId: calamar, transfer: 2, transferMode: 'typed' }])
@@ -63,7 +63,7 @@ describe('traslados', () => {
     expect(daily.body.items[0]).toMatchObject({ transfer: 2, transferMode: 'typed' })
   })
 
-  it('[RD06] el local 2 registra recepciones del local 1, con costo opcional, y su propio local_id', async () => {
+  it('[RF04][RD06] el local 2 registra recepciones del local 1, con costo opcional, y su propio local_id', async () => {
     process.env.MAUI_LOCAL_ID = '2'
     const day = addDays(today, -2)
     await openSecondLocal(day)
