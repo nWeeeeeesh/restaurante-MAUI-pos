@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:migrate": "tsx src/db/migrate-cli.ts",
     "db:sim": "tsx scripts/load-sim.ts",
+    "db:recetas": "tsx scripts/load-recetas.ts",
     "perf": "tsx scripts/perf.ts",
     "report:tesis": "tsx scripts/trazabilidad.ts"
   },
@@ -52,6 +53,6 @@
     "vitest": "^4.1.8"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }

@@ -8,7 +8,7 @@ POS para Cevichería MAUI (Tacna, Perú). Despliegue local en Raspberry Pi 5, si
 
 ## Stack
 
-- **Server**: Node.js (≥ 22; producción con 24 LTS) + Express 5 + TypeScript + Drizzle ORM + `@libsql/client` (SQLite local) + Socket.io 4 + Zod
+- **Server**: Node.js 24 LTS (`.nvmrc`; los `package.json` exigen ≥ 24 y el lockfile, npm 11) + Express 5 + TypeScript + Drizzle ORM + `@libsql/client` (SQLite local) + Socket.io 4 + Zod
 - **Client**: React 19 + Vite 8 + Tailwind 4 + Zustand + React Router 7 + axios + socket.io-client + Lucide icons
 - **Auth**: JWT en `localStorage`; `requireAuth` y el handshake de Socket.io verifican además que el usuario siga activo en la BD
 - **DB**: SQLite local (`server/mauidisk.db`), modo WAL. Migraciones idempotentes en `server/src/db/migrate.ts` al arrancar.
@@ -87,6 +87,7 @@ server/src/
     settings.service.ts  ajustes del local (app_settings): apertura del segundo local
     profitability.service.ts  rentabilidad (obtenerRentabilidad) y calibración de recetas (calibrar)
     recipes.service.ts   recetas y tipo de gasto (fijo/variable)
+    recipes-import.service.ts  carga de recetas desde CSV (npm run db:recetas; nunca crea platos)
     forecast.service.ts  pronóstico (idempotente, RD04), lista de compra, stock teórico y avisos de pocas porciones
   schemas/           Schemas Zod por recurso
   db/
@@ -108,6 +109,9 @@ server/scripts/
   restore-backup.sh  restaura un backup en otra ruta sin pisar nada (ver DEPLOYMENT.md)
   load-sim.ts        npm run db:sim: crea mauidisk-sim.db (solo URLs que terminan en -sim.db)
   perf.ts            npm run perf: tiempos de los incrementos 2 y 3 → docs/tesis/rendimiento.json
+  load-recetas.ts    npm run db:recetas -- [--csv] [--reemplazar] [--dry-run]: recetas de server/data/recetas_aproximadas.csv
+
+scripts/actualizar.sh  actualiza la Pi del local a una etiqueta (DEPLOYMENT.md)
 
 client/src/
   pages/             POS, Cash, Tables, Reports, BillsHistory, Login, admin/{MenuAdmin,Users},
