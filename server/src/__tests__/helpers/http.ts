@@ -2,7 +2,7 @@ import { createClient } from '@libsql/client'
 import jwt from 'jsonwebtoken'
 import { tempDbUrl, createSchema } from './db'
 
-type Role = 'owner' | 'manager' | 'cashier' | 'waiter'
+type Role = 'owner' | 'manager' | 'cashier' | 'waiter' | 'developer'
 
 // Prepara la app para tests HTTP con una BD temporal propia.
 //

@@ -1,4 +1,4 @@
-// npm run report:tesis — evidencias para el Capítulo IV (plan-sistema T22). Ejecuta
+// npm run report:tesis [-- --out <ruta>] — evidencias para el Capítulo IV (plan-sistema T22). Ejecuta
 // Vitest con el reporter JSON, agrupa las pruebas por las etiquetas de su nombre
 // ([RFxx], [RNFxx], [RDxx], [PU-xx], [PI-xx], [PP-xx]) y escribe docs/tesis/evidencias.md
 // con la matriz requisito → pruebas → estado, los totales por nivel, el rendimiento y
@@ -10,7 +10,8 @@ import * as path from 'path'
 
 const SERVER = path.join(__dirname, '..')
 const DOCS = path.join(SERVER, '..', 'docs', 'tesis')
-const OUT = path.join(DOCS, 'evidencias.md')
+const i = process.argv.indexOf('--out')
+const OUT = i !== -1 && process.argv[i + 1] ? path.resolve(process.argv[i + 1]) : path.join(DOCS, 'evidencias.md')
 
 // Requisitos de la tesis: Tablas 10 y 11, con sus textos. `manual` indica dónde se
 // verifican los que no tienen prueba automática (docs/tesis/aceptacion.md).

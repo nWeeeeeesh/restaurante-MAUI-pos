@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { eq, gte, desc } from 'drizzle-orm'
+import { eq, gte, desc, and, or, isNull, ne } from 'drizzle-orm'
 import { db } from '../db'
 import { bills, orders, expenses, tables, auditLog, users } from '../db/schema'
 import { requireAuth, requireRole } from '../middleware/auth'
@@ -92,7 +92,8 @@ router.get('/audit', requireAuth, requireRole('owner', 'manager'), validateQuery
     })
     .from(auditLog)
     .leftJoin(users, eq(auditLog.userId, users.id))
-    .where(gte(auditLog.at, periodStart(period)))
+    // Lo que hace el desarrollador (modo de pruebas) queda en audit_log, pero no es del negocio
+    .where(and(gte(auditLog.at, periodStart(period)), or(isNull(users.role), ne(users.role, 'developer'))))
     .orderBy(desc(auditLog.at))
     .limit(500)
   res.json(rows.map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null })))

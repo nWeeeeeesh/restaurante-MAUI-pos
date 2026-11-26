@@ -1,3 +1,5 @@
+// Primero: en modo de pruebas, valida la base simulada antes de que nada la abra
+import './dev/guardia'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import * as dotenv from 'dotenv'
@@ -10,6 +12,7 @@ import { setIo } from './realtime'
 import { checkTimezone, checkDefaultPasswords } from './startup-checks'
 import { currentLocalId } from './utils/local'
 import { iniciarTareaNocturna } from './jobs/nightly'
+import { iniciarModoPruebas, prepararModoPruebas } from './dev/arranque'
 
 // ── Validación de configuración crítica al startup ────────────────────────
 // JWT_SECRET es obligatorio y debe ser largo. Sin esto, todo el flujo de auth
@@ -92,7 +95,11 @@ applyStartupMigrations()
   .then(async () => {
     checkTimezone()
     await checkDefaultPasswords()
-    httpServer.listen(PORT, () => console.log(`MauiDesk server running on port ${PORT}`))
+    await prepararModoPruebas()
+    httpServer.listen(PORT, () => {
+      console.log(`MauiDesk server running on port ${PORT}`)
+      iniciarModoPruebas(Number(PORT))
+    })
     // Pronóstico de cada noche a las 23:30 de Lima (NIGHTLY_JOBS=off la apaga)
     if (iniciarTareaNocturna({ localId: currentLocalId() }) === null) console.log('[startup] Tarea nocturna apagada (NIGHTLY_JOBS=off)')
   })

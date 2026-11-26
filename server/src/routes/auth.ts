@@ -7,6 +7,7 @@ import { users } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
 import { validateBody } from '../middleware/validate'
 import { LoginSchema } from '../schemas/auth'
+import { modoPruebas } from '../dev/modo'
 
 const router = Router()
 
@@ -46,7 +47,8 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
   }
 
   const [user] = await db.select().from(users).where(eq(users.username, username))
-  const valid = !!user && user.active !== false && await bcrypt.compare(password, user.passwordHash)
+  // El desarrollador solo entra en modo de pruebas (MAUI_MODO_PRUEBAS=1)
+  const valid = !!user && user.active !== false && (user.role !== 'developer' || modoPruebas()) && await bcrypt.compare(password, user.passwordHash)
   if (!user || !valid) {
     registerFailure(key)
     res.status(401).json({ error: 'Credenciales inválidas' })

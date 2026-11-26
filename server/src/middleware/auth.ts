@@ -3,11 +3,12 @@ import jwt from 'jsonwebtoken'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
+import { modoPruebas } from '../dev/modo'
 
 export interface AuthPayload {
   id: number
   username: string
-  role: 'owner' | 'manager' | 'cashier' | 'waiter'
+  role: 'owner' | 'manager' | 'cashier' | 'waiter' | 'developer'
   name: string
 }
 
@@ -31,6 +32,8 @@ export async function resolveSessionUser(token: string): Promise<AuthPayload | n
   }
   const [user] = await db.select().from(users).where(eq(users.id, payload.id))
   if (!user || user.active === false) return null
+  // El perfil de desarrollador solo existe en modo de pruebas
+  if (user.role === 'developer' && !modoPruebas()) return null
   return { id: user.id, username: user.username, role: user.role, name: user.name }
 }
 
