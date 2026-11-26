@@ -1,0 +1,45 @@
+﻿categoria,plato,variante,precio,pescado_g,calamar_g,pulpo_g,mixtura_g,limon_g,otros_insumos_S,costo_insumos_S,food_cost_pct
+De nuestra carta,Leche de tigre clásica,pescado,12.0,130,0,0,0,120,1.2,3.42,28.5
+De nuestra carta,Leche de tigre clásica,calamar,13.0,70,60,0,0,120,1.2,2.98,22.9
+De nuestra carta,Leche de tigre Maui,pescado,13.0,110,0,30,0,120,1.2,4.67,36.0
+De nuestra carta,Leche de tigre Maui,calamar,14.0,50,60,30,0,120,1.2,4.22,30.2
+De nuestra carta,Leche de tigre levantamuerto,pescado,12.0,130,0,0,0,120,1.4,3.62,30.2
+De nuestra carta,Leche de tigre levantamuerto,calamar,13.0,70,60,0,0,120,1.4,3.17,24.4
+Las Power de Maui,Cevichop clásico,pescado,15.0,170,0,0,0,120,1.5,4.22,28.2
+Las Power de Maui,Cevichop clásico,calamar,17.0,110,60,0,0,120,1.5,3.77,22.2
+Las Power de Maui,Cevichop levantamuerto,pescado,15.0,170,0,0,0,120,1.7,4.42,29.5
+Las Power de Maui,Cevichop levantamuerto,calamar,17.0,110,60,0,0,120,1.7,3.97,23.4
+Las Power de Maui,Cevichop Maui,pescado,16.0,140,0,40,0,120,1.5,5.85,36.6
+Las Power de Maui,Cevichop Maui,calamar,18.0,80,60,40,0,120,1.5,5.4,30.0
+Las Power de Maui,Causita de pescado,,10.0,70,0,0,0,20,1.8,2.78,27.8
+Nuestras infaltables,Ceviche clásico de pescado,,18.0,180,0,0,0,150,1.5,4.5,25.0
+Nuestras infaltables,Ceviche levantamuerto,,18.0,180,0,0,0,150,1.8,4.8,26.7
+Nuestras infaltables,Ceviche carretillero,,19.0,240,0,0,0,150,1.6,5.35,28.2
+Nuestros arroces,Arrocito de mariscos,,16.0,15,0,0,110,40,1.6,5.29,33.0
+Nuestros arroces,Chaufita de mariscos,,16.0,15,0,0,110,40,1.8,5.49,34.3
+Nuestros arroces,Chaufita de pescado,,17.0,165,0,0,0,40,1.8,4.06,23.9
+Nuestros dúos marinos,Ceviche con arrocito de mariscos,,19.0,120,0,0,70,100,2.0,6.1,32.1
+Nuestros dúos marinos,Ceviche con chaufita de mariscos,,19.0,120,0,0,70,100,2.2,6.3,33.2
+Nuestros dúos marinos,Ceviche con chicharrón de pescado,,19.0,220,0,0,0,100,2.0,5.25,27.6
+Nuestros dúos marinos,Ceviche con causita de pescado,,20.0,170,0,0,0,115,2.3,5.0,25.0
+Nuestros dúos marinos,Ceviche con chicharrón de calamar,,20.0,120,100,0,0,100,2.0,4.5,22.5
+Nuestros dúos marinos,Ceviche con chaufa de pescado,,20.0,220,0,0,0,100,2.2,5.45,27.2
+Nuestros dúos marinos,Dúo ármalo a tu gusto,,20.0,220,0,0,0,100,2.0,5.25,26.2
+Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,pescado,22.0,180,0,0,60,80,2.6,7.05,32.0
+Nuestros tríos marinos,Ceviche + arroz de mariscos + chicharrón,calamar,23.0,100,80,0,60,80,2.6,6.45,28.0
+Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,pescado,22.0,180,0,0,60,80,2.8,7.25,33.0
+Nuestros tríos marinos,Ceviche + chaufa de mariscos + chicharrón,calamar,23.0,100,80,0,60,80,2.8,6.65,28.9
+Nuestros tríos marinos,Ceviche + causita + chicharrón,pescado,22.0,230,0,0,0,95,2.8,6.15,28.0
+Nuestros tríos marinos,Ceviche + causita + chicharrón,calamar,23.0,150,80,0,0,95,2.8,5.55,24.1
+Nuestros tríos marinos,Trío ármalo a tu gusto,,20.0,230,0,0,0,95,2.5,5.85,29.2
+Las crocantitas,Chicharrón de pescado,,16.0,215,0,0,0,40,2.2,5.09,31.8
+Las crocantitas,Chicharrón de calamar,,18.0,15,230,0,0,40,2.2,3.74,20.8
+Las crocantitas,Chicharrón a lo Maui,,22.0,200,80,40,0,80,2.6,7.9,35.9
+Las crocantitas,Filete de pescado,,15.0,180,0,0,0,0,2.4,4.65,31.0
+Nuestras calientitas,Parihuela,,20.0,150,0,0,80,20,2.5,6.88,34.4
+Nuestras calientitas,Sudado de pescado,,16.0,200,0,0,0,20,2.0,4.6,28.7
+Nuestras calientitas,Sudado mixto,,18.0,150,0,0,60,20,2.2,5.97,33.2
+Nuestras calientitas,Chilcano de pescado,,14.0,120,0,0,0,20,1.6,3.2,22.9
+Nuestras calientitas,Chilcano acevichado,,16.0,160,0,0,0,70,1.8,4.15,25.9
+Nuestras rondas,Ronda lechera,,65.0,400,0,0,250,200,6.0,19.5,30.0
+Nuestras rondas,Ronda causera,,65.0,400,0,0,250,200,6.0,19.5,30.0

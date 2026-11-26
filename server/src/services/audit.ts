@@ -2,7 +2,7 @@ import { auditLog } from '../db/schema'
 import type { Executor } from '../db'
 
 export interface AuditEntry {
-  userId: number
+  userId: number | null  // null: lo hizo un script del servidor, no una persona
   action: string
   entity: string
   entityId?: number | null
