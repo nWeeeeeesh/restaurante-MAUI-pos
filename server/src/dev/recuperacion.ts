@@ -37,15 +37,18 @@ export function ultimoRespaldo(dir = backupDir()): string | null {
 const r1 = (n: number) => Math.round(n * 10) / 10
 const r2 = (n: number) => Math.round(n * 100) / 100
 
-async function respaldos(avance: (m: string) => void) {
-  for (let n = 1; n <= VECES; n++) {
-    guardar({ fase: `Respaldo ${n} de ${VECES}` })
+export async function respaldos(avance: (m: string) => void, veces = VECES) {
+  for (let n = 1; n <= veces; n++) {
+    guardar({ fase: `Respaldo ${n} de ${veces}` })
     const r = await correrHijo('bash', [backupScript()], { cwd: DIR_SERVER })
     if (r.codigo !== 0) throw new Error(`${backupScript()} terminó con código ${r.codigo}: ${r.salida.slice(-300)}`)
     const gz = ultimoRespaldo()
     const mb = gz ? r2(fs.statSync(gz).size / 1048576) : null
-    await agregarFila(rutaDev('respaldo.csv'), ['fecha_hora', 'n', 'duracion_s', 'tamano_mb', 'archivo'], [fechaLocal(), n, r1(r.ms / 1000), mb, gz ? path.basename(gz) : null])
+    await agregarFila(rutaDev('respaldo.csv'), ['fecha_hora', 'n', 'duracion_s', 'tamano_mb', 'archivo'], [fechaLocal(), n, r2(r.ms / 1000), mb, gz ? path.basename(gz) : null])
     avance(`Respaldo ${n}: ${r1(r.ms / 1000)} s, ${mb ?? '?'} MB`)
+    // backup.sh nombra el archivo por la hora al segundo: sin esta pausa, dos respaldos
+    // en el mismo segundo chocan y gzip se niega a sobrescribir
+    if (n < veces) await esperar(1100)
   }
 }
 
@@ -60,7 +63,7 @@ async function restauraciones(avance: (m: string) => void) {
     // Incluye la verificación de integridad (PRAGMA integrity_check) del script
     const r = await correrHijo('bash', [path.join(DIR_SERVER, 'scripts', 'restore-backup.sh'), gz, destino], { cwd: DIR_SERVER })
     borrar()
-    await agregarFila(rutaDev('restauracion.csv'), ['fecha_hora', 'n', 'duracion_s', 'codigo'], [fechaLocal(), n, r1(r.ms / 1000), r.codigo])
+    await agregarFila(rutaDev('restauracion.csv'), ['fecha_hora', 'n', 'duracion_s', 'codigo'], [fechaLocal(), n, r2(r.ms / 1000), r.codigo])
     if (r.codigo !== 0) throw new Error(`restore-backup.sh terminó con código ${r.codigo}: ${r.salida.slice(-300)}`)
     avance(`Restauración ${n}: ${r1(r.ms / 1000)} s`)
   }

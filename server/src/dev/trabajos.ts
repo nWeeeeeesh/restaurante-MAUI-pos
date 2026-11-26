@@ -20,7 +20,11 @@ export interface Trabajo {
 }
 
 const ultimos = new Map<string, Trabajo>()
+const promesas = new WeakMap<Trabajo, Promise<void>>()
 let enCurso: Trabajo | null = null
+
+// Se resuelve cuando el trabajo termina, bien o con error (el estado queda en el trabajo)
+export const terminado = (t: Trabajo) => promesas.get(t) ?? Promise.resolve()
 
 export const trabajos = () => Object.fromEntries(ultimos)
 export const trabajoEnCurso = () => enCurso
@@ -31,10 +35,11 @@ export function iniciarTrabajo(tipo: string, fn: (avance: (m: string) => void) =
   ultimos.set(tipo, t)
   enCurso = t
   const avance = (m: string) => { t.avance.push(`${fechaLocal().slice(11)} ${m}`); if (t.avance.length > 200) t.avance.shift() }
-  fn(avance)
+  const p = fn(avance)
     .then(r => { t.estado = 'hecho'; t.resultado = r ?? null })
     .catch(e => { t.estado = 'error'; t.error = e instanceof Error ? e.message : String(e) })
     .finally(() => { t.fin = fechaLocal(); if (enCurso === t) enCurso = null })
+  promesas.set(t, p)
   return t
 }
 

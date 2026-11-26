@@ -294,7 +294,7 @@ fase11() {
 #!/bin/bash
 # Respaldo diario de MauiDesk (instalar.sh, Fase 11 de DEPLOYMENT.md)
 set -e
-DATE=\$(date +%Y%m%d-%H%M)
+DATE=\$(date +%Y%m%d-%H%M%S)
 DEST=$BACKUP_DIR/$PREFIJO-\$DATE.db
 # Copia atómica de SQLite (más seguro que cp mientras el servidor corre)
 sqlite3 $BASE ".backup '\$DEST'"
