@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth'
 import { useOrdersStore } from './store/orders'
 import Login from './pages/Login'
+import Developer from './pages/dev/Developer'
 import ProtectedRoute from './components/ProtectedRoute'
 import MenuAdmin from './pages/admin/MenuAdmin'
 import Tables from './pages/Tables'
@@ -71,6 +72,10 @@ export default function App() {
         } />
         <Route path="/admin/users" element={
           <ProtectedRoute roles={['owner']}><Users /></ProtectedRoute>
+        } />
+
+        <Route path="/developer" element={
+          <ProtectedRoute roles={['developer']}><Developer /></ProtectedRoute>
         } />
 
         <Route path="*" element={<Navigate to="/pos" replace />} />

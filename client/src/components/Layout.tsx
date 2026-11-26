@@ -4,7 +4,7 @@ import api from '../api/client'
 import { useAuthStore } from '../store/auth'
 import {
   LayoutGrid, UtensilsCrossed, Receipt,
-  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X, Package, TrendingUp, ChefHat, ShoppingCart,
+  BarChart3, BookOpen, LogOut, Waves, History, Users, KeyRound, User as UserIcon, X, Package, TrendingUp, ChefHat, ShoppingCart, FlaskConical,
 } from 'lucide-react'
 import type { Role } from '../store/auth'
 import { PrinterStatusPill } from './PrinterStatus'
@@ -22,6 +22,7 @@ const navItems = [
   { to: '/recipes',     label: 'Recetas',  icon: ChefHat,         roles: ['owner'] as Role[] },
   { to: '/admin/menu',  label: 'Menú',     icon: BookOpen,        roles: ['owner','manager','cashier'] as Role[] },
   { to: '/admin/users', label: 'Usuarios', icon: Users,           roles: ['owner'] as Role[] },
+  { to: '/developer',   label: 'Desarrollador', icon: FlaskConical, roles: ['developer'] as Role[] },
 ]
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -29,6 +30,7 @@ const ROLE_LABELS: Record<Role, string> = {
   manager: 'Encargado',
   cashier: 'Cajero',
   waiter: 'Mozo',
+  developer: 'Desarrollador',
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
