@@ -100,6 +100,9 @@ Con `MAUI_MODO_PRUEBAS=1` en `server/.env`, la Pi es un banco de pruebas con **d
 | Registro continuo | Recursos cada 10 s (`recursos.csv`), un latido por minuto (`latidos.csv`) y una fila por arranque (`arranques.csv`) |
 | Desarrollador | Rol `developer`, creado con `npm run dev:usuario -- <nombre> <contraseña>`; no aparece en Usuarios ni en la auditoría del negocio |
 | Resultados | `server/data/dev/` (fuera de git); «Descargar todo» arma `maui-resultados-<fecha>.tar.gz` |
+| Todo en uno | Un clic: medir cálculos, verificar permisos, correr las pruebas, programar 7 jornadas desde mañana y, a las 09:00 de la mañana siguiente a la última, las pruebas de recuperación; al final, «Listo para descargar». El plan (`todo-en-uno.json`) sigue solo tras cada reinicio; si un paso falla, se detiene y se reintenta desde ese paso |
+
+Lo único que el sistema no hace solo es **desenchufar y enchufar la Pi 5 veces** (los arranques de E5); la pantalla lo recuerda con la cuenta «arranques: n de 5».
 
 Sin la variable, `/api/dev/*` responde 404, el desarrollador no puede iniciar sesión y la pantalla no aparece. Las pruebas de recuperación cortan el servicio con `SIGKILL` y dependen de `Restart=always` y `RestartSec=5` de la unidad (Fase 8).
 
@@ -354,7 +357,7 @@ Contenido:
 ```bash
 #!/bin/bash
 set -e
-DATE=$(date +%Y%m%d-%H%M)
+DATE=$(date +%Y%m%d-%H%M%S)
 DEST=/home/mauidesk/backups/mauidisk-$DATE.db
 
 # Copia atómica de SQLite (más seguro que cp mientras el server está corriendo)
