@@ -6,9 +6,9 @@
 
 | | Cantidad |
 |---|---|
-| Pruebas automáticas | 267 (267 en verde) |
+| Pruebas automáticas | 271 (271 en verde) |
 | Unitarias (`domain.*.test.ts`: fórmulas puras) | 26 |
-| Integración (servicios, API HTTP, migraciones) | 235 |
+| Integración (servicios, API HTTP, migraciones) | 239 |
 | Paridad con la referencia en Python (`[PP-xx]`) | 6 |
 | Casos unitarios de la tesis cubiertos | 18 de 18 (PU-01, PU-02, PU-03, PU-04, PU-05, PU-06, PU-07, PU-08, PU-09, PU-10, PU-11, PU-12, PU-13, PU-14, PU-15, PU-16, PU-17, PU-18) |
 | Casos de integración | PI-02, PI-06, PI-07, PI-08, PI-09, PI-10, PI-11, PI-12, PI-13, PI-14, PI-15 |
@@ -50,7 +50,7 @@ Los casos PU-01 a PU-18 también corren en Python sobre la implementación de re
 | RNF02 | Cada campo tiene una ayuda de una línea | — | — | Aceptación manual: revisión de pantallas |
 | RNF03 | Opera sin internet dentro de la red local | — | — | Aceptación manual: PA-08 |
 | RNF04 | Cada guardado es atómico; volver a guardar una parte la reemplaza sin duplicarla | 5 | ✅ en verde |  |
-| RNF05 | Respaldo diario con restauración probada | — | — | Aceptación manual: PA-08 (restauración del respaldo) |
+| RNF05 | Respaldo diario con restauración probada | 1 | ✅ en verde |  |
 | RNF06 | Cada función exige su rol y cada cambio queda en la auditoría | 9 (PI-15) | ✅ en verde |  |
 | RNF07 | Cambios al esquema solo aditivos; cada regla con prueba automatizada | 3 | ✅ en verde |  |
 | RNF08 | Un nuevo local se instala con la misma versión y su propio identificador | — | — | Aceptación manual: instalación con instalar.sh (DEPLOYMENT.md) |
@@ -86,7 +86,6 @@ La medición en la Raspberry Pi es la prueba de aceptación PA-07 ([aceptacion.m
 - **RNF01** (Cada parte del registro se completa en 60 s o menos desde un celular): se acepta de forma manual (PA-01).
 - **RNF02** (Cada campo tiene una ayuda de una línea): se acepta de forma manual (revisión de pantallas).
 - **RNF03** (Opera sin internet dentro de la red local): se acepta de forma manual (PA-08).
-- **RNF05** (Respaldo diario con restauración probada): se acepta de forma manual (PA-08 (restauración del respaldo)).
 - **RNF08** (Un nuevo local se instala con la misma versión y su propio identificador): se acepta de forma manual (instalación con instalar.sh (DEPLOYMENT.md)).
 - **RNF10** (Funciona en el navegador del celular y comparte el servidor con el POS sin afectarlo): se acepta de forma manual (PA-08).
 
@@ -97,7 +96,7 @@ La medición en la Raspberry Pi es la prueba de aceptación PA-07 ([aceptacion.m
 | `audit.test.ts` | 5 | 5 |
 | `auth.session.test.ts` | 5 | 5 |
 | `billing.test.ts` | 16 | 16 |
-| `dev.test.ts` | 19 | 19 |
+| `dev.test.ts` | 23 | 23 |
 | `domain.costing.test.ts` | 14 | 14 |
 | `domain.forecast.test.ts` | 12 | 12 |
 | `forecast.api.test.ts` | 7 | 7 |
